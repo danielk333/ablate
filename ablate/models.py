@@ -23,8 +23,7 @@ from .differential_equation import OrdinaryDifferentialEquation
 # Internal imports
 #
 from . import functions
-from . import models
-from .models import AblationModel
+#from .models import AblationModel
 
-class KeroSzasz2008(AblationModel, OrdinaryDifferentialEquation):
-    pass
+#class KeroSzasz2008(AblationModel, OrdinaryDifferentialEquation):
+#    pass

@@ -37,6 +37,29 @@ class Parameters:
         return self.variables + self.constants + self.dependant
 
 
+    def __str__(self):
+        _str = ''
+
+        _str += 'Data size {} consisting of {} variables, {} constants'.format(self.data.shape, len(self.variables), len(self.constants))
+
+        _str += '=== {:<20} ==='.format('Variables') + '\n'
+        max_len = np.max([len(name) for name, dt in self._v_dtype])
+        for name, dt in self._v_dtype:
+            _str += ('{:<' + f'{int(max_len)}' + '} [{}]').format(name, dt) + '\n'
+
+        _str += '=== {:<20} ==='.format('Dependant on') + '\n'
+        max_len = np.max([len(name) for name in self.dependant])
+        for name in self.dependant:
+            _str += ('{:<' + f'{int(max_len)}' + '}: {} points').format(name, len(self[name])) + '\n'
+
+        _str += '=== {:<20} ==='.format('Constants') + '\n'
+        max_len = np.max([len(name) for name, dt in self._c_dtype])
+        for name, dt in self._c_dtype:
+            _str += ('{:<' + f'{int(max_len)}' + '}: {}').format(name, self[name]) + '\n'
+
+
+
+
     def clear(self):
         self.data = None
         self._constants = {}
