@@ -50,7 +50,7 @@ class OrdinaryDifferentialEquation(ABC):
             **kwargs
         )
 
-        return self.result.t[t_restore], self.result.y[:, t_restore]
+        return self.result.y[:, t_restore]
 
 
     @abstractmethod
