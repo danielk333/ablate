@@ -27,4 +27,6 @@ setuptools.setup(
     author_email='daniel.kastinen@irf.se',
     description='A collection of Meteoroid Ablation Models',
     license='GNU-GPLv3',
+    setup_requires=['pytest-runner'],
+    tests_require=['pytest'],
 )
