@@ -1,5 +1,6 @@
-#This is the init file
+'''
+Meteoroid Ablation Models
+==========================
 
+'''
 
-def test():
-    print('Hey im alive!')
