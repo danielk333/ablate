@@ -30,6 +30,7 @@ class Parameters:
 
     def __init__(self):
         self.clear()
+        self._allocate()
 
 
     @property
@@ -41,22 +42,26 @@ class Parameters:
         _str = ''
 
         _str += 'Data size {} consisting of {} variables, {} constants'.format(self.data.shape, len(self.variables), len(self.constants))
+        _str += '\n'
+        if len(self.variables) > 0:
+            _str += ' Variables '.center(20, '=') + '\n'
+            max_len = np.max([len(name) for name, dt in self._v_dtype])
+            for name, dt in self._v_dtype:
+                _str += ('{:<' + f'{int(max_len)}' + '} [{}]').format(name, dt) + '\n'
 
-        _str += '=== {:<20} ==='.format('Variables') + '\n'
-        max_len = np.max([len(name) for name, dt in self._v_dtype])
-        for name, dt in self._v_dtype:
-            _str += ('{:<' + f'{int(max_len)}' + '} [{}]').format(name, dt) + '\n'
+        if len(self.dependant) > 0:
+            _str += ' Dependant on '.center(20, '=') + '\n'
+            max_len = np.max([len(name) for name in self.dependant])
+            for name in self.dependant:
+                _str += ('{:<' + f'{int(max_len)}' + '}: {} points').format(name, len(self[name])) + '\n'
 
-        _str += '=== {:<20} ==='.format('Dependant on') + '\n'
-        max_len = np.max([len(name) for name in self.dependant])
-        for name in self.dependant:
-            _str += ('{:<' + f'{int(max_len)}' + '}: {} points').format(name, len(self[name])) + '\n'
+        if len(self.constants) > 0:
+            _str += ' Constants '.center(20, '=') + '\n'
+            max_len = np.max([len(name) for name, dt in self._c_dtype])
+            for name, dt in self._c_dtype:
+                _str += ('{:<' + f'{int(max_len)}' + '}: {}').format(name, self[name]) + '\n'
 
-        _str += '=== {:<20} ==='.format('Constants') + '\n'
-        max_len = np.max([len(name) for name, dt in self._c_dtype])
-        for name, dt in self._c_dtype:
-            _str += ('{:<' + f'{int(max_len)}' + '}: {}').format(name, self[name]) + '\n'
-
+        return _str
 
 
 
@@ -96,15 +101,18 @@ class Parameters:
             else:
                 raise TypeError(f'Parameter must be variable or constant, not {_type}')
 
-        for var, dt in _c_dtype:
-            _tmp = np.empty((1,), dtype=dt)
-            _tmp[0] = kwargs[var]['value']
-            self._constants[var] = _tmp[0]
+        for var, dt in self._c_dtype:
+            if 'value' in kwargs[var]:
+                _tmp = np.empty((1,), dtype=dt)
+                _tmp[0] = kwargs[var]['value']
+                self._constants[var] = _tmp[0]
+            else:
+                self._constants[var] = None
 
         self._allocate()
 
     def _allocate(self):
-        shape = [len(x) for _, x in self.dependant.items()]
+        shape = [len(x) for _, x in self._dependant.items()]
         self.data = np.empty(shape, dtype=self._v_dtype)
 
 
