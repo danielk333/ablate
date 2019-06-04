@@ -7,7 +7,6 @@
 #
 # Basic Python
 #
-import pathlib
 from abc import ABC
 from abc import abstractmethod
 
@@ -149,7 +148,7 @@ class AblationModel(Parameters, ABC):
         super().__init__()
         if not isinstance(atmosphere, AtmosphereModel):
             raise ValueError(f'"atmosphere" is not a AtmosphereModel instance but "{atmosphere!r}"')
-
+        self.atmosphere = atmosphere
 
     @abstractmethod
     def run(self, **kwargs):
@@ -165,7 +164,7 @@ class Persistent(ABC):
         if not isinstance(parameters, Parameters):
             raise ValueError(f'"parameters" is not a Parameters instance but "{parameters!r}"')
 
-        self._parameters = parameters #save pointer
+        self.parameters = parameters #save pointer
 
 
     @abstractmethod
