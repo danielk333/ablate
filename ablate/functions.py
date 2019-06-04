@@ -3,4 +3,3 @@
 '''Collection of functions.
 
 '''
-

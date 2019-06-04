@@ -14,29 +14,29 @@ import numpy.testing as nt
 #
 # Internal packages
 #
-import ablate.differential_equation as diff
+from ablate.differential_equation import OrdinaryDifferentialEquation
 
 
 class TestIntegrate(unittest.TestCase):
 
     def test_child_class(self):
-        class TestODE(diff.OrdinaryDifferentialEquation):
+        class TestODE(OrdinaryDifferentialEquation):
             def rhs(self, t, y):
                 pass
 
     def test_child_class_ABC(self):
         with self.assertRaises(TypeError):
-            class TestODE(diff.OrdinaryDifferentialEquation):
+            class TestODE(OrdinaryDifferentialEquation):
                 pass
             inst = TestODE()
 
     def test_class_init_ABC(self):
         with self.assertRaises(TypeError):
-            inst = diff.OrdinaryDifferentialEquation()
+            inst = OrdinaryDifferentialEquation()
 
 
     def test_child_class_init(self):
-        class TestODE(diff.OrdinaryDifferentialEquation):
+        class TestODE(OrdinaryDifferentialEquation):
             def rhs(self, t, y):
                 '''exponential decay'''
                 return -0.5 * y
@@ -44,7 +44,7 @@ class TestIntegrate(unittest.TestCase):
         ode = TestODE()
 
     def test_child_class_integrate(self):
-        class TestODE(diff.OrdinaryDifferentialEquation):
+        class TestODE(OrdinaryDifferentialEquation):
             def rhs(self, t, y):
                 '''exponential decay'''
                 return -0.5 * y
