@@ -14,7 +14,7 @@ import numpy.testing as nt
 #
 # Internal packages
 #
-from ablate.differential_equation import OrdinaryDifferentialEquation
+from ablate import OrdinaryDifferentialEquation
 
 
 class TestIntegrate(unittest.TestCase):

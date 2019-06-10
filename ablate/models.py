@@ -17,7 +17,7 @@ import numpy as np
 #
 # Internal packages
 #
-from .differential_equation import OrdinaryDifferentialEquation
+from .ode import OrdinaryDifferentialEquation
 
 #
 # Internal imports
