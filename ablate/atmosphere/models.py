@@ -13,6 +13,11 @@ import pathlib
 # External packages
 #
 import numpy as np
+try:
+    import msise00
+except ImportError:
+    msise00 = None
+
 
 #
 # Internal imports

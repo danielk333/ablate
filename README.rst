@@ -4,6 +4,17 @@ Meteoroid Ablation Models
 Install
 --------
 
+**BEFORE INSTALL:**
+
+Make sure setuptools >= 41.0.0 
+
+.. code-block:: bash
+
+    pip install -U setuptools
+
+
+**INSTALL:**
+
 The recommended install command is:
 
 .. code-block:: bash

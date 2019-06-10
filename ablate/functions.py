@@ -21,7 +21,7 @@ def thermal_ablation(mass, T, material, A):
 
     :param float/numpy.ndarray mass: Meteoroid mass [kg]
     :param float/numpy.ndarray T: Meteoroid temperature [K]
-    :param str material: Meteoroid material
+    :param str material: Meteoroid material, see :mod:`~functions.material_data`.
     :param float/numpy.ndarray A: Shape factor [1]
     
     :return: Mass loss [kg/s]
@@ -35,14 +35,8 @@ def thermal_ablation(mass, T, material, A):
 
     **Change log:**
     
-    2019-06-04 Daniel Kastinen
-       Ported to Python.
-
-    2007-03-21 Johan Kero
-       Ed Murad suggests that the vapor pressure should be lowered by a factor of 0.8 or 0.7 due to the large ram pressure forcing the evaporated atoms and molecules back on to the surface thus leading to evaporation at a pressure that is lower than the equilibrium vapor pressure.
-
-    2006-12-12 Csilla Szasz
-       This functions is now able to handle vectors.
+        * Changes post-python port: See git-log
+        * Changes pre-python port: See `matlab-version <https://gitlab.irf.se/kero/ablation_matlab>`_
 
 
     **Symbol definintions:**
@@ -74,7 +68,7 @@ def thermal_ablation(mass, T, material, A):
 
 
 
-_material_data = {
+material_data = {
     'iron': {
         'rho_m': 7800.0,
         'mu': 56.0*constants.u,
@@ -116,11 +110,15 @@ _material_data = {
         'z2': 6,
     },
 }
+'''dict: Meteoroid material data.
 
+# TODO: List origin for all data.
+'''
 
 def material_parameters(material):
     '''Returns the physical parameters of the meteoroid based on its material.
     
+    :param str material: Meteoroid material, see :mod:`~functions.material_data`.
 
     **List of properties:**
         * m2: mean atomic mass [1]
@@ -140,62 +138,39 @@ def material_parameters(material):
 
     _material = material.lower().strip()
 
-    if _material in _material_data:
-        return _material_data[_material]
+    if _material in material_data:
+        return material_data[_material]
     else:
         raise ValueError(f'No data exists for material "{_material}"')
 
 
 
-def sputtering7(mass, velocity, material, density):
+def sputtering7(mass, velocity, material, atmosphere, npt):
     '''calculates the meteoroid mass loss due to sputtering.
     
-    :param :
+    :param float/numpy.ndarray m: Meteoroid mass in [kg]
+    :param float/numpy.ndarray velocity: Meteoroid velocity in [m/s]
+    :param str material: Meteoroid material, see :mod:`~functions.material_data`.
+    :param AtmosphereModel atmosphere: Atmospheric model instance.
+    :param numpy.datetime64 npt: Time to evaluate Atmospheric model at. 
+
+    All units need to be given in the cgs system to remain consistent with the units in which the sputtering yield equation was derived i.e., variables given in SI system and converted into cgs in this function when needed.
+
 
     **References:**
 
         * Rogers et al.: Mass loss due to  sputtering and thermal processes in meteoroid ablation, Planetary and Space Science 53 p. 1341-1354 (2005)
-
         * Tielens et al.: The physics of grain-grain collisions and gas-grain sputtering in interstellar shocks, The Astrophisicsl Journal 431, p. 321-340 (1994)
 
 
     **Change log:**
     
-    2019-06-04 Daniel Kastinen
-       Ported to Python.
+        * Changes post-python port: See git-log
+        * Changes pre-python port: See `matlab-version <https://gitlab.irf.se/kero/ablation_matlab>`_
 
-    2007-05-13 Csilla Szasz
-       Spline creates ripples when used to fit the msis densities: changing to 'pchip' instead. The only function needed to run this model where spline is used is 'interpolate_atm_dens.m' which is changed to 'interpolate_atm_dens2.m'. The named functions is only called in  'run_atm6.m'. We have also changed 'spline' to 'pchip' in all comments in all files... NOTE: Spline fits may give overshoots. Piecewise Cubic Hermite Interpolating Polynomial (PCHIP) do not overshoot, but as a draw back may produce less smooth functions. It is anyway wiser to use pchip rather than spline to interpolate the data as the spline may create artifacts. 
 
-    2007-04-10 Csilla Szasz
-       The atmospheric no densities are given as input instead of being calculated here to eliminate the number of times 'ppval' is used because it is very time consuming.
-
-    2007-02-22 Csilla Szasz
-       The switch 'sab' is now a part of param. Implementing a new switch, 'glb', also a part of param.
-
-    2007-01-30 Csilla Szasz
-       The greatest Tolarable Local truncation error TL (the step size grows with TL, needed in the Runge-Kutta function file: rkf5_?.m) is now a part of the input parameter param. The reason for this is to be able to vary TL externally. If no TL is given, i.e., TL = NaN, TL is set to 1E-6 m/s in rkf5_5.m.  See the input for 2006-12-06 date of change.
-
-    2006-12-07 Csilla Szasz and Johan Kero
-       A fourth set of meteoroid surface values are added: for iron. The new meteoroid density that can be handled is 7 g/cm3.
-
-    2006-12-06 Csilla Szasz
-       When the atmospheric density is calculate, not only the hour, but also the day of experiment is taken into account -> input variables are messed around with.
-    
-    2006-11-20 Csilla Szasz
-       In this version the MSIS density is calculated for each meteoroid's time of arrival. The MSIS valus are fore every full hour, so it is taken as the central time. So, if a meteoroid's time of detection is between h-1:30 and h:30 -> the atmoshperic density used is the one for hour h. M2, U0, Z2, K are implemented as functions (by DD Meisel) instead of having a table of surface material.
-
-    2006-11-15 Csilla Szasz: sputtering4.m
-       The change from sputtering3 is that this version does not use repmat because it calculates the yeild on one surface type at a time, i.e., for one meteoroid density at a time. This (sputtering4) is the version used to verify the results in Rogers et al. To switch between the paper's model and the MSIS one: in sputtering4.m row 112ff. density       = ppval(fit_coef, h/1E3);  h is needed in km; from the spline fit coefficients, calculating the atmospheric density for all atmospheric consituents for the height 'h' we are interested in. density(4)    = [];                      the msis table for confirming Rogers et al. contains the total densit at position 4, which is not needed here. density       = rogers_atm(h)';         atmosfären i Rogers et al, som är felaktig...
-
-    2006-11 Csilla Szasz
-       This function calculates the yield all meteoroid denities at the same time, i.e., as many masslosses as there are different meteoroid densities are calculated. However, the MSIS density still need to take the coefficients for the hour in question... because it takes the first hour for all. This function uses matrix multiplications to calculate the yield from all atmospheric and surface atoms at the same time. It has been compared to a the function sputtering_for_loops.m which does the same thing but using for statements. Both functions got the same result, but tis one is faster (tic, toc gave time 0 and time 0.01 s respectively for calculating the yield for seven velocities)
-
-    2006-11-07 Csilla Szasz
-       The change from sputtering1 is that this functions calculates one sputtering for each given meteoroid density with one given surface molecule.
-
-    
     **Variables explanation:**
+
         * E_th  = threshold energy: the minimum projectile kinetic energy needed for a given projectile and target to induce sputtering
         * a     = screening length
         * beta  = maximum fractional energy transfer in head-on elastic collision
@@ -217,14 +192,6 @@ def sputtering7(mass, velocity, material, density):
         * m     = meteoroid mass
         * rho_m = meteoroid density
 
-
-    -----------------------------------------------------------------------
-    -- All units need to be given in the cgs system to remain consistent --
-    -- with the units in which the sputtering yield equation was derived --
-    -- i.e., variables given in SI system and converted into cgs in this --
-    -- function when needed.                                             --
-    -----------------------------------------------------------------------
-
     '''
     v = velocity
     m = mass
@@ -235,8 +202,25 @@ def sputtering7(mass, velocity, material, density):
     a0 = constants.value(u'Bohr radius')*1E+2 #Bohr radius in cm (cgs system)
 
     #Atmospheric molecules
-    m1 = np.array([15.9994, 14.007, 15.999, 4.0026, 39.948, 1.0079, 14.007])*u
+
+    species_data = atmosphere.species
+
+    #M1 = projectile mass in kg [O N2 O2 He Ar H N], for molecules: average of its constitutents (see table 3 on p. 333 in Tielens et al)
+    ##Z for a molecule: average of its consitutents (see table 3 on p. 333 in Tielens et al, not given in the table, but I use the same method)
+    avalible_species = ['O', 'N2', 'O2', 'He', 'Ar', 'H', 'N']
+    m1 = np.array([15.9994, 14.007, 15.999, 4.0026, 39.948, 1.0079, 14.007]*u)
     z1 = np.array([8, 7, 8, 2, 18, 1, 7])
+
+    use_species = np.full(m1.shape, False, dtype=np.bool)
+    density = []
+    for ind, key in enumerate(species_data.keys()):
+        if key in avalible_species:
+            use_species[ind] = True
+            density += [atmosphere.density(npt, key)]
+
+    m1 = m1[use_species]
+    z1 = z1[use_species]
+    density = np.array(density, dtype=np.float64)
 
     #Meteoroid constituents
     mat_data = material_parameters(material)
@@ -279,6 +263,10 @@ def sputtering7(mass, velocity, material, density):
     #-- Sputtering only occurs if E > E_th
     yes = E > E_th
 
+    #If no energies above, no sputtering
+    if np.sum(yes) == 0:
+        return 0.0
+
     Ey = E[yes]
     E_th_y = E_th[yes]
     m1y = m1[yes]*1E3 #[g] projectile mean molecular mass
@@ -313,7 +301,29 @@ def sputtering7(mass, velocity, material, density):
     #----------------------------------
     A = 1.21 #Sphere
 
-    dmdt          = -2.0*m2y*A*v*1E2*(m/rho_m)**(2.0/3.0)*Y_tot.T #[g/s]
-    dmdt          = dm_dt / 1E3 #[kg/s]
+    dmdt = -2.0*m2y*A*v*1E2*(m/rho_m)**(2.0/3.0)*Y_tot.T #[g/s]
+    dmdt = dm_dt / 1E3 #[kg/s]
 
     return dmdt
+
+
+def curved_earth(s, xdata, ydata):
+    '''Calculates the distance :code:`s` along the trajectory at h=h_start (500km) when s=0 at h=h_obs (96km) given that the zentith distance is zd at h=h_obs (96km)
+    
+
+
+    '''
+
+    rp      = xdata[0]
+    h_obs   = xdata[1]
+    zd      = ydata[0]
+    h_start = ydata[1]
+
+    theta   = np.arctan2(s*np.sin(zd), (rp + h_obs + s*np.cos(zd)))
+    h       = (rp + h_obs + s*np.cos(zd))/np.cos(theta) - rp
+
+    err = h - h_start
+
+    return err
+
+

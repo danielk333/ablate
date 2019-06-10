@@ -23,11 +23,15 @@ class AtmosphereModel(ABC):
     :param numpy.datetime64 npt: Time to evaluate model at.
     :param str/list species: String representation(s) of the atmospheric constituent(s) to get data for
     
-    and should return a single numerical value or a numpy array. Also forces implementation of :code:`species` property that returns a dictionary of all implemented species.
+    and should return a single numerical value or a numpy array. 
+
+    Also forces implementation of :code:`species` property that returns a dictionary of all implemented species.
+
+    The :code:`get` and :code:`temperature` are optional
     '''
 
-    @abstractmethod
     @property
+    @abstractmethod
     def species(self):
         pass
 
@@ -39,6 +43,10 @@ class AtmosphereModel(ABC):
     @abstractmethod
     def density(self, npt, species):
         pass
+
+
+    def get(self, npt, variable):
+        raise NotImplementedError()
 
 
     def temperature(self, npt, species):
