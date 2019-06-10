@@ -22,6 +22,7 @@ setuptools.setup(
     package_data={
         '': ['*.txt', '*.rst'],
     },
+    scripts=['dep_setup.py'],
     # metadata to display on PyPI
     author='Daniel Kastinen',
     author_email='daniel.kastinen@irf.se',

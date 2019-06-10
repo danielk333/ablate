@@ -41,6 +41,43 @@ class NRLMSISE00(AtmosphereModel):
 
         #here we load data into RAM
 
-    def get(self, npt, variable):
-        #this will implement interplaltion and return results
-        return 0.0
+    @property
+    def species(self):
+        return {
+            'He':{
+                'A': 4.002602,
+                'Z': 2,
+            },
+            'O':{
+                'A': 15.999,
+                'Z': 8,
+            },
+            'N2':{
+                'A': 14.007*2,
+                'Z': 14,
+            },
+            'O2':{
+                'A': 15.999*2,
+                'Z': 16,
+            },
+            'Ar':{
+                'A': 39.948,
+                'Z': 18,
+            },
+            'H':{
+                'A': 1.0079,
+                'Z': 1,
+            },
+            'N':{
+                'A': 14.007,
+                'Z': 7,
+            },
+        }
+
+    
+    def density(self, npt, species):
+        raise NotImplementedError()
+
+
+    def temperature(self, npt, species):
+        raise NotImplementedError()
