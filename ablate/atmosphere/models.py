@@ -80,9 +80,32 @@ class NRLMSISE00(AtmosphereModel):
         }
 
     
-    def density(self, npt, species):
-        raise NotImplementedError()
+    def density(self, npt, species, **kwargs):
 
+        glat = kwargs['glat']
+        glat = kwargs['glon']
+        alt = kwargs['alt']
+        
+        if not isinstance(npt.ndarray):
+            _npt = np.array(npt, dtype=np.datetime64)
+        else:
+            _npt = npt
+        
+        data_all = []
+        for _time in _npt:
+            data_all += msise00.run(
+                time=_time, altkm=alt*1e-3, glat=glat, glon=glon.
+            )
 
-    def temperature(self, npt, species):
-        raise NotImplementedError()
+        _dtype = [('date', 'datetime64')]
+        for key in species:
+            _dtype += [(key, 'float64')]
+
+        data = np.empty((len(data_all),), dtype=_dtype)
+        data['date'] = _npt
+        for ind, raw in enumerate(data_all):
+            for key in species:
+                data[ind][key] = raw[key].data.flatten()[0]
+
+        return data
+

@@ -143,19 +143,21 @@ def material_parameters(material):
     else:
         raise ValueError(f'No data exists for material "{_material}"')
 
+#    :param AtmosphereModel atmosphere: Atmospheric model instance.
+#    :param numpy.datetime64 npt: Time to evaluate Atmospheric model at. 
 
-
-def sputtering7(mass, velocity, material, atmosphere, npt):
+def sputtering7(mass, velocity, material, density):
     '''calculates the meteoroid mass loss due to sputtering.
     
-    :param float/numpy.ndarray m: Meteoroid mass in [kg]
+    :param float/numpy.ndarray mass: Meteoroid mass in [kg]
     :param float/numpy.ndarray velocity: Meteoroid velocity in [m/s]
     :param str material: Meteoroid material, see :mod:`~functions.material_data`.
-    :param AtmosphereModel atmosphere: Atmospheric model instance.
-    :param numpy.datetime64 npt: Time to evaluate Atmospheric model at. 
+    :param numpy.ndarray density: Structured numpy array of atmospheric constituent densities.
 
     All units need to be given in the cgs system to remain consistent with the units in which the sputtering yield equation was derived i.e., variables given in SI system and converted into cgs in this function when needed.
 
+
+    # TODO: Make m and v able to be vectors
 
     **References:**
 
@@ -202,9 +204,6 @@ def sputtering7(mass, velocity, material, atmosphere, npt):
     a0 = constants.value(u'Bohr radius')*1E+2 #Bohr radius in cm (cgs system)
 
     #Atmospheric molecules
-
-    species_data = atmosphere.species
-
     #M1 = projectile mass in kg [O N2 O2 He Ar H N], for molecules: average of its constitutents (see table 3 on p. 333 in Tielens et al)
     ##Z for a molecule: average of its consitutents (see table 3 on p. 333 in Tielens et al, not given in the table, but I use the same method)
     avalible_species = ['O', 'N2', 'O2', 'He', 'Ar', 'H', 'N']
@@ -212,15 +211,15 @@ def sputtering7(mass, velocity, material, atmosphere, npt):
     z1 = np.array([8, 7, 8, 2, 18, 1, 7])
 
     use_species = np.full(m1.shape, False, dtype=np.bool)
-    density = []
-    for ind, key in enumerate(species_data.keys()):
+    _density = []
+    for key in density.dtype.names:
         if key in avalible_species:
             use_species[ind] = True
-            density += [atmosphere.density(npt, key)]
+            _density += [density[key][0]]
 
     m1 = m1[use_species]
     z1 = z1[use_species]
-    density = np.array(density, dtype=np.float64)
+    _density = np.array(_density, dtype=np.float64)
 
     #Meteoroid constituents
     mat_data = material_parameters(material)
@@ -277,7 +276,7 @@ def sputtering7(mass, velocity, material, atmosphere, npt):
     z1y = z1[yes]
     ay = a[yes]
     alpha_y = alpha[yes]
-    density_y = density[yes]
+    density_y = _density[yes]
 
     #-- Calculating the yield for all atmospheric constituents for the given surface material (meteoroid dencity)
     #taking the energy in ergs so the unit of sn is ergs cm2; elementary charge in cgs: in esu
