@@ -17,10 +17,11 @@ To install msise00:
 
 .. code-block:: bash
 
-    mkdir /tmp/ablate_install_msise00
-    cd /tmp/ablate_install_msise00
+    mkdir /my/env/msise00_source
+    cd /my/env/msise00_source
     git clone https://github.com/scivision/msise00
-    pip install .
+    cd msise00
+    pip install -e .
     python -c "import msise00; msise00.build()"
 
 
