@@ -6,11 +6,22 @@ Install
 
 **BEFORE INSTALL:**
 
-Make sure setuptools >= 41.0.0 
+Make sure setuptools >= 41 
 
 .. code-block:: bash
 
     pip install -U setuptools
+
+
+To install msise00:
+
+.. code-block:: bash
+
+    mkdir /tmp/ablate_install_msise00
+    cd /tmp/ablate_install_msise00
+    git clone https://github.com/scivision/msise00
+    pip install .
+    python -c "import msise00; msise00.build()"
 
 
 **INSTALL:**
