@@ -1,4 +1,17 @@
 import setuptools
+import pathlib
+import codecs
+
+HERE = pathlib.Path(__file__).resolve().parents[0]
+
+def get_version(path):
+    with codecs.open(path, 'r') as fp:
+        for line in fp.read().splitlines():
+            if line.startswith('__version__'):
+                delim = '"' if '"' in line else "'"
+                return line.split(delim)[1]
+        else:
+            raise RuntimeError("Unable to find version string.")
 
 with open('README.md', 'r') as fh:
     long_description = fh.read()
@@ -9,7 +22,7 @@ with open('requirements', 'r') as fh:
 
 setuptools.setup(
     name='ablate',
-    version='0.0.1',
+    version=get_version(HERE / 'src' / 'ablate' / 'version.py'),
     long_description=long_description,
     url='https://gitlab.irf.se/danielk/ablation_models',
     classifiers=[
@@ -18,10 +31,12 @@ setuptools.setup(
         'Operating System :: OS Independent',
     ],
     package_dir={
-        '': 'src',
-    }
+        '':'src',
+    },
     install_requires=pip_req,
-    packages=setuptools.find_packages(),
+    packages=setuptools.find_packages(
+        where='src',
+    ),
     # metadata to display on PyPI
     author='Daniel Kastinen',
     author_email='daniel.kastinen@irf.se',

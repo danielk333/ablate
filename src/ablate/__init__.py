@@ -14,3 +14,5 @@ from .models import *
 from .data_handlers import *
 
 from . import functions
+
+from .version import __version__
