@@ -23,11 +23,11 @@ from .ode import OrdinaryDifferentialEquation
 # Internal imports
 #
 from . import functions
-from .base_models import AblationModel
+from .ode import ScipyODESolve
 
 
 __all__ = ['KeroSzasz2008']
 
 
-class KeroSzasz2008(AblationModel, OrdinaryDifferentialEquation):
+class KeroSzasz2008(ScipyODESolve):
     pass

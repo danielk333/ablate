@@ -2,9 +2,12 @@
 
 ## Install
 
-**BEFORE INSTALL:**
+To install:
+```bash
+    pip install ablate
+```
 
-To install msise00:
+### msise00 atmospheric model
 
 ```bash
     mkdir /my/env/msise00_source
@@ -15,10 +18,3 @@ To install msise00:
     python -c "import msise00; msise00.build()"
 ```
 
-**INSTALL:**
-
-The recommended install command is (DOES NOT WORK YET):
-
-```bash
-    pip install ablate
-```

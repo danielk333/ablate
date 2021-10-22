@@ -17,28 +17,25 @@ import scipy.integrate
 from scipy.integrate import solve_ivp
 import numpy as np
 
+# Internal imports
+from .core import AblationModel
 
-
-class OrdinaryDifferentialEquation(ABC):
+class ScipyODESolve(AblationModel):
 
     def __init__(self, 
+                atmosphere,
                 method='RK45',
                 options={},
                 **kwargs
             ):
+        super().__init__(self, atmosphere, **kwargs)
         self.method = method.upper()
         self.options = options
 
 
-    def integrate(self, y0, t, **kwargs):
+    def integrate(self, y0, dt, **kwargs):
 
-        t_sort = np.argsort(t)
-        t_restore = np.argsort(t_sort)
-        t = t[t_sort]
-
-        t0 = t[0]
-        t1 = t[-1]
-
+        #todo; fix this
         self.result = solve_ivp(
             fun=lambda t, y: self.rhs(t, y),
             t_span = (t0, t1),
@@ -50,8 +47,10 @@ class OrdinaryDifferentialEquation(ABC):
             **kwargs
         )
 
-        return self.result.y[:, t_restore]
+        return self.result.y
 
+    def run(self, state, dt, **kwargs):
+        return self.integrate(state, dt, **kwargs)
 
     @abstractmethod
     def rhs(self, t, y):
