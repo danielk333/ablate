@@ -18,3 +18,14 @@ To install:
     python -c "import msise00; msise00.build()"
 ```
 
+
+## Development
+
+### Poetry
+
+To generate a new `requirements.txt` file to be used in the GitLab CI/CD chain run:
+
+```bash
+poetry export -f requirements.txt --output requirements.txt
+```
+
