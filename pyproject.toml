@@ -6,6 +6,18 @@ authors = ["danielk <daniel.kastinen@irf.se>"]
 license = "GPL-3.0-or-later"
 readme = "README.md"
 homepage = "https://github.com/danielk333/ablate"
+packages = [
+    { include = "ablate", from = "src" },
+]
+
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
+    "Operating System :: Unix",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+]
 
 [tool.poetry.dependencies]
 python = ">=3.7,<3.10"
@@ -14,6 +26,11 @@ scipy = "^1.7.1"
 numpy = "^1.21.3"
 matplotlib = "^3.4.3"
 xarray = "^0.19.0"
+
+msise00 = {git = "https://github.com/space-physics/msise00.git", branch = "main", optional = true}
+
+[tool.poetry.extras]
+msise = ["msise00"]
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
