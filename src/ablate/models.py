@@ -30,6 +30,7 @@ class KeroSzasz2008(ScipyODESolve):
 
     '''
 
+    ATMOSPHERES = {}
     DEFAULT_OPTIONS = copy.deepcopy(ScipyODESolve.DEFAULT_OPTIONS)
     DEFAULT_OPTIONS.update(dict(
         temperature0 = 290,

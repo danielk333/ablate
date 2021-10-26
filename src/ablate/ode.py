@@ -24,6 +24,7 @@ from .core import AblationModel
 
 class ScipyODESolve(AblationModel):
 
+    ATMOSPHERES = {}
     DEFAULT_OPTIONS = copy.deepcopy(AblationModel.DEFAULT_OPTIONS)
     DEFAULT_OPTIONS.update(dict(
         minimum_mass = 1e-11, #kg
