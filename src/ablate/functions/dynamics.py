@@ -6,30 +6,29 @@ General dynamics
 
 
 '''
-#
 # Basic Python
-#
 import copy
+import logging
 
-#
+logger = logging.getLogger(__name__)
+
+
 # External packages
-#
 import numpy as np
 from scipy import constants
 
-#
+
 # Internal packages
-#
 from .material import material_parameters
 
 
-def drag_coefficient(mass, velocity, temperature, material, atm_total_density, atm_mean_mass, res = 100):
+def drag_coefficient(mass, velocity, temperature, material_data, atm_total_density, atm_mean_mass, res = 100):
     '''Calculates the drag coefficient Gamma.
 
     :param float/numpy.ndarray mass: Meteoroid mass [kg]
     :param float/numpy.ndarray velocity: Meteoroid velocity [m/s]
     :param float/numpy.ndarray temperature: Meteoroid temperature [K]
-    :param str material: Meteoroid material, see :mod:`~functions.material.material_data`.
+    :param dict material_data: Meteoroid material data, see :mod:`~functions.material.material_data`.
     :param float/numpy.ndarray atm_total_density: Total atmospheric number density [1/m^3]
     :param float/numpy.ndarray atm_mean_mass: Mean mass of atmospheric constituents [kg]
     :param int res: Resolution used for the numerical integration.
@@ -58,9 +57,8 @@ def drag_coefficient(mass, velocity, temperature, material, atm_total_density, a
     kB = constants.value(u'Boltzmann constant') #[J/K]
 
     #Meteoroid constituents
-    mat_data = material_parameters(material)
-    met_mean_mass = mat_data['m2']
-    met_density = mat_data['rho_m']
+    met_mean_mass = material_data['m2']
+    met_density = material_data['rho_m']
 
     #angle between the normal to the surface and the molecular flow, theta0 is a row vector
     theta0 = np.linspace(0, np.pi/2, num=res, dtype=np.float64) #[radians] 
@@ -106,13 +104,13 @@ def drag_coefficient(mass, velocity, temperature, material, atm_total_density, a
 
 
 
-def heat_transfer(mass, velocity, temperature, material, atm_total_density, thermal_ablation, atm_mean_mass, res = 100):
+def heat_transfer(mass, velocity, temperature, material_data, atm_total_density, thermal_ablation, atm_mean_mass, res = 100):
     '''Calculates the heat transfer coefficient Lambda.
 
     :param float/numpy.ndarray mass: Meteoroid mass [kg]
     :param float/numpy.ndarray velocity: Meteoroid velocity [m/s]
     :param float/numpy.ndarray temperature: Meteoroid temperature [K]
-    :param str material: Meteoroid material, see :mod:`~functions.material.material_data`.
+    :param dict material_data: Meteoroid material data, see :mod:`~functions.material.material_data`.
     :param float/numpy.ndarray atm_total_density: Total atmospheric number density [1/m^3]
     :param float/numpy.ndarray thermal_ablation: Mass loss due to thermal ablation [kg/s]
     :param float/numpy.ndarray atm_mean_mass: Mean mass of atmospheric constituents [kg]
@@ -143,9 +141,8 @@ def heat_transfer(mass, velocity, temperature, material, atm_total_density, ther
     kB = constants.value(u'Boltzmann constant') #[J/K]
 
     #Meteoroid constituents
-    mat_data = material_parameters(material)
-    met_mean_mass = mat_data['m2']
-    met_density = mat_data['rho_m']
+    met_mean_mass = material_data['m2']
+    met_density = material_data['rho_m']
 
 
     #angle between the normal to the surface and the molecular flow, theta0 is a row vector

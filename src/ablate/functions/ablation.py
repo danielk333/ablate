@@ -27,20 +27,18 @@ Calculate thermal ablation:
 
 
 '''
-#
 # Basic Python
-#
 import copy
+import logging
 
-#
+logger = logging.getLogger(__name__)
+
 # External packages
-#
 import numpy as np
 from scipy import constants
 
-#
+
 # Internal packages
-#
 from .material import material_parameters
 
 

@@ -6,14 +6,14 @@ Miscellaneous functions
 
 
 '''
-#
 # Basic Python
-#
 import copy
+import logging
 
-#
+logger = logging.getLogger(__name__)
+
+
 # External packages
-#
 import numpy as np
 from scipy import constants
 

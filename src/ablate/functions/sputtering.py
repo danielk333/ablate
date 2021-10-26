@@ -4,29 +4,25 @@
 Sputtering physics
 =========================
 '''
-#
-# Basic Python
-#
-import copy
 
-#
+# Basic Python
+import copy
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 # External packages
-#
 import numpy as np
 from scipy import constants
 
-#
-# Internal packages
-#
-from .material import material_parameters
 
-
-def sputtering(mass, velocity, material, density):
+def sputtering(mass, velocity, material_data, density):
     '''calculates the meteoroid mass loss due to sputtering.
     
     :param float/numpy.ndarray mass: Meteoroid mass in [kg]
     :param float/numpy.ndarray velocity: Meteoroid velocity in [m/s]
-    :param str material: Meteoroid material, see :mod:`~functions.material.material_data`.
+    :param dict material_data: Meteoroid material data, see :mod:`~functions.material.material_data`.
     :param xarray.Dataset density: Dataset of atmospheric constituent densities. Variables should be constituents and coordinates the mass(es) and velocity(ies) of the input meteoroid(s). See :class:`atmosphere.AtmospheModel`.
 
     :rtype: float/numpy.ndarray
@@ -117,15 +113,12 @@ def sputtering(mass, velocity, material, density):
         m = m[use_species, ...]
         v = v[use_species, ...]    
 
-    
-    #Meteoroid constituents
-    mat_data = material_parameters(material)
 
-    m2 = mat_data['m2']
-    u0 = mat_data['u0']
-    k = mat_data['k']
-    z2 = mat_data['z2']
-    rho_m = mat_data['rho_m']
+    m2 = material_data['m2']
+    u0 = material_data['u0']
+    k = material_data['k']
+    z2 = material_data['z2']
+    rho_m = material_data['rho_m']
 
     beta = 4*m1*m2/(m1 + m2)**2
 

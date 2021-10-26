@@ -4,14 +4,15 @@
 Meteoroid material physics
 ===========================
 '''
-#
-# Basic Python
-#
-import copy
 
-#
+# Basic Python
+import copy
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 # External packages
-#
 import numpy as np
 from scipy import constants
 
@@ -23,7 +24,7 @@ material_data = {
         'm2': 56.0*constants.u,
         'CA': 10.6,
         'CB': 16120.,
-        'u0': 4.1,                            
+        'u0': 4.1,
         'k': 0.35,
         'z2': 26,
         'c': 1200,
@@ -35,7 +36,7 @@ material_data = {
         'm2': 20.0*constants.u,
         'CA': 10.6,
         'CB': 13500.,
-        'u0': 6.4,                            
+        'u0': 6.4,
         'k': 0.1,
         'z2': 10,
         'c': 1200,
@@ -47,7 +48,7 @@ material_data = {
         'm2': 12.0*constants.u,
         'CA': 10.6,
         'CB': 13500.,
-        'u0': 4.0,                            
+        'u0': 4.0,
         'k': 0.65,
         'z2': 6,
         'c': 1200,
@@ -59,7 +60,7 @@ material_data = {
         'm2': 12.0*constants.u,
         'CA': 10.6,
         'CB': 13500.,
-        'u0': 4.0,                            
+        'u0': 4.0,
         'k': 0.65,
         'z2': 6,
         'c': 1200,
