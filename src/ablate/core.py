@@ -7,23 +7,42 @@
 # Basic Python
 from abc import ABC
 from abc import abstractmethod
+import logging
+
+logger = logging.getLogger(__name__)
 
 # External packages
 import numpy as np
 
 
-# Internal packages
-from .atmosphere import AtmosphereModel
-
-
-
 class AblationModel(ABC):
-    def __init__(self, atmosphere, **kwargs):
+
+    DEFAULT_OPTIONS = {}
+    ATMOSPHERES = {}
+
+    def __init__(self, atmosphere, options = None, **kwargs):
         super().__init__()
-        if not isinstance(atmosphere, AtmosphereModel):
-            raise ValueError(f'"atmosphere" is not a AtmosphereModel instance but "{atmosphere!r}"')
+
+        if atmosphere not in self.ATMOSPHERES:
+            raise ValueError(f'"{atmosphere}" is not a supported by "{self.__class__}"')
         self.atmosphere = atmosphere
+        
+        self.results = None
+
+        self.options = {}
+        self.options.update(self.DEFAULT_OPTIONS)
+        if options is not None:
+            self.options.update(options)
+
+
+    def _register_atmosphere(self, atmosphere, data_getter, meta):
+        self.ATMOSPHERES[atmosphere] = (data_getter, meta)
+
+
+    def _unregister_atmosphere(self, atmosphere, data_getter, meta):
+        del self.ATMOSPHERES[atmosphere]
+
 
     @abstractmethod
-    def run(self, state, dt, **kwargs):
+    def run(self, *args, **kwargs):
         pass

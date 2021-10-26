@@ -4,15 +4,17 @@
 
 '''
 
-#
+
 # Basic Python
-#
 from abc import ABC
 from abc import abstractmethod
+import copy
+import logging
 
-#
+logger = logging.getLogger(__name__)
+
+
 # External packages
-#
 import scipy.integrate
 from scipy.integrate import solve_ivp
 import numpy as np
@@ -22,36 +24,49 @@ from .core import AblationModel
 
 class ScipyODESolve(AblationModel):
 
-    def __init__(self, 
-                atmosphere,
+    DEFAULT_OPTIONS = copy.deepcopy(AblationModel.DEFAULT_OPTIONS)
+    DEFAULT_OPTIONS.update(dict(
+        minimum_mass = 1e-11, #kg
+        max_step_size = 1e-3, #s
+        max_time = 100.0, #s
+    ))
+
+    def __init__(self,
+                *args,
                 method='RK45',
-                options={},
+                method_options={},
                 **kwargs
             ):
-        super().__init__(self, atmosphere, **kwargs)
+        super().__init__(self, *args, **kwargs)
         self.method = method.upper()
-        self.options = options
+        self.method_options = method_options
 
 
-    def integrate(self, y0, dt, **kwargs):
+    def integrate(self, state, *args, **kwargs):
 
-        #todo; fix this
-        self.result = solve_ivp(
-            fun=lambda t, y: self.rhs(t, y),
-            t_span = (t0, t1),
-            y0 = y0,
+        def _low_mass(t, y):
+            logger.info(f'Stopping @ {t:<1.4e} s: {np.log10(y[1]):1.4e} log10(kg)')
+            return np.log10(y[1]) - np.log10(self.options['minimum_mass'])
+
+        _low_mass.terminal = True
+        _low_mass.direction = -1
+
+        events = [_low_mass]
+
+        self._ivp_result = solve_ivp(
+            fun=lambda t, y: self.rhs(t, y, *args, **kwargs),
+            t_span2 = (0, self.options['max_time']),
+            y0 = state,
             method = self.method,
+            max_step = self.options['max_step_size'],
             dense_output = True,
-            t_eval = t,
-            options = self.options,
-            **kwargs
+            events = events,
+            options = self.method_options,
         )
 
-        return self.result.y
+        return self._ivp_result
 
-    def run(self, state, dt, **kwargs):
-        return self.integrate(state, dt, **kwargs)
 
     @abstractmethod
-    def rhs(self, t, y):
+    def rhs(self, t, y, *args, **kwargs):
         pass

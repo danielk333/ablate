@@ -4,63 +4,49 @@
 
 '''
 
-#
 # Basic Python
-#
+import logging
+import copy
 
+logger = logging.getLogger(__name__)
 
-#
 # External packages
-#
 import numpy as np
 import scipy
 from scipy import constants
 import xarray
 
-#
+
 # Internal packages
-#
-from .ode import OrdinaryDifferentialEquation
+from .ode import ScipyODESolve
 from . import functions
-from .base_models import AblationModel
 
 
 __all__ = ['KeroSzasz2008']
 
 
-class KeroSzasz2008(AblationModel, OrdinaryDifferentialEquation):
+class KeroSzasz2008(ScipyODESolve):
     '''Ablation model
 
     '''
 
+    DEFAULT_OPTIONS = copy.deepcopy(ScipyODESolve.DEFAULT_OPTIONS)
+    DEFAULT_OPTIONS.update(dict(
+        temperature0 = 290,
+        shape_factor = 1.21,
+        emissivity = 0.9,
+        sputtering = True,
+        Gamma = None,
+        Lambda = None,
+    ))
 
     def __init__(self,
-                atmosphere,
-                npt,
+                *args,
                 **kwargs
             ):
-        '''Setup the ablation model.
-        
-        :param AtmosphericModel atmosphere: Atmospheric model used for ablation.
-        :param numpy.datetime64/numpy.ndarray npt: Date and time to evaluate atmospheric model at.
-
-        '''
-        AblationModel.__init__(self, atmosphere)
-        
-
-
-        self._attrs = {
-            'npt': npt,
-            'atm_mean_mass': np.array([x['A'] for _,x in atmosphere.species.items()]).mean() * constants.u,
-        }
-
-        ode_kw = {}
-        if 'method' in kwargs:
-            ode_kw['method'] = kwargs['method']
-        if 'options' in kwargs:
-            ode_kw['options'] = kwargs['options']
-
-        OrdinaryDifferentialEquation.__init__(self, **ode_kw)
+        super().__init__(self, *args, **kwargs)
+        self._G = constants.G
+        self._M = 5.9742E24 #[kg] mass of earth
 
 
     def _allocate(self, t):
@@ -69,20 +55,14 @@ class KeroSzasz2008(AblationModel, OrdinaryDifferentialEquation):
         for key in ['v','m','s','T']:
             _data[key] = (['t'], np.empty(t.shape, dtype=np.float64))
 
-        #here we set what data is to be filled by the model.
         self.data = xarray.Dataset(
             _data,
             coords = {'t': t},
-            attrs = {
-                'zenith_ang': None, 
-                'shape_factor': None, 
-                'emissivity': None, 
-                'sputtering': None, 
-            }
+            attrs = {key:None for key in self.options}
         )
 
 
-    def rhs(self, t, y):
+    def rhs(self, t, y, material_data, Lambda, Gamma):
         '''The right hand side of the differential equation to be integrated, i.e:
 
         .. math::
@@ -106,25 +86,18 @@ class KeroSzasz2008(AblationModel, OrdinaryDifferentialEquation):
         '''
         vel, mass, s, T = y
 
-
-        rho_m = self.material_data['rho_m']
-        G = constants.G
-        M = 5.9742E24 #[kg] mass of earth
+        rho_m = material_data['rho_m']
 
         lat, lon, alt = self.s_to_geo(s) #meteoroid height above earth surface
 
         ecef = functions.coordinate.geodetic2ecef(lat, lon, alt)
         r = np.linalg.norm(ecef)
 
-        DEBUG = True
+        logging.debug(f'Position: {ecef*1e-3} km')
+        logging.debug(f'lat = {lat}, lon = {lon}, {alt*1e-3} km')
 
-        if DEBUG:
-            print('---------------')
-            print(f'Position: {ecef*1e-3} km')
-            print(f'lat = {lat}, lon = {lon}, {alt*1e-3} km')
-
-            print(f't0 + {t} s: ')
-            print(f'vel = {vel*1e-3} km/s, traj-s = {s*1e-3} km, mass = {mass} kg, temp = {T} K')
+        logging.debug(f't0 + {t} s: ')
+        logging.debug(f'vel = {vel*1e-3} km/s, traj-s = {s*1e-3} km, mass = {mass} kg, temp = {T} K')
 
         atm = self.atmosphere.density(
             npt = self._attrs['npt'] + np.timedelta64(int(t*1e6), 'us'),
@@ -148,7 +121,7 @@ class KeroSzasz2008(AblationModel, OrdinaryDifferentialEquation):
             dmdt_s = functions.sputtering.sputtering(
                 mass = mass,
                 velocity = vel,
-                material = self._attrs['material'],
+                material = material,
                 density = density,
             )
         else:
@@ -161,11 +134,10 @@ class KeroSzasz2008(AblationModel, OrdinaryDifferentialEquation):
             shape_factor = self._attrs['A'],
         )
 
-        if DEBUG:
-            print(f'dmdt sputtering: {dmdt_s} kg/s')
-            print(f'dmdt ablation  : {dmdt_a} kg/s')
+        logging.debug(f'dmdt sputtering: {dmdt_s} kg/s')
+        logging.debug(f'dmdt ablation  : {dmdt_a} kg/s')
 
-        if self._attrs['Lambda'] is None:
+        if Lambda is None:
             Lambda = functions.dynamics.heat_transfer(
                 mass = mass,
                 velocity = vel,
@@ -176,10 +148,8 @@ class KeroSzasz2008(AblationModel, OrdinaryDifferentialEquation):
                 atm_mean_mass = self._attrs['atm_mean_mass'],
                 res = 100,
             )
-        else:
-            Lambda = self._attrs['Lambda']
 
-        if self._attrs['Gamma'] is None:
+        if Gamma is None:
             Gamma = functions.dynamics.drag_coefficient(
                 mass = mass,
                 velocity = vel,
@@ -189,17 +159,16 @@ class KeroSzasz2008(AblationModel, OrdinaryDifferentialEquation):
                 atm_mean_mass = self._attrs['atm_mean_mass'],
                 res = 100,
             )
-        else:
-            Gamma = self._attrs['Gamma']
+
         #-- Differential equation for the velocity to solve
         dvdt_d = -Gamma*self._attrs['A']*rho_tot*vel**2/(mass**(1.0/3.0)*rho_m**(2.0/3.0)) #[m/s2] drag equation (because of conservation of linear momentum): decelearation=Drag_coeff*shape_factor*atm_dens*vel/(mass^1/2 * meteoroid_dens^2/3)
-        dvdt_g = G*M/(r**2) #[m/s2] acceleration due to earth gravitaion
+        dvdt_g = self._G*self._M/(r**2) #[m/s2] acceleration due to earth gravitaion
         dvdt = dvdt_d + dvdt_g
 
         #-- Differential equation for the height to solve
         dsdt = -vel #range from the common volume along the meteoroid trajectory
 
-        dTdt =  functions.ablation.temperature_rate(
+        dTdt = functions.ablation.temperature_rate(
             mass = mass,
             velocity = vel,
             temperature = T,
@@ -216,8 +185,7 @@ class KeroSzasz2008(AblationModel, OrdinaryDifferentialEquation):
 
         ret = np.array([dvdt, dmdt, dsdt, dTdt], dtype=np.float64)#output
 
-        if DEBUG:
-            print(f'DERIVS: vel = {dvdt*1e-3} km/s^2, traj-s = {dsdt*1e-3} km/s, mass = {dmdt} kg/s, temp = {dTdt} K/s')
+        logging.debug(f'DERIVS: vel = {dvdt*1e-3} km/s^2, traj-s = {dsdt*1e-3} km/s, mass = {dmdt} kg/s, temp = {dTdt} K/s')
 
         return ret
 
@@ -228,7 +196,7 @@ class KeroSzasz2008(AblationModel, OrdinaryDifferentialEquation):
                 altitude0,
                 zenith_ang,
                 azimuth_ang,
-                material,
+                material_data,
                 lat,
                 lon,
                 alt,
@@ -241,7 +209,7 @@ class KeroSzasz2008(AblationModel, OrdinaryDifferentialEquation):
         :param float/numpy.ndarray altitude0: Meteoroid initial altitude [m]
         :param float/numpy.ndarray zenith_ang: Zenith angle of the trajectory (-velocity vector) w.r.t reference point [deg]
         :param float/numpy.ndarray azimuth_ang: Azimuthal angle east of north of the trajectory (-velocity vector) w.r.t reference point [deg]
-        :param str material: Meteoroid material, see :mod:`~functions.material.material_data`.
+        :param dict material_data: Meteoroid material data, see :mod:`~functions.material.material_data`.
         :param float/numpy.ndarray lat: Geographic latitude in degrees of reference point on the meteoroid trajectory
         :param float/numpy.ndarray lon: Geographic longitude in degrees of reference point on the meteoroid trajectory 
         :param float/numpy.ndarray alt: Altitude above geoid in meters of reference point on the meteoroid trajectory
@@ -258,12 +226,10 @@ class KeroSzasz2008(AblationModel, OrdinaryDifferentialEquation):
             * sputtering = True [bool]: If sputtering is used in mass loss calculation.
             * Gamma = None [1]: Drag coefficient, if :code:`None` it is dynamically calculated assuming a transition from (and including) free molecular flow to a (and not including) shock regime. Otherwise assumed a constant with the given value.
             * Lambda = None [1]: Heat transfer coefficient, if :code:`None` it is dynamically calculated assuming a transition from (and including) free molecular flow to a (and not including) shock regime. Otherwise assumed a constant with the given value.
-            * max_t = 60 [s]: Maximum integration time.
-            * num = 1000 [s]: Number of steps between :code:`t=0` and :code:`t=max_t` to evaluate solution at.
-            * t_eval = None [s]: numpy vector of times to evaluate the model on, overrides the :code:`num` and :code:`max_t` parameters.
-            * mass_stop_fraction = 1e-4 [1]: Fraction of the starting mass at witch the integration should break.
 
         '''
+
+        atm_mean_mass = np.array([x['A'] for _,x in atmosphere.species.items()]).mean() * constants.u
 
         self._attrs['reference'] = (lat, lon, alt)
 
@@ -325,7 +291,7 @@ class KeroSzasz2008(AblationModel, OrdinaryDifferentialEquation):
 
         max_step = kwargs.get('max_step', 0.01) #s
 
-        self.integrate(y0, t_vec, events = events, max_step = max_step)
+        self.integrate(y0, t_vec, material_data)
 
         return self.result
 
