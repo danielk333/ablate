@@ -5,16 +5,14 @@ import scipy.constants as constants
 
 import ablate
 import ablate.functions as func
-import ablate.atmosphere as atm
-
-atm_model = atm.MSISE00()
-
 
 
 model = ablate.KeroSzasz2008(
-    atmosphere=atm_model,
+    atmosphere='msise00',
     npt=np.datetime64('2018-06-28T12:45:33'),
 )
+
+material_data = func.material.material_parameters('iron')
 
 result = model.run(
     velocity0 = 60*1E3, 
@@ -22,7 +20,7 @@ result = model.run(
     altitude0 = 500e3,
     zenith_ang = 35.0,
     azimuth_ang = 0.0,
-    material = 'iron',
+    material_data = material_data,
     lat = 69.5866115,
     lon = 19.221555 ,
     alt = 100e3,

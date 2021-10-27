@@ -118,14 +118,14 @@ def luminosity(velocity, thermal_ablation):
     return I
 
 
-def temperature_rate(mass, velocity, temperature, material, shape_factor, atm_total_density, thermal_ablation, Lambda, atm_temperature = 280, emissivity = 0.9):
+def temperature_rate(mass, velocity, temperature, material_data, shape_factor, atm_total_density, thermal_ablation, Lambda, atm_temperature = 280, emissivity = 0.9):
     '''Calculates the rate of change of temperature of the meteoroid. A homogeneous metoroid experiencing an isotropic heat flux is assumed as well as the meteoroid undergoing isothermal heating. (isotherma heating: here: dTdS = 0 i.e. same spatial temperature)
     
     
     :param float/numpy.ndarray mass: Meteoroid mass [kg]
     :param float/numpy.ndarray velocity: Meteoroid velocity [m/s]
     :param float/numpy.ndarray temperature: Meteoroid temperature [K]
-    :param str material: Meteoroid material, see :mod:`~functions.material.material_data`.
+    :param dict material_data: Meteoroid material data, see :mod:`~functions.material.material_data`.
     :param float/numpy.ndarray shape_factor: Shape factor [1]
     :param float/numpy.ndarray atm_total_density: Total atmospheric number density [1/m^3]
     :param float/numpy.ndarray thermal_ablation: Mass loss due to thermal ablation [kg/s]
@@ -184,23 +184,21 @@ def temperature_rate(mass, velocity, temperature, material, shape_factor, atm_to
     A = shape_factor
     rho_tot = atm_total_density
 
-    mat_data = material_parameters(material)
-
-    rho_m = mat_data['rho_m']
-    c = mat_data['c']
-    L = mat_data['L']
+    rho_m = material_data['rho_m']
+    c = material_data['c']
+    L = material_data['L']
 
     dTdt = A/(c*mass**(1.0/3.0)*rho_m**(2.0/3.0))*(0.5*Lambda*rho_tot*vel**3 - 4*kB*epsilon*(T**4 - Ta**4) + L/A*(rho_m/mass)**(2.0/3.0)*thermal_ablation)
     return dTdt
 
 
 
-def thermal_ablation(mass, temperature, material, shape_factor):
+def thermal_ablation(mass, temperature, material_data, shape_factor):
     '''Calculates the mass loss for meteoroids due to thermal ablation.
 
     :param float/numpy.ndarray mass: Meteoroid mass [kg]
     :param float/numpy.ndarray temperature: Meteoroid temperature [K]
-    :param str material: Meteoroid material, see :mod:`~functions.material.material_data`.
+    :param dict material_data: Meteoroid material data, see :mod:`~functions.material.material_data`.
     :param float/numpy.ndarray shape_factor: Shape factor [1]
 
 
@@ -230,12 +228,10 @@ def thermal_ablation(mass, temperature, material, shape_factor):
 
     '''
 
-    mat_data = material_parameters(material)
-
-    CA = mat_data['CA']
-    CB = mat_data['CB']
-    mu = mat_data['mu']
-    rho_m = mat_data['rho_m']
+    CA = material_data['CA']
+    CB = material_data['CB']
+    mu = material_data['mu']
+    rho_m = material_data['rho_m']
 
     # 2007-03-21 Ed suggests that the vapor pressure should be lowered by a factor of 0.8 or 0.7
     # due to the large ram pressure forcing the evaporated atoms and molecules back on to the surface

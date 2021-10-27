@@ -34,6 +34,18 @@ class AblationModel(ABC):
         if options is not None:
             self.options.update(options)
 
+    def get_atmosphere(self, *args, **kwargs):
+        _getter = self.ATMOSPHERES[self.atmosphere][0]
+        data = _getter(*args, **kwargs)
+        return data
+
+
+    def get_atmosphere_meta(self, *args, **kwargs):
+        _getter = self.ATMOSPHERES[self.atmosphere][1]
+        meta = _getter(*args, **kwargs)
+        return meta
+
+
     @classmethod
     def _register_atmosphere(cls, atmosphere, data_getter, meta):
         cls.ATMOSPHERES[atmosphere] = (data_getter, meta)
