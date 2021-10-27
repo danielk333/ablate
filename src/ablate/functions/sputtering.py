@@ -103,7 +103,7 @@ def sputtering(mass, velocity, material_data, density):
     for ind, key in enumerate(avalible_species):
         if key in density:
             use_species[ind] = True
-            _density[ind, ...] = density[key].values
+            _density[ind, ...] = density[key].values.squeeze()
 
     m1 = m1[use_species, ...]
     z1 = z1[use_species, ...]

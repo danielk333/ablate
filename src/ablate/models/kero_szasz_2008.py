@@ -43,6 +43,7 @@ class KeroSzasz2008(ScipyODESolve):
         sputtering = True,
         Gamma = None,
         Lambda = None,
+        integral_resolution = 100,
     ))
 
     def __init__(self,
@@ -50,6 +51,7 @@ class KeroSzasz2008(ScipyODESolve):
                 **kwargs
             ):
         super().__init__(*args, **kwargs)
+        logger.debug(f'{self.__class__} instance initialized')
         self._G = constants.G
         self._M = 5.9742E24 #[kg] mass of earth
 
@@ -67,7 +69,7 @@ class KeroSzasz2008(ScipyODESolve):
         )
 
 
-    def rhs(self, t, mass, y, material_data, Lambda, Gamma):
+    def rhs(self, t, mass, y, material_data, Lambda, Gamma, epoch):
         '''The right hand side of the differential equation to be integrated, i.e:
 
         .. math::
@@ -105,7 +107,7 @@ class KeroSzasz2008(ScipyODESolve):
         logging.debug(f'vel = {vel*1e-3} km/s, traj-s = {s*1e-3} km, mass = {mass} kg, temp = {T} K')
 
         atm = self.get_atmosphere(
-            time = self.start_time + np.timedelta64(int(t*1e6), 'us'),
+            time = epoch + np.timedelta64(int(t*1e6), 'us'),
             lat = lat,
             lon = lon,
             alt = alt,
@@ -113,21 +115,12 @@ class KeroSzasz2008(ScipyODESolve):
 
         rho_tot = atm['Total'].values.squeeze()
 
-        _data = {}
-        for key in meta.keys():
-            _data[key] = (['met'], [atm[key].values.squeeze()])
-
-        density = xarray.Dataset(
-            _data,
-           coords = {'met': np.arange(1)},
-        )
-
         if self.options['sputtering']:
             dmdt_s = functions.sputtering.sputtering(
                 mass = mass,
                 velocity = vel,
                 material_data = material_data,
-                density = density,
+                density = atm,
             )
         else:
             dmdt_s = 0.0
@@ -151,7 +144,7 @@ class KeroSzasz2008(ScipyODESolve):
                 atm_total_density = rho_tot,
                 thermal_ablation = dmdt_a,
                 atm_mean_mass = self.atm_mean_mass,
-                res = 100,
+                res = self.options['integral_resolution'],
             )
 
         if Gamma is None:
@@ -162,7 +155,7 @@ class KeroSzasz2008(ScipyODESolve):
                 material_data = material_data,
                 atm_total_density = rho_tot,
                 atm_mean_mass = self.atm_mean_mass,
-                res = 100,
+                res = self.options['integral_resolution'],
             )
 
         #-- Differential equation for the velocity to solve
@@ -182,13 +175,13 @@ class KeroSzasz2008(ScipyODESolve):
             atm_total_density = rho_tot,
             thermal_ablation = dmdt_a,
             Lambda = Lambda,
-            atm_temperature = self.options['atm_temperature'],
+            atm_temperature = self.options['temperature0'],
             emissivity = self.options['emissivity'],
         )
 
         dmdt = dmdt_a + dmdt_s; #total mass loss
 
-        ret = np.array([dvdt, dmdt, dsdt, dTdt], dtype=np.float64)#output
+        ret = np.array([dmdt, dvdt, dsdt, dTdt], dtype=np.float64)#output
 
         logging.debug(f'DERIVS: vel = {dvdt*1e-3} km/s^2, traj-s = {dsdt*1e-3} km/s, mass = {dmdt} kg/s, temp = {dTdt} K/s')
 
@@ -202,10 +195,10 @@ class KeroSzasz2008(ScipyODESolve):
                 zenith_ang,
                 azimuth_ang,
                 material_data,
+                time,
                 lat,
                 lon,
                 alt,
-                **kwargs
             ):
         '''This function is based on calc_sput.m which was used to verify the sputtering described in Rogers et al.: Mass loss due to  sputtering and thermal processes in meteoroid ablation, Planetary and Space Science 53 p. 1341-1354 (2005).
         
@@ -233,11 +226,10 @@ class KeroSzasz2008(ScipyODESolve):
             * Lambda = None [1]: Heat transfer coefficient, if :code:`None` it is dynamically calculated assuming a transition from (and including) free molecular flow to a (and not including) shock regime. Otherwise assumed a constant with the given value.
 
         '''
+        logger.debug(f'Running {self.__class__} model')
 
         meta = self.get_atmosphere_meta()
         self.atm_mean_mass = np.array([x['A'] for _,x in meta.items()]).mean() * constants.u
-
-        self._allocate(result.t)
 
         reference_ecef = functions.coordinate.geodetic2ecef(lat, lon, alt)
         v_dir = -1.0*functions.coordinate.azel_to_cart(azimuth_ang, zenith_ang, 1.0)
@@ -256,7 +248,13 @@ class KeroSzasz2008(ScipyODESolve):
         
         y0 = np.array([mass0, velocity0, s0, self.options['temperature0']], dtype=np.float64)
 
-        self.integrate(y0, t_vec, material_data)
+        self.integrate(
+            y0, 
+            material_data, 
+            self.options['Lambda'], 
+            self.options['Gamma'],
+            time,
+        )
 
         self._allocate(self._ivp_result.t)
 

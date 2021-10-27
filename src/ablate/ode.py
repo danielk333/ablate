@@ -28,7 +28,7 @@ class ScipyODESolve(AblationModel):
     DEFAULT_OPTIONS = copy.deepcopy(AblationModel.DEFAULT_OPTIONS)
     DEFAULT_OPTIONS.update(dict(
         minimum_mass = 1e-11, #kg
-        max_step_size = 1e-3, #s
+        max_step_size = 1e-2, #s
         max_time = 100.0, #s
     ))
 
@@ -52,6 +52,9 @@ class ScipyODESolve(AblationModel):
         _low_mass.direction = -1
 
         events = [_low_mass]
+
+        print('self.method_options')
+        print(self.method_options)
 
         self._ivp_result = solve_ivp(
             fun=lambda t, y: self.rhs(t, y[0], y[1:], *args, **kwargs),
