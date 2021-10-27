@@ -11,6 +11,7 @@ from datetime import datetime
 
 # External packages
 import xarray
+import scipy.constants
 
 try:
     import msise00
@@ -53,13 +54,13 @@ class NRLMSISE00:
             },
         }
     
-    def density(self, time, lat, lon, alt, f107=80.0, f107s=80.0, Ap=4.0):
+    def density(self, time, lat, lon, alt, f107=80.0, f107s=80.0, Ap=4.0, mass_densities=True):
         ''' TODO: Write docstring
 
         returns density in [m^-3]
 
         '''
-        return msise00.run(
+        result = msise00.run(
             time=time,
             altkm=alt*1e-3,
             glat=lat,
@@ -70,4 +71,11 @@ class NRLMSISE00:
                 Ap=Ap,
             ),
         )
+
+        if mass_densities:
+            for s in self.species:
+                weight = scipy.constants.u*self.species[s]['A']
+                result[s] = result[s]*weight
+
+        return result
 
