@@ -45,7 +45,7 @@ class KeroSzasz2008(ScipyODESolve):
                 *args,
                 **kwargs
             ):
-        super().__init__(self, *args, **kwargs)
+        super().__init__(*args, **kwargs)
         self._G = constants.G
         self._M = 5.9742E24 #[kg] mass of earth
 

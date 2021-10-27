@@ -18,7 +18,7 @@ import numpy as np
 class AblationModel(ABC):
 
     DEFAULT_OPTIONS = {}
-    ATMOSPHERES = {}
+    ATMOSPHERES = None
 
     def __init__(self, atmosphere, options = None, **kwargs):
         super().__init__()

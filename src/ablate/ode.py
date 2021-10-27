@@ -24,7 +24,7 @@ from .core import AblationModel
 
 class ScipyODESolve(AblationModel):
 
-    ATMOSPHERES = {}
+    ATMOSPHERES = None
     DEFAULT_OPTIONS = copy.deepcopy(AblationModel.DEFAULT_OPTIONS)
     DEFAULT_OPTIONS.update(dict(
         minimum_mass = 1e-11, #kg
@@ -35,19 +35,18 @@ class ScipyODESolve(AblationModel):
     def __init__(self,
                 *args,
                 method='RK45',
-                method_options={},
+                method_options=None,
                 **kwargs
             ):
-        super().__init__(self, *args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.method = method.upper()
         self.method_options = method_options
-
 
     def integrate(self, state, *args, **kwargs):
 
         def _low_mass(t, y):
-            logger.info(f'Stopping @ {t:<1.4e} s: {np.log10(y[1]):1.4e} log10(kg)')
-            return np.log10(y[1]) - np.log10(self.options['minimum_mass'])
+            logger.info(f'Stopping @ {t:<1.4e} s: {np.log10(y[0]):1.4e} log10(kg)')
+            return np.log10(y[0]) - np.log10(self.options['minimum_mass'])
 
         _low_mass.terminal = True
         _low_mass.direction = -1
@@ -55,8 +54,8 @@ class ScipyODESolve(AblationModel):
         events = [_low_mass]
 
         self._ivp_result = solve_ivp(
-            fun=lambda t, y: self.rhs(t, y, *args, **kwargs),
-            t_span2 = (0, self.options['max_time']),
+            fun=lambda t, y: self.rhs(t, y[0], y[1:], *args, **kwargs),
+            t_span = (0, self.options['max_time']),
             y0 = state,
             method = self.method,
             max_step = self.options['max_step_size'],
@@ -69,5 +68,5 @@ class ScipyODESolve(AblationModel):
 
 
     @abstractmethod
-    def rhs(self, t, y, *args, **kwargs):
+    def rhs(self, t, m, y, *args, **kwargs):
         pass
