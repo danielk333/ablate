@@ -18,19 +18,23 @@ import xarray
 
 
 # Internal packages
-from .ode import ScipyODESolve
-from . import functions
+from ..ode import ScipyODESolve
+from .. import functions
+from .. import atmosphere as atm
 
 
-__all__ = ['KeroSzasz2008']
-
+msise00 = atm.NRLMSISE00()
+def _meta_getter():
+    return msise00.species
 
 class KeroSzasz2008(ScipyODESolve):
     '''Ablation model
 
     '''
 
-    ATMOSPHERES = {}
+    ATMOSPHERES = {
+        'msise00': (msise00.density, _meta_getter),
+    }
     DEFAULT_OPTIONS = copy.deepcopy(ScipyODESolve.DEFAULT_OPTIONS)
     DEFAULT_OPTIONS.update(dict(
         temperature0 = 290,
@@ -56,14 +60,14 @@ class KeroSzasz2008(ScipyODESolve):
         for key in ['v','m','s','T']:
             _data[key] = (['t'], np.empty(t.shape, dtype=np.float64))
 
-        self.data = xarray.Dataset(
+        self.results = xarray.Dataset(
             _data,
             coords = {'t': t},
             attrs = {key:None for key in self.options}
         )
 
 
-    def rhs(self, t, y, material_data, Lambda, Gamma):
+    def rhs(self, t, mass, y, material_data, Lambda, Gamma):
         '''The right hand side of the differential equation to be integrated, i.e:
 
         .. math::
@@ -85,7 +89,7 @@ class KeroSzasz2008(ScipyODESolve):
             3. dTdt
 
         '''
-        vel, mass, s, T = y
+        vel, s, T = y
 
         rho_m = material_data['rho_m']
 
@@ -100,8 +104,8 @@ class KeroSzasz2008(ScipyODESolve):
         logging.debug(f't0 + {t} s: ')
         logging.debug(f'vel = {vel*1e-3} km/s, traj-s = {s*1e-3} km, mass = {mass} kg, temp = {T} K')
 
-        atm = self.atmosphere.density(
-            npt = self._attrs['npt'] + np.timedelta64(int(t*1e6), 'us'),
+        atm = self.get_atmosphere(
+            time = self.start_time + np.timedelta64(int(t*1e6), 'us'),
             lat = lat,
             lon = lon,
             alt = alt,
@@ -110,7 +114,7 @@ class KeroSzasz2008(ScipyODESolve):
         rho_tot = atm['Total'].values.squeeze()
 
         _data = {}
-        for key in self.atmosphere.species.keys():
+        for key in meta.keys():
             _data[key] = (['met'], [atm[key].values.squeeze()])
 
         density = xarray.Dataset(
@@ -118,11 +122,11 @@ class KeroSzasz2008(ScipyODESolve):
            coords = {'met': np.arange(1)},
         )
 
-        if self.sputtering:
+        if self.options['sputtering']:
             dmdt_s = functions.sputtering.sputtering(
                 mass = mass,
                 velocity = vel,
-                material = material,
+                material_data = material_data,
                 density = density,
             )
         else:
@@ -131,8 +135,8 @@ class KeroSzasz2008(ScipyODESolve):
         dmdt_a = functions.ablation.thermal_ablation(
             mass = mass,
             temperature = T,
-            material = self._attrs['material'],
-            shape_factor = self._attrs['A'],
+            material_data = material_data,
+            shape_factor = self.options['shape_factor'],
         )
 
         logging.debug(f'dmdt sputtering: {dmdt_s} kg/s')
@@ -143,10 +147,10 @@ class KeroSzasz2008(ScipyODESolve):
                 mass = mass,
                 velocity = vel,
                 temperature = T,
-                material = self._attrs['material'],
+                material_data = material_data,
                 atm_total_density = rho_tot,
                 thermal_ablation = dmdt_a,
-                atm_mean_mass = self._attrs['atm_mean_mass'],
+                atm_mean_mass = self.atm_mean_mass,
                 res = 100,
             )
 
@@ -155,14 +159,14 @@ class KeroSzasz2008(ScipyODESolve):
                 mass = mass,
                 velocity = vel,
                 temperature = T,
-                material = self._attrs['material'],
+                material_data = material_data,
                 atm_total_density = rho_tot,
-                atm_mean_mass = self._attrs['atm_mean_mass'],
+                atm_mean_mass = self.atm_mean_mass,
                 res = 100,
             )
 
         #-- Differential equation for the velocity to solve
-        dvdt_d = -Gamma*self._attrs['A']*rho_tot*vel**2/(mass**(1.0/3.0)*rho_m**(2.0/3.0)) #[m/s2] drag equation (because of conservation of linear momentum): decelearation=Drag_coeff*shape_factor*atm_dens*vel/(mass^1/2 * meteoroid_dens^2/3)
+        dvdt_d = -Gamma*self.options['shape_factor']*rho_tot*vel**2/(mass**(1.0/3.0)*rho_m**(2.0/3.0)) #[m/s2] drag equation (because of conservation of linear momentum): decelearation=Drag_coeff*shape_factor*atm_dens*vel/(mass^1/2 * meteoroid_dens^2/3)
         dvdt_g = self._G*self._M/(r**2) #[m/s2] acceleration due to earth gravitaion
         dvdt = dvdt_d + dvdt_g
 
@@ -173,13 +177,13 @@ class KeroSzasz2008(ScipyODESolve):
             mass = mass,
             velocity = vel,
             temperature = T,
-            material = self._attrs['material'],
-            shape_factor = self._attrs['A'],
+            material_data = material_data,
+            shape_factor = self.options['shape_factor'],
             atm_total_density = rho_tot,
             thermal_ablation = dmdt_a,
             Lambda = Lambda,
-            atm_temperature = 280,
-            emissivity = 0.9,
+            atm_temperature = self.options['atm_temperature'],
+            emissivity = self.options['emissivity'],
         )
 
         dmdt = dmdt_a + dmdt_s; #total mass loss
@@ -230,33 +234,10 @@ class KeroSzasz2008(ScipyODESolve):
 
         '''
 
-        atm_mean_mass = np.array([x['A'] for _,x in atmosphere.species.items()]).mean() * constants.u
+        meta = self.get_atmosphere_meta()
+        self.atm_mean_mass = np.array([x['A'] for _,x in meta.items()]).mean() * constants.u
 
-        self._attrs['reference'] = (lat, lon, alt)
-
-        #meteoroid temperature at top of atmosphere
-        temperature0 = kwargs.get('temperature0', 290) #[K] 
-        
-        self._attrs['A'] = kwargs.get('shape_factor', 1.21) #shape factor
-        
-        #emissivity 0.9 from Hill et al.; Love & Brownlee: 1; 0.2 is characteristic for a metal, oxides are between 0.4 and 0.8
-        epsilon = kwargs.get('emissivity', .9) #shape factor
-
-        self.sputtering = kwargs.get('sputtering', True)
-
-        self._attrs['Gamma'] = kwargs.get('Gamma', None)
-        self._attrs['Lambda'] = kwargs.get('Lambda', None)
-
-        max_t = kwargs.get('max_t', 60.0)
-        num = kwargs.get('num', 1000)
-        if 't_eval' in kwargs:
-            t_vec = kwargs['t_eval']
-        else:
-            t_vec = np.linspace(0, max_t, num=num)
-
-        self._allocate(t_vec)
-
-        lat, lon, alt = self._attrs['reference']
+        self._allocate(result.t)
 
         reference_ecef = functions.coordinate.geodetic2ecef(lat, lon, alt)
         v_dir = -1.0*functions.coordinate.azel_to_cart(azimuth_ang, zenith_ang, 1.0)
@@ -273,28 +254,10 @@ class KeroSzasz2008(ScipyODESolve):
 
         s0 = scipy.optimize.minimize_scalar(lambda s: np.abs(s_to_geo(s)[2] - altitude0)).x
         
-        y0 = np.array([velocity0, mass0, s0, temperature0], dtype=np.float64)
-
-        mass_stop_fraction = kwargs.get('mass_stop_fraction', 1e-4)
-        def _zero_mass(t, y):
-            print(f'STOPPING @ {t:<6.3f} s: {np.log10(y[1]) - np.log10(mass0*mass_stop_fraction)} log10(kg)')
-            return np.log10(y[1]) - np.log10(mass0*mass_stop_fraction)
-
-        _zero_mass.terminal = True
-        _zero_mass.direction = -1
-
-        self._attrs['material'] = material
-        self.material_data = functions.material.material_parameters(material)
-
-        events = [_zero_mass]
-
-        self.data['t'] = t_vec
-
-        max_step = kwargs.get('max_step', 0.01) #s
+        y0 = np.array([mass0, velocity0, s0, self.options['temperature0']], dtype=np.float64)
 
         self.integrate(y0, t_vec, material_data)
 
-        return self.result
+        self._allocate(self._ivp_result.t)
 
-
-
+        return self._ivp_result
