@@ -35,14 +35,12 @@ class AblationModel(ABC):
             self.options.update(options)
 
     def get_atmosphere(self, *args, **kwargs):
-        logger.debug(f'{self.__class__} getting atmosphere {self.atmosphere} data')
         _getter = self.ATMOSPHERES[self.atmosphere][0]
         data = _getter(*args, **kwargs)
         return data
 
 
     def get_atmosphere_meta(self, *args, **kwargs):
-        logger.debug(f'{self.__class__} getting atmosphere {self.atmosphere} meta')
         _getter = self.ATMOSPHERES[self.atmosphere][1]
         meta = _getter(*args, **kwargs)
         return meta

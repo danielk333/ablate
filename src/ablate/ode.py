@@ -28,7 +28,7 @@ class ScipyODESolve(AblationModel):
     DEFAULT_OPTIONS = copy.deepcopy(AblationModel.DEFAULT_OPTIONS)
     DEFAULT_OPTIONS.update(dict(
         minimum_mass = 1e-11, #kg
-        max_step_size = 1e-2, #s
+        max_step_size = 1e-1, #s
         max_time = 100.0, #s
     ))
 
@@ -45,13 +45,16 @@ class ScipyODESolve(AblationModel):
     def integrate(self, state, *args, **kwargs):
 
         def _low_mass(t, y):
-            logger.info(f'Stopping @ {t:<1.4e} s: {np.log10(y[0]):1.4e} log10(kg)')
-            return np.log10(y[0]) - np.log10(self.options['minimum_mass'])
+            res = y[0]/self.options['minimum_mass'] - 1
+            #logger.debug(f'Stopping @ {t:<1.4e} s = {res}: {np.log10(y[0]):1.4e} log10(kg) | {y[0]:1.4e} kg')
+            return res
 
         _low_mass.terminal = True
         _low_mass.direction = -1
 
         events = [_low_mass]
+
+        logger.debug(f'{self.__class__} integrating IVP...')
 
         self._ivp_result = solve_ivp(
             fun=lambda t, y: self.rhs(t, y[0], y[1:], *args, **kwargs),
@@ -59,10 +62,12 @@ class ScipyODESolve(AblationModel):
             y0 = state,
             method = self.method,
             max_step = self.options['max_step_size'],
-            dense_output = True,
+            dense_output = False,
             events = events,
             options = self.method_options,
         )
+
+        logger.debug(f'{self.__class__} IVP integration complete')
 
         return self._ivp_result
 

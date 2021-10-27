@@ -100,11 +100,11 @@ class KeroSzasz2008(ScipyODESolve):
         ecef = functions.coordinate.geodetic2ecef(lat, lon, alt)
         r = np.linalg.norm(ecef)
 
-        logging.debug(f'Position: {ecef*1e-3} km')
-        logging.debug(f'lat = {lat}, lon = {lon}, {alt*1e-3} km')
+        logger.debug(f'Position: {ecef*1e-3} km')
+        logger.debug(f'lat = {lat}, lon = {lon}, {alt*1e-3} km')
 
-        logging.debug(f't0 + {t} s: ')
-        logging.debug(f'vel = {vel*1e-3} km/s, traj-s = {s*1e-3} km, mass = {mass} kg, temp = {T} K')
+        logger.debug(f't0 + {t} s: ')
+        logger.debug(f'vel = {vel*1e-3} km/s, traj-s = {s*1e-3} km, mass = {mass} kg, temp = {T} K')
 
         atm = self.get_atmosphere(
             time = epoch + np.timedelta64(int(t*1e6), 'us'),
@@ -132,8 +132,8 @@ class KeroSzasz2008(ScipyODESolve):
             shape_factor = self.options['shape_factor'],
         )
 
-        logging.debug(f'dmdt sputtering: {dmdt_s} kg/s')
-        logging.debug(f'dmdt ablation  : {dmdt_a} kg/s')
+        logger.debug(f'dmdt sputtering: {dmdt_s} kg/s')
+        logger.debug(f'dmdt ablation  : {dmdt_a} kg/s')
 
         if Lambda is None:
             Lambda = functions.dynamics.heat_transfer(

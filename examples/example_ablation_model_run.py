@@ -9,14 +9,20 @@ import scipy.constants as constants
 import ablate
 import ablate.functions as func
 
+handler = logging.StreamHandler(sys.stdout)
+
 for name in logging.root.manager.loggerDict:
     if name.startswith('ablate'):
         print(f'logger: {name}')
 
-logger = logging.getLogger('ablate.models.kero_szasz_2008')
-logger.setLevel(logging.DEBUG)
-logger.addHandler(logging.StreamHandler(sys.stdout))
 
+logger = logging.getLogger('ablate.ode')
+logger.setLevel(logging.DEBUG)
+logger.addHandler(handler)
+
+#logger = logging.getLogger('ablate.models.kero_szasz_2008')
+#logger.setLevel(logging.DEBUG)
+#logger.addHandler(handler)
 
 model = ablate.KeroSzasz2008(
     atmosphere='msise00',
@@ -28,7 +34,7 @@ material_data = func.material.material_parameters('iron')
 result = model.run(
     velocity0 = 60*1E3, 
     mass0 = 1E-6, 
-    altitude0 = 500e3,
+    altitude0 = 120e3,
     zenith_ang = 35.0,
     azimuth_ang = 0.0,
     material_data = material_data,
@@ -42,13 +48,13 @@ fig = plt.figure(figsize=(15,15))
 fig.suptitle('Meteoroid ablation simulation')
 
 ax = fig.add_subplot(221)
-ax.plot(result.t, result.y[0,:]*1e-3)
-ax.set_ylabel('Velocity [km/s]')
+ax.plot(result.t, np.log10(result.y[0,:]))
+ax.set_ylabel('Mass [log$_{10}$(kg)]')
 ax.set_xlabel('Time [s]')
 
 ax = fig.add_subplot(222)
-ax.plot(result.t, np.log10(result.y[1,:]))
-ax.set_ylabel('Mass [log$_{10}$(kg)]')
+ax.plot(result.t, result.y[1,:]*1e-3)
+ax.set_ylabel('Velocity [km/s]')
 ax.set_xlabel('Time [s]')
 
 ax = fig.add_subplot(223)
