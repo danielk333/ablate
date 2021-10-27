@@ -53,9 +53,6 @@ class ScipyODESolve(AblationModel):
 
         events = [_low_mass]
 
-        print('self.method_options')
-        print(self.method_options)
-
         self._ivp_result = solve_ivp(
             fun=lambda t, y: self.rhs(t, y[0], y[1:], *args, **kwargs),
             t_span = (0, self.options['max_time']),
