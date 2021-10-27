@@ -24,6 +24,7 @@ data1 = model.density(
     lat = np.array([69.0, 69.1]),
     lon = np.array([12.0, 12.0]),
     alt = np.linspace(89e3, 120e3, num=100),
+    mass_densities = True,
 )
 print(data1)
 
@@ -32,9 +33,12 @@ fig, axes = plt.subplots(2,1)
 
 index = dict(lat=0, lon=0, alt_km=slice(None, None), time=0)
 
-axes[0].plot(data1.alt_km.values, data1['Total'][index].values)
-axes[0].set_xlabel('Altitude [km]')
-axes[0].set_ylabel('Total density [kg/m^3]')
+axes[0].semilogx(data1['Total'][index].values, data1.alt_km.values, label='Total')
+for name in select_species:
+    axes[0].semilogx(data1[name][index].values, data1.alt_km.values, label=name)
+axes[0].legend()
+axes[0].set_ylabel('Altitude [km]')
+axes[0].set_xlabel('Total density [kg/m^3]')
 
 
 
