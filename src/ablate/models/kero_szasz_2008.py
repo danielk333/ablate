@@ -23,18 +23,12 @@ from .. import functions
 from .. import atmosphere as atm
 
 
-msise00 = atm.NRLMSISE00()
-def _meta_getter():
-    return msise00.species
-
 class KeroSzasz2008(ScipyODESolve):
     '''Ablation model
 
     '''
 
-    ATMOSPHERES = {
-        'msise00': (msise00.density, _meta_getter),
-    }
+    ATMOSPHERES = {}
     DEFAULT_OPTIONS = copy.deepcopy(ScipyODESolve.DEFAULT_OPTIONS)
     DEFAULT_OPTIONS.update(dict(
         temperature0 = 290,
@@ -272,3 +266,21 @@ class KeroSzasz2008(ScipyODESolve):
             coords = {'t': t},
             attrs = {key:val for key, val in self.options.items()}
         )
+
+
+try:
+    import msise00 as msise_test
+    msise_test = True
+except ImportError:
+    msise_test = False
+
+if msise_test:
+    msise00 = atm.NRLMSISE00()
+    def _meta_getter():
+        return msise00.species
+
+    KeroSzasz2008._register_atmosphere('msise00', msise00.density, _meta_getter)
+else:
+    def _msise_getter(*args, **kwargs):
+        raise ImportError('msise00 import error: cannot use "msise00" as atmosphere. Plase confirm it has been installed.')
+    KeroSzasz2008._register_atmosphere('msise00', _msise_getter, _msise_getter)
