@@ -3,11 +3,8 @@ import sys
 
 import numpy as np
 import matplotlib.pyplot as plt
-import xarray
-import scipy.constants as constants
 
 import ablate
-import ablate.functions as func
 
 handler = logging.StreamHandler(sys.stdout)
 
@@ -29,11 +26,11 @@ model = ablate.KeroSzasz2008(
     ),
 )
 
-material_data = func.material.material_parameters('iron')
+material_data = ablate.functions.material.material_parameters('iron')
 
 result = model.run(
-    velocity0 = 60*1E3, 
-    mass0 = 1E-6, 
+    velocity0 = 60*1e3, 
+    mass0 = 1e-6, 
     altitude0 = 120e3,
     zenith_ang = 35.0,
     azimuth_ang = 0.0,

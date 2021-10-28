@@ -7,36 +7,28 @@ import ablate.functions as func
 import ablate.atmosphere as atm
 
 #data for 2 different meteoroids
-model = atm.MSISE00()
+model = atm.NRLMSISE00()
 data = model.density(
-    npt = np.datetime64('2018-07-28'),
-    lat = np.array([69.0, 69.1]),
-    lon = 12.0,
-    alt = 120e3,
+    time = np.datetime64('2018-07-28'),
+    lat = np.array([69.0, 69.0]),
+    lon = np.array([12.0, 12.0]),
+    alt = np.array([90e3, 120e3]),
 )
+print(data)
 
-_data = {}
-for key in model.species.keys():
-    _data[key] = (['met'], data[key].values.squeeze())
-
-density = xarray.Dataset(
-    _data,
-   coords = {'met': np.arange(2)},
-)
-
-print(density)
+material_data = func.material.material_parameters('ast')
 
 dmdt = func.sputtering.sputtering(
     mass = np.array([0.5, 0.2]),
-    velocity = np.full((2,), 40e3),
-    material = 'ast',
-    density = density,
+    velocity = np.array([40e3, 40e3]),
+    material_data = material_data,
+    density = data,
 )
 
 dmdt_th = func.ablation.thermal_ablation(
     mass = np.array([0.5, 0.2]),
     temperature = 3700,
-    material = 'ast',
+    material_data = material_data,
     shape_factor = 1.21,
 )
 
