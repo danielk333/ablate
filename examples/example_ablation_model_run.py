@@ -16,17 +16,17 @@ for name in logging.root.manager.loggerDict:
         print(f'logger: {name}')
 
 
-logger = logging.getLogger('ablate.ode')
+logger = logging.getLogger('ablate')
 logger.setLevel(logging.DEBUG)
 logger.addHandler(handler)
 
-#logger = logging.getLogger('ablate.models.kero_szasz_2008')
-#logger.setLevel(logging.DEBUG)
-#logger.addHandler(handler)
-
 model = ablate.KeroSzasz2008(
     atmosphere='msise00',
-    sputtering = True,
+    options = dict(
+        sputtering = True,
+        minimum_mass = 1e-11,
+        max_step_size = 5e-3,
+    ),
 )
 
 material_data = func.material.material_parameters('iron')
@@ -44,27 +44,37 @@ result = model.run(
     alt = 100e3,
 )
 
+print(result)
+
 fig = plt.figure(figsize=(15,15))
 fig.suptitle('Meteoroid ablation simulation')
 
 ax = fig.add_subplot(221)
-ax.plot(result.t, np.log10(result.y[0,:]))
+ax.plot(result.t, np.log10(result.mass))
 ax.set_ylabel('Mass [log$_{10}$(kg)]')
 ax.set_xlabel('Time [s]')
 
 ax = fig.add_subplot(222)
-ax.plot(result.t, result.y[1,:]*1e-3)
+ax.plot(result.t, result.velocity*1e-3)
 ax.set_ylabel('Velocity [km/s]')
 ax.set_xlabel('Time [s]')
 
 ax = fig.add_subplot(223)
-ax.plot(result.t, result.y[2,:]*1e-3)
-ax.set_ylabel('Trajectory path [km]')
+ax.plot(result.t, result.position*1e-3)
+ax.set_ylabel('Position on trajectory [km]')
 ax.set_xlabel('Time [s]')
 
 ax = fig.add_subplot(224)
-ax.plot(result.t, result.y[3,:])
+ax.plot(result.t, result.temperature)
 ax.set_ylabel('Meteoroid temperature [K]')
 ax.set_xlabel('Time [s]')
+
+
+fig = plt.figure(figsize=(15,15))
+ax = fig.add_subplot(111)
+ax.plot(np.diff(result.mass.values)/np.diff(result.altitude.values), result.altitude.values[:-1]*1e-3)
+ax.set_xlabel('Mass loss [kg/m]')
+ax.set_ylabel('Altitude [km]')
+
 
 plt.show()

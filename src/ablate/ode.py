@@ -54,7 +54,12 @@ class ScipyODESolve(AblationModel):
 
         events = [_low_mass]
 
-        logger.debug(f'{self.__class__} integrating IVP...')
+        logger.debug(f'{self.__class__} integrating IVP:\n- method: {self.method}\n- method-options: {self.method_options}')
+        logger.debug('Options:\n' + '\n-- '.join([f'{key}: {val}' for key, val in self.options.items()]))
+
+        ivp_kw = {}
+        if not (self.method_options is None or len(self.method_options) == 0):
+            ivp_kw['options'] = self.method_options
 
         self._ivp_result = solve_ivp(
             fun=lambda t, y: self.rhs(t, y[0], y[1:], *args, **kwargs),
@@ -64,7 +69,7 @@ class ScipyODESolve(AblationModel):
             max_step = self.options['max_step_size'],
             dense_output = False,
             events = events,
-            options = self.method_options,
+            **ivp_kw
         )
 
         logger.debug(f'{self.__class__} IVP integration complete')

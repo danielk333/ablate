@@ -56,18 +56,6 @@ class KeroSzasz2008(ScipyODESolve):
         self._M = 5.9742E24 #[kg] mass of earth
 
 
-    def _allocate(self, t):
-
-        _data = {}
-        for key in ['v','m','s','T']:
-            _data[key] = (['t'], np.empty(t.shape, dtype=np.float64))
-
-        self.results = xarray.Dataset(
-            _data,
-            coords = {'t': t},
-            attrs = {key:None for key in self.options}
-        )
-
 
     def rhs(self, t, mass, y, material_data, Lambda, Gamma, epoch):
         '''The right hand side of the differential equation to be integrated, i.e:
@@ -100,11 +88,12 @@ class KeroSzasz2008(ScipyODESolve):
         ecef = functions.coordinate.geodetic2ecef(lat, lon, alt)
         r = np.linalg.norm(ecef)
 
-        logger.debug(f'Position: {ecef*1e-3} km')
-        logger.debug(f'lat = {lat}, lon = {lon}, {alt*1e-3} km')
+        #logger.debug(f'Position: {ecef*1e-3} km')
+        #logger.debug(f'lat = {lat}, lon = {lon}, {alt*1e-3} km')
 
-        logger.debug(f't0 + {t} s: ')
-        logger.debug(f'vel = {vel*1e-3} km/s, traj-s = {s*1e-3} km, mass = {mass} kg, temp = {T} K')
+        #logger.debug(f't0 + {t} s: ')
+        #logger.debug(f'vel = {vel*1e-3} km/s, traj-s = {s*1e-3} km, mass = {mass} kg, temp = {T} K')
+        #logger.debug(f'altitude = {alt*1e-3} km')
 
         atm = self.get_atmosphere(
             time = epoch + np.timedelta64(int(t*1e6), 'us'),
@@ -132,8 +121,8 @@ class KeroSzasz2008(ScipyODESolve):
             shape_factor = self.options['shape_factor'],
         )
 
-        logger.debug(f'dmdt sputtering: {dmdt_s} kg/s')
-        logger.debug(f'dmdt ablation  : {dmdt_a} kg/s')
+        #logger.debug(f'dmdt sputtering: {dmdt_s} kg/s')
+        #logger.debug(f'dmdt ablation  : {dmdt_a} kg/s')
 
         if Lambda is None:
             Lambda = functions.dynamics.heat_transfer(
@@ -179,11 +168,11 @@ class KeroSzasz2008(ScipyODESolve):
             emissivity = self.options['emissivity'],
         )
 
-        dmdt = dmdt_a + dmdt_s; #total mass loss
+        dmdt = dmdt_a + dmdt_s #total mass loss
 
-        ret = np.array([dmdt, dvdt, dsdt, dTdt], dtype=np.float64)#output
+        ret = np.array([dmdt, dvdt, dsdt, dTdt], dtype=np.float64)
 
-        logging.debug(f'DERIVS: vel = {dvdt*1e-3} km/s^2, traj-s = {dsdt*1e-3} km/s, mass = {dmdt} kg/s, temp = {dTdt} K/s')
+        #logging.debug(f'DERIVS: vel = {dvdt*1e-3} km/s^2, traj-s = {dsdt*1e-3} km/s, mass = {dmdt} kg/s, temp = {dTdt} K/s')
 
         return ret
 
@@ -237,9 +226,7 @@ class KeroSzasz2008(ScipyODESolve):
 
         def s_to_geo(s):
             traj = reference_ecef - v_dir_ecef*s
-
             geo = functions.coordinate.ecef2geodetic(*traj.tolist())
-
             return geo
 
         self.s_to_geo = s_to_geo
@@ -257,5 +244,31 @@ class KeroSzasz2008(ScipyODESolve):
         )
 
         self._allocate(self._ivp_result.t)
+        self.results['mass'][:] = self._ivp_result.y[0,:]
+        self.results['velocity'][:] = self._ivp_result.y[1,:]
+        self.results['position'][:] = self._ivp_result.y[2,:]
+        self.results['temperature'][:] = self._ivp_result.y[3,:]
+        
+        ecef = self._ivp_result.y[2,:]
+        ecef = reference_ecef[:,None] - v_dir_ecef[:,None]*ecef[None,:]
+        alts = np.array([self.s_to_geo(_s)[2] for _s in self._ivp_result.y[2,:]])
 
-        return self._ivp_result
+        self.results['ecef_x'][:] = ecef[0,:]
+        self.results['ecef_y'][:] = ecef[1,:]
+        self.results['ecef_z'][:] = ecef[2,:]
+        self.results['altitude'][:] = alts
+
+        return self.results
+
+
+    def _allocate(self, t):
+
+        _data = {}
+        for key in ['mass','velocity','position','temperature', 'ecef_x', 'ecef_y', 'ecef_z', 'altitude']:
+            _data[key] = (['t'], np.empty(t.shape, dtype=np.float64))
+
+        self.results = xarray.Dataset(
+            _data,
+            coords = {'t': t},
+            attrs = {key:val for key, val in self.options.items()}
+        )
