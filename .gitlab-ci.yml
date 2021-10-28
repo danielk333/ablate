@@ -1,0 +1,89 @@
+variables:
+  PIP_CACHE_DIR: "${CI_PROJECT_DIR}/.cache/pip"
+  PYPI_TOKEN: $PYPI_TOKEN
+
+
+cache:
+  key: "${CI_JOB_NAME}"
+  paths:
+    - .cache/pip
+    - .venv
+
+
+stages:
+  - quality
+  - tests
+  - publish
+
+
+# templates
+.install-deps-template: &install-deps
+  before_script:
+    - python -V
+    - pip install virtualenv
+    - pip install -U pip
+    - virtualenv venv
+    - source venv/bin/activate
+    - pip install .
+    - pip install .[develop]
+
+
+.test-template: &test
+  <<: *install-deps
+  stage: tests
+  script: 
+    - coverage run -m pytest > .pytest_report
+    - coverage report -m > .coverage_report
+  artifacts:
+    paths:
+      - .pytest_report
+      - .coverage_report
+    when: always
+    expire_in: 1 week
+
+
+check-flake8:
+  <<: *install-deps
+  image: python:3.9.7
+  stage: quality
+  script: 
+    - python -m flake8 > .flake8_report
+  artifacts:
+    paths:
+      - .flake8_report
+    when: always
+    expire_in: 1 week
+
+
+python3.7:
+  <<: *test
+  image: python:3.7
+
+python3.9:
+  <<: *test
+  image: python:3.9
+
+
+package:
+  <<: *install-deps
+  image: python:3.9.7
+  stage: publish
+  script:
+    - python -m build
+    - python -m twine check dist/*
+  artifacts:
+    paths:
+      - dist/*
+
+
+#upload:
+#  <<: *install-deps
+#  image: python:3.9.7
+#  stage: publish
+#  script:
+#    - >
+#      TWINE_USERNAME=__token__
+#      TWINE_PASSWORD=$PYPI_TOKEN
+#      python -m twine upload dist/*
+#  rules:
+#    - if: $CI_COMMIT_TAG
