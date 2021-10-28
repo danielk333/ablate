@@ -8,7 +8,4 @@ Ablation model library
    :template: autosummary/module.rst
    :toctree: autosummary/ablation_models
 
-   ablate.ode
-   ablate.base_models
    ablate.models
-

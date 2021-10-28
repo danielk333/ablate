@@ -3,7 +3,11 @@
 # Sphinx documentation
 docs/build/
 docs/source/auto_gallery
-docs/source/autosumary
+docs/source/autosummary
+
+
+## tests and flake
+.*_report
 
 
 ## Compiled source

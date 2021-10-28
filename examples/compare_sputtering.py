@@ -1,3 +1,10 @@
+'''
+Compute sputtering and thermal ablation
+========================================
+
+Docstring for this example
+'''
+
 import numpy as np
 import matplotlib.pyplot as plt
 import xarray

@@ -1,5 +1,5 @@
 '''
-This is my example script
+Plot the msise00 model
 =========================
 
 Docstring for this example

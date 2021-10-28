@@ -1,3 +1,10 @@
+'''
+Example run of an ablation model
+=================================
+
+Docstring for this example
+'''
+
 import logging
 import sys
 
