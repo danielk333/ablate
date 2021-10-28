@@ -172,17 +172,17 @@ class KeroSzasz2008(ScipyODESolve):
 
 
     def run(self,
-                velocity0, 
-                mass0, 
-                altitude0,
-                zenith_ang,
-                azimuth_ang,
-                material_data,
-                time,
-                lat,
-                lon,
-                alt,
-            ):
+            velocity0, 
+            mass0, 
+            altitude0,
+            zenith_ang,
+            azimuth_ang,
+            material_data,
+            time,
+            lat,
+            lon,
+            alt,
+        ):
         '''This function is based on calc_sput.m which was used to verify the sputtering described in Rogers et al.: Mass loss due to  sputtering and thermal processes in meteoroid ablation, Planetary and Space Science 53 p. 1341-1354 (2005).
         
         :param float/numpy.ndarray velocity0: Meteoroid initial velocity [m/s]
