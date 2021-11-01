@@ -83,7 +83,8 @@ stages:
 
 #Run flake8 to check code-style adherance to PEP8
 check-flake8:
-  <<: *install-deps # Merge the contents of the alias
+  before_script:
+    - *install-deps # execute script in alias
   image: python:3.9.7
   stage: quality
   script: 
