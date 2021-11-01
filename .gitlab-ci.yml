@@ -123,7 +123,8 @@ python3.9:
 
 #Compile documentation for publication
 docs:
-  <<: *install-deps # Merge the contents of the alias
+  before_script:
+    - *install-deps # execute script in alias
   image: python:3.9.7
   stage: publish
   script:
@@ -135,7 +136,8 @@ docs:
 
 #Build and check integrity of distribution
 package:
-  <<: *install-deps # Merge the contents of the alias
+  before_script:
+    - *install-deps # execute script in alias
   image: python:3.9.7
   stage: publish
   script:
@@ -148,7 +150,8 @@ package:
 #Publish package on PyPI if
 # the commit has a version tag
 #upload:
-#  <<: *install-deps # Merge the contents of the alias
+#  before_script:
+#    - *install-deps # execute script in alias
 #  image: python:3.9.7
 #  stage: publish
 #  script:
