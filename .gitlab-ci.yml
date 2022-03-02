@@ -45,7 +45,7 @@ cache:
   #  PRE-REQS for msise00
   - apt update
   - apt install -y make build-essential gcc
-  - wget https://github.com/Kitware/CMake/releases/download/v3.15.2/cmake-3.21.5.tar.gz
+  - wget https://github.com/Kitware/CMake/releases/download/v3.21.5/cmake-3.21.5.tar.gz
   - tar -zxvf cmake-3.21.5.tar.gz
   - cd cmake-3.21.5.tar.gz
   - ./bootstrap && make && sudo make install
