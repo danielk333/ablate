@@ -29,7 +29,6 @@ cache:
 #   https://docs.gitlab.com/ee/ci/yaml/yaml_specific_features.html
 # #
 
-
 #Template script for all jobs that installs
 # the package and dependancies into a virtualenv
 .install-deps-template: &install-deps
@@ -58,31 +57,16 @@ default:
   stage: test
   allow_failure: true
   script: 
-    - coverage run -m pytest > .pytest_report
-    - coverage report -m > .coverage_report
-  #Save the reports for each platform
-  # so that its easier to troubleshoot
-  artifacts:
-    paths:
-      - .pytest_report
-      - .coverage_report
-    when: always
-    expire_in: 1 week
+    - coverage run -m pytest
+    - coverage report -m
 
 
 #Run flake8 to check code-style adherance to PEP8
 check-flake8:
   stage: test
   script: 
-    - python -m flake8 --extend-exclude venv > .flake8_report
-  #Save flake-report for use when working on
-  # next update
+    - python -m flake8 --extend-exclude venv
   allow_failure: true
-  artifacts:
-    paths:
-      - .flake8_report
-    when: always
-    expire_in: 1 week
 
 
 ##########################
@@ -132,12 +116,10 @@ pages:
     - mv build/html ../public
   artifacts:
     paths:
-      # pandoc has output the files to the public directory,
-      # but the gitlab runner also needs to know where to get them
       - public
 
 
-#Publish package on PyPI if
+#Publish package on local PyPI if
 # the commit has a version tag
 upload:
   stage: deploy
