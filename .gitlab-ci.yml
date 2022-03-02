@@ -62,11 +62,11 @@ default:
 
 
 #Run flake8 to check code-style adherance to PEP8
-check-flake8:
-  stage: test
-  script: 
-    - python -m flake8 --extend-exclude venv
-  allow_failure: true
+# check-flake8:
+#   stage: test
+#   script: 
+#     - python -m flake8 --extend-exclude venv
+#   allow_failure: true
 
 
 ##########################
@@ -111,6 +111,8 @@ package:
 pages:
   stage: deploy
   script:
+    - pip install .[msise]
+    - python -c "import msise00; msise00.base.build()"
     - cd docs
     - make html
     - mv build/html ../public
