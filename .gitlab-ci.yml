@@ -44,7 +44,7 @@ cache:
   # Install extras for tests and examples
   #  PRE-REQS for msise00
   - apt update
-  - apt install cmake build-essential gcc
+  - apt install -y cmake build-essential gcc
   - pip install .[msise]
   - python -c "import msise00; msise00.base.build()"
 
