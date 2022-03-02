@@ -20,11 +20,9 @@ class TestScipyODESolve(unittest.TestCase):
                 pass
             inst = TestODE()
 
-
     def test_class_ABC(self):
         with self.assertRaises(TypeError):
             inst = ablate.ScipyODESolve()
-
 
     def test_subclass_init(self):
         class TestODE(ablate.ScipyODESolve):
@@ -38,7 +36,3 @@ class TestScipyODESolve(unittest.TestCase):
         TestODE._register_atmosphere('my_atm', lambda x: None, {'my_meta':None})
 
         ode = TestODE('my_atm')
-
-
-    def test_child_class_integrate(self):
-        raise NotImplementedError()
