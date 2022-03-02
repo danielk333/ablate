@@ -44,7 +44,7 @@ cache:
   # Install extras for tests and examples
   #  PRE-REQS for msise00
   - apt update
-  - apt install -y make build-essential gcc
+  - apt install -y make build-essential gfortran 
   - wget https://github.com/Kitware/CMake/releases/download/v3.21.5/cmake-3.21.5.tar.gz
   - tar -zxf cmake-3.21.5.tar.gz
   - cd cmake-3.21.5
@@ -52,6 +52,7 @@ cache:
   - cd ..
   # Print for debug
   - cmake --version
+  - export FC="/usr/bin/gfortran"
   # Install msise00
   - pip install .[msise]
   - python -c "import msise00; msise00.base.build()"
