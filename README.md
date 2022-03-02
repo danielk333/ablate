@@ -2,20 +2,19 @@
 
 ## Install
 
+```bash
+    pip install ablate
+```
+
 ### matplotlib backends
 
-on arch to get matplotlib to work OR PRETTY MUCH AND PACKAGE
+on arch to get matplotlib to work
 
 `pip install Qt5Agg`
 
 and add a `~/.config/matplotlib/matplotlibrc` with `backend:qt5agg`.
 
 see `https://matplotlib.org/stable/tutorials/introductory/usage.html#backends`
-
-To install:
-```bash
-    pip install ablate
-```
 
 ### msise00 atmospheric model
 
@@ -39,14 +38,3 @@ or
 pip install git+git://github.com/space-physics/msise00.git@main
 python -c "import msise00; msise00.base.build()"
 ```
-
-## Development
-
-### Poetry
-
-To generate a new `requirements.txt` file to be used in the GitLab CI/CD chain run:
-
-```bash
-poetry export -f requirements.txt --output requirements.txt
-```
-
