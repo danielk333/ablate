@@ -41,6 +41,9 @@ cache:
   - source venv/bin/activate
   # install the develop dependancies
   - pip install .[develop]
+  # Install extras for tests and examples
+  - pip install .[msise]
+  - python -c "import msise00; msise00.base.build()"
 
 
 default:
@@ -111,8 +114,6 @@ package:
 pages:
   stage: deploy
   script:
-    - pip install .[msise]
-    - python -c "import msise00; msise00.base.build()"
     - cd docs
     - make html
     - mv build/html ../public
