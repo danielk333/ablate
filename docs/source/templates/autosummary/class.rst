@@ -1,29 +1,58 @@
-{{ fullname | escape | underline}}
+{{ fullname | escape }}
+{{ (fullname | escape | length)*"=" }}
 
 .. currentmodule:: {{ module }}
 
 .. autoclass:: {{ objname }}
 
-   {% block methods %}
-   {% if methods %}
-   .. rubric:: Methods
+Summary
+-------
 
-   .. autosummary::
-      :toctree: .
-   {% for item in methods %}
-      ~{{ name }}.{{ item }}
-   {%- endfor %}
-   {% endif %}
-   {% endblock %}
+{% if attributes %}
+Attributes
+^^^^^^^^^^
 
-   {% block attributes %}
-   {% if attributes %}
-   .. rubric:: Attributes
+.. autosummary::
+  :toctree: .
+{% for item in attributes %}
+  ~{{ name }}.{{ item }}
+{%- endfor %}
+{% endif %}
 
-   .. autosummary::
-      :toctree: .
-   {% for item in attributes %}
-      ~{{ name }}.{{ item }}
-   {%- endfor %}
-   {% endif %}
-   {% endblock %}
+
+{% if methods %}
+Methods
+^^^^^^^
+
+.. autosummary::
+  :toctree: .
+{% for item in methods %}
+  ~{{ name }}.{{ item }}
+{%- endfor %}
+{% endif %}
+
+
+{% block attributes %}
+{% if attributes %}
+Attributes
+----------
+
+{% for item in attributes %}
+.. autoattribute:: {{ name }}.{{ item }}
+    :noindex:
+{%- endfor %}
+{% endif %}
+{% endblock %}
+
+
+{% block methods %}
+{% if methods %}
+Methods
+-------
+
+{% for item in methods %}
+.. automethod:: {{ name }}.{{ item }}
+    :noindex:
+{%- endfor %}
+{% endif %}
+{% endblock %}

@@ -1,7 +1,9 @@
-{{ fullname | escape | underline }}
+{{ fullname | escape }}
+{{ (fullname | escape | length)*"=" }}
 
 .. currentmodule:: {{ module }}
 
-.. rubric:: {{ objname }}
+{{ objname }}
+{{ (objname | escape | length)*"-" }}
 
 .. automethod:: {{ objname }}
