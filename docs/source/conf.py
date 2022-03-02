@@ -7,12 +7,11 @@
 import warnings
 from datetime import date
 import ablate
-import sphinx_rtd_theme
 
 # -- Project information -----------------------------------------------------
 
 project = 'Meteoroid Ablation Models'
-version ='.'.join(ablate.__version__.split('.')[:2])
+version = '.'.join(ablate.__version__.split('.')[:2])
 release = ablate.__version__
 copyright = f'[2019-{date.today().year}], Daniel Kastinen, Johan Kero'
 author = 'Daniel Kastinen, Johan Kero'
