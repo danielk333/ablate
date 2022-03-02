@@ -42,6 +42,9 @@ cache:
   # install the develop dependancies
   - pip install .[develop]
   # Install extras for tests and examples
+  #  PRE-REQS for msise00
+  - sudo apt update
+  - sudo apt install cmake build-essential gcc
   - pip install .[msise]
   - python -c "import msise00; msise00.base.build()"
 
@@ -91,8 +94,8 @@ default:
 #   <<: *python-test # Merge the contents of the alias
 #   image: python:3.7
 
-python:
-  <<: *python-test # Merge the contents of the alias
+# python:
+#   <<: *python-test # Merge the contents of the alias
 
 # python3.9:
 #   <<: *python-test # Merge the contents of the alias
@@ -100,14 +103,14 @@ python:
 
 
 #Build and check integrity of distribution
-package:
-  stage: release
-  script:
-    - python -m build
-    - python -m twine check dist/*
-  artifacts:
-    paths:
-      - dist/*
+# package:
+#   stage: release
+#   script:
+#     - python -m build
+#     - python -m twine check dist/*
+#   artifacts:
+#     paths:
+#       - dist/*
 
 
 #Compile documentation for publication
