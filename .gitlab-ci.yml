@@ -128,7 +128,7 @@ pages:
   script:
     - cd docs
     - make html
-    - mv build/html ../public
+    - mv build ../public
   artifacts:
     paths:
       - public
