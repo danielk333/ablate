@@ -52,6 +52,7 @@ master_doc = 'index'
 html_theme = 'basic'
 html_css_files = [
     'https://www.irf.se/branding/irf.css',
+    'https://www.irf.se/branding/irf-sphinx-basic.css',
 ]
 
 # Add any paths that contain custom static files (such as style sheets) here,
