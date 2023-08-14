@@ -36,12 +36,45 @@ logger = logging.getLogger(__name__)
 # External packages
 import numpy as np
 from scipy import constants
+import scipy.optimize
+import scipy.special
 
 
 # Internal packages
 from .material import material_parameters
 
 
+
+def alpha_beta_Q4_min(Vvalues, Yvalues):
+    """ initiates and calls the Q4 minimisation given in Gritsevich 2007 -
+        'Validity of the photometric formula for estimating the mass of a fireball projectile'
+    """
+    params = np.vstack((Vvalues, Yvalues))
+
+    b0 = 1.
+    a0 = np.exp(Yvalues[-1])/(2. * b0)
+    x0 = [a0, b0]
+    xmin = [0.001, 0.00001]
+    xmax = [10000., 50.]
+
+    bnds = ((xmin[0], xmax[0]), (xmin[1], xmax[1]))
+
+    res = scipy.optimize.minimize(alpha_beta_min_fun, x0, args=(Vvalues, Yvalues),bounds=bnds)
+    return res.x    
+
+
+def alpha_beta_min_fun(x, vvals, yvals):
+    """minimises equation 7 using Q4 minimisation given in equation 10 of 
+       Gritsevich 2007 - 'Validity of the photometric formula for estimating 
+       the mass of a fireball projectile'
+
+    """ 
+    res = 0.
+    for i in range(len(vvals)):
+        res += pow(2 * x[0] * np.exp(-yvals[i]) - (scipy.special.expi(x[1]) - scipy.special.expi(x[1]* vvals[i]**2) ) * np.exp(-x[1]) , 2)
+    #       #sum...alpha*e^-y*2                     |__________________-del______________________________________|     *e^-beta    
+        # res += (np.log(2 * x[0]) -yvals[i] - np.log(scipy.special.expi(x[1]) - scipy.special.expi(x[1]* vvals[i]**2) ) -x[1]) * 2
+    return res
 
 
 def luminosity(velocity, thermal_ablation):

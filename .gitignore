@@ -94,3 +94,6 @@ dmypy.json
 
 # sublime files
 *.sublime-*
+
+#code files
+*.code-*
