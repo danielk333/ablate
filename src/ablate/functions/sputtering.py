@@ -88,7 +88,7 @@ def sputtering(mass, velocity, material_data, density):
     avalible_species = ['O', 'N2', 'O2', 'He', 'Ar', 'H', 'N']
     m1 = np.array([15.9994, 14.007, 15.999, 4.0026, 39.948, 1.0079, 14.007])*u
     z1 = np.array([8, 7, 8, 2, 18, 1, 7])
-    use_species = np.full(m1.shape, False, dtype=np.bool)
+    use_species = np.full(m1.shape, False, dtype=bool)
     
     if shape is not None:
         #This needs to happen first
