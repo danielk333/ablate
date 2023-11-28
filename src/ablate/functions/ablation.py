@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-'''
+"""
 Thermal ablation physics
 =========================
 
@@ -26,66 +26,68 @@ Calculate thermal ablation:
     print(f'Thermal ablation {dmdt_th} kg/s')
 
 
-'''
-# Basic Python
-import copy
+"""
 import logging
-
-logger = logging.getLogger(__name__)
-
-# External packages
 import numpy as np
 from scipy import constants
 import scipy.optimize
 import scipy.special
 
 
-# Internal packages
-from .material import material_parameters
+logger = logging.getLogger(__name__)
 
+
+def alpha_beta_entry_mass(alpha, beta, slope, aerodynamic_cd, density, shape_coef, sea_level_rho=1.29):
+    sin_gamma = np.sin(slope)
+    return (0.5*aerodynamic_cd*sea_level_rho*7160*shape_coef/(alpha*sin_gamma*density**(2/3.0)))**3
+
+
+def alpha_beta_final_mass(entry_mass, beta, shape_change_coef, final_norm_vel):
+    return entry_mass*np.exp(-beta/(1 - shape_change_coef)*(1 - final_norm_vel**2))
 
 
 def alpha_beta_Q4_min(Vvalues, Yvalues):
-    """ initiates and calls the Q4 minimisation given in Gritsevich 2007 -
-        'Validity of the photometric formula for estimating the mass of a fireball projectile'
-    """
-    params = np.vstack((Vvalues, Yvalues))
+    """Solve for alpha and beta using Q4 minimization.
 
-    b0 = 1.
-    a0 = np.exp(Yvalues[-1])/(2. * b0)
+    Reference: Gritsevich 2007 ( https://doi.org/10.1134/S1028335808020110 )
+    """
+
+    b0 = 1.0
+    a0 = np.exp(Yvalues[-1])/(2.0*b0)
     x0 = [a0, b0]
     xmin = [0.001, 0.00001]
-    xmax = [10000., 50.]
+    xmax = [10000.0, 50.0]
 
     bnds = ((xmin[0], xmax[0]), (xmin[1], xmax[1]))
 
-    res = scipy.optimize.minimize(alpha_beta_min_fun, x0, args=(Vvalues, Yvalues),bounds=bnds)
-    return res.x    
+    res = scipy.optimize.minimize(
+        alpha_beta_min_fun, x0, args=(Vvalues, Yvalues), bounds=bnds
+    )
+    return res.x
 
 
 def alpha_beta_min_fun(x, vvals, yvals):
-    """minimises equation 7 using Q4 minimisation given in equation 10 of 
-       Gritsevich 2007 - 'Validity of the photometric formula for estimating 
-       the mass of a fireball projectile'
+    """alpha and beta Q4 minimization function.
 
-    """ 
-    res = 0.
+    Reference: Gritsevich 2007 ( https://doi.org/10.1134/S1028335808020110 )
+    """
+    res = 0.0
     for i in range(len(vvals)):
-        res += pow(2 * x[0] * np.exp(-yvals[i]) - (scipy.special.expi(x[1]) - scipy.special.expi(x[1]* vvals[i]**2) ) * np.exp(-x[1]) , 2)
-    #       #sum...alpha*e^-y*2                     |__________________-del______________________________________|     *e^-beta    
-        # res += (np.log(2 * x[0]) -yvals[i] - np.log(scipy.special.expi(x[1]) - scipy.special.expi(x[1]* vvals[i]**2) ) -x[1]) * 2
+        r0 = 2*x[0]*np.exp(-yvals[i])
+        r0 -= (scipy.special.expi(x[1]) - scipy.special.expi(x[1]*vvals[i]**2))*np.exp(-x[1])
+        res += pow(r0, 2)
     return res
 
 
 def luminosity(velocity, thermal_ablation):
-    '''Luminosity during thermal ablation.
-    
+    """Luminosity during thermal ablation.
+
     :param float/numpy.ndarray velocity: Meteoroid velocity [m/s]
     :param float/numpy.ndarray thermal_ablation: Mass loss due to thermal ablation [kg/s]
 
     :rtype: float/numpy.ndarray
     :return: Luminosity [W]
-    
+
 
     Luminosity occurs in meteors as a result of decay of excited atomic (and
     a few molecular) states following collisions between ablated meteor atoms
@@ -93,68 +95,82 @@ def luminosity(velocity, thermal_ablation):
 
     **References:**
 
-        * Friichtenicht and Becker: Determination of meteor paramters using laboratory simulations techniques, 'Evolutionary and physical properties of meteoroids', 
-        * National Astronautics and Space Administration, Chapter 6, p. 53-81 (1973)
-        * Hill et al.: High geocentric velocity meteor ablation, A&A 444 p. 615-624 (2005)
+       *Friichtenicht and Becker: Determination of meteor paramters using laboratory
+            simulations techniques, 'Evolutionary and physical properties of meteoroids',
+       *National Astronautics and Space Administration, Chapter 6, p. 53-81 (1973)
+       *Hill et al.: High geocentric velocity meteor ablation, A&A 444 p. 615-624 (2005)
 
 
     **Symbol definitions:**
 
-        * I = [W] light intensity of a meteoroid, i.e. luminous intensity; radiant intensity
-        * tau_I = luminous efficiency factor
-        * mu = [kg] mean molecular mass of ablated material
-        * v = [m/s] meteoroid velocity
-        * epsilon = emissivity
-        * zeta = excitation coeff
-        * rho_m = [kg/m3] meteoroid density
-        * abla = mass loss due to thermal ablation
+       *I = [W] light intensity of a meteoroid, i.e. luminous intensity; radiant intensity
+       *tau_I = luminous efficiency factor
+       *mu = [kg] mean molecular mass of ablated material
+       *v = [m/s] meteoroid velocity
+       *epsilon = emissivity
+       *zeta = excitation coeff
+       *rho_m = [kg/m3] meteoroid density
+       *abla = mass loss due to thermal ablation
 
-    '''
+    """
 
-    #-- Universal constants
-    u = constants.u
+    # -- Universal constants
 
-
-    #-- Variables
-    v = velocity #[m/s] velocity
-    vkm = v/1E3 #[km/s] velocity
+    # -- Variables
+    v = velocity  # [m/s] velocity
+    vkm = v/1e3  # [km/s] velocity
     abla = thermal_ablation
 
-    #-- for visible meteors, the energy is in lines, it is believed that they are composed of iron (Cepleca p. 355, table 3)
-    epsilon_mu = 7.668E6 #[J/kg] mean excitation energy = epsilon/mu; mu = mean molecular mass
+    # -- for visible meteors, the energy is in lines, it is believed that they
+    # are composed of iron (Cepleca p. 355, table 3)
+    epsilon_mu = (
+        7.668e6  # [J/kg] mean excitation energy = epsilon/mu; mu = mean molecular mass
+    )
 
-
-    #-- The excitation coeff for different velocity intervals:
-    #-- See Hill et al. and references therein
+    # -- The excitation coeff for different velocity intervals:
+    # -- See Hill et al. and references therein
     zeta = np.zeros(v.shape, dtype=v.dtype)
-    I = v < 20000
+    ind = v < 20000
 
-    zeta[I] = -2.1887E-9*v[I]**2 + 4.2903E-13*v[I]**3 - 1.2447E-17*v[I]**4
+    zeta[ind] = -2.1887e-9*v[ind]**2 + 4.2903e-13*v[ind]**3 - 1.2447e-17*v[ind]**4
 
-    I = np.logical_and(v >= 20000, v < 60000)
-    zeta[I] = 0.01333*vkm[I]**1.25
+    ind = np.logical_and(v >= 20000, v < 60000)
+    zeta[ind] = 0.01333*vkm[ind]**1.25
 
-    I = np.logical_and(v >= 60000, v < 100000)
-    zeta[I] = -12.835 + 6.7672E-4*v[I] - 1.163076E-8*v[I]**2 + 9.191681E-14*v[I]**3 - 2.7465805E-19*v[I]**4
+    ind = np.logical_and(v >= 60000, v < 100000)
+    zeta[ind] = -12.835 + 6.7672e-4*v[ind] - 1.163076e-8*v[ind]**2
+    zeta[ind] += 9.191681e-14*v[ind]**3 - 2.7465805e-19*v[ind]**4
 
-    I = v >= 100000
-    zeta[I] = 1.615 + 1.3725E-5*v[I] 
+    ind = v >= 100000
+    zeta[ind] = 1.615 + 1.3725e-5*v[ind]
+
+    # -- Luminous efficiency factor
+    tau_I = 2*epsilon_mu*zeta/v**2
+
+    # -- The normal lumonous equation
+    intensity = -0.5*tau_I*abla*v**2
+
+    return intensity
 
 
-    #-- Luminous efficiency factor
-    tau_I = 2*epsilon_mu*zeta/v**2;
+def temperature_rate(
+    mass,
+    velocity,
+    temperature,
+    material_data,
+    shape_factor,
+    atm_total_density,
+    thermal_ablation,
+    Lambda,
+    atm_temperature=280,
+    emissivity=0.9,
+):
+    """Calculates the rate of change of temperature of the meteoroid.
+    A homogeneous metoroid experiencing an isotropic heat flux is assumed as
+    well as the meteoroid undergoing isothermal heating. (isothermal heating:
+    here: dTdS = 0 i.e. same spatial temperature)
 
 
-    #-- The normal lumonous equation
-    I = -0.5*tau_I*abla*v**2
-
-    return I
-
-
-def temperature_rate(mass, velocity, temperature, material_data, shape_factor, atm_total_density, thermal_ablation, Lambda, atm_temperature = 280, emissivity = 0.9):
-    '''Calculates the rate of change of temperature of the meteoroid. A homogeneous metoroid experiencing an isotropic heat flux is assumed as well as the meteoroid undergoing isothermal heating. (isotherma heating: here: dTdS = 0 i.e. same spatial temperature)
-    
-    
     :param float/numpy.ndarray mass: Meteoroid mass [kg]
     :param float/numpy.ndarray velocity: Meteoroid velocity [m/s]
     :param float/numpy.ndarray temperature: Meteoroid temperature [K]
@@ -168,66 +184,71 @@ def temperature_rate(mass, velocity, temperature, material_data, shape_factor, a
 
     :rtype: float/numpy.ndarray
     :return: Rate of change of temperature [K/s]
-        
+
 
     **Default values:**
 
-        * atm_temperature: ?
-        * emissivity: 0.9 from Hill et al.; Love & Brownlee: 1; 0.2 is characteristic for a metal, oxides are between 0.4 and 0.8
+       *atm_temperature: ?
+       *emissivity: 0.9 from Hill et al.; Love & Brownlee: 1; 0.2 is
+            characteristic for a metal, oxides are between 0.4 and 0.8
 
 
     **References:**
 
-        * Hill et al.: High geocentric velocity meteor ablation, A&A 444 p. 615-624 (2005)
+       *Hill et al.: High geocentric velocity meteor ablation, A&A 444 p. 615-624 (2005)
 
 
     **Change log:**
 
-        * Changes post-python port: See git-log
-        * Changes pre-python port: See `matlab-version <https://gitlab.irf.se/kero/ablation_matlab>`_
+       *Changes post-python port: See git-log
+       *Changes pre-python port: See `matlab-version <https://gitlab.irf.se/kero/ablation_matlab>`_
 
 
     **Heat balance equation per cross-sectional area:**
 
-        * A = shape factor
-        * c = specific heat of meteoroid
-        * mass = meteoroid mass
-        * rho_m = meteoroid density
-        * Lambda = heat transfer coefficient
-        * rho_tot= total atmospheric mass density
-        * vel = meteoroid velocity
-        * kb = Stefan-Bolzmann constant
-        * T = meteoroid temperature
-        * Ta = effective atmospheric temperature
-        * L = latent heat of fusion + vapourization
-        * thermal_ablation = mass loss due to thermal ablation
+       *A = shape factor
+       *c = specific heat of meteoroid
+       *mass = meteoroid mass
+       *rho_m = meteoroid density
+       *Lambda = heat transfer coefficient
+       *rho_tot= total atmospheric mass density
+       *vel = meteoroid velocity
+       *kb = Stefan-Bolzmann constant
+       *T = meteoroid temperature
+       *Ta = effective atmospheric temperature
+       *L = latent heat of fusion + vapourization
+       *thermal_ablation = mass loss due to thermal ablation
 
 
-    '''
+    """
 
-    #-- variables
-    kB = constants.value(u'Boltzmann constant') #[J/K]
+    # -- variables
+    kB = constants.value("Boltzmann constant")  # [J/K]
 
     epsilon = emissivity
 
-    Ta = atm_temperature #[K] effective atmospheric temperature
-    
+    Ta = atm_temperature  # [K] effective atmospheric temperature
+
     vel = velocity
     T = temperature
     A = shape_factor
     rho_tot = atm_total_density
 
-    rho_m = material_data['rho_m']
-    c = material_data['c']
-    L = material_data['L']
+    rho_m = material_data["rho_m"]
+    c = material_data["c"]
+    L = material_data["L"]
 
-    dTdt = A/(c*mass**(1.0/3.0)*rho_m**(2.0/3.0))*(0.5*Lambda*rho_tot*vel**3 - 4*kB*epsilon*(T**4 - Ta**4) + L/A*(rho_m/mass)**(2.0/3.0)*thermal_ablation)
+    coef0 = 0.5*Lambda*rho_tot*vel**3 - 4*kB*epsilon*(T**4 - Ta**4)
+    coef0 += L/A*(rho_m/mass)**(2.0/3.0)*thermal_ablation
+
+    coef1 = c*mass**(1.0/3.0)*rho_m**(2.0/3.0)
+
+    dTdt = (A/coef1)*coef0
     return dTdt
 
 
-
 def thermal_ablation(mass, temperature, material_data, shape_factor):
-    '''Calculates the mass loss for meteoroids due to thermal ablation.
+    """Calculates the mass loss for meteoroids due to thermal ablation.
 
     :param float/numpy.ndarray mass: Meteoroid mass [kg]
     :param float/numpy.ndarray temperature: Meteoroid temperature [K]
@@ -241,38 +262,42 @@ def thermal_ablation(mass, temperature, material_data, shape_factor):
 
     **Reference:**
 
-        * Rogers et al.: Mass loss due to  sputtering and thermal processes in meteoroid ablation, Planetary and Space Science 53 p. 1341-1354 (2005)
-        * Hill et al.: High geocentric velocity meteor ablation, A&A 444 p. 615-624 (2005)
+       *Rogers et al.: Mass loss due to  sputtering and thermal processes in
+            meteoroid ablation, Planetary and Space Science 53 p. 1341-1354 (2005)
+       *Hill et al.: High geocentric velocity meteor ablation, A&A 444 p. 615-624 (2005)
 
 
     **Change log:**
 
-        * Changes post-python port: See git-log
-        * Changes pre-python port: See `matlab-version <https://gitlab.irf.se/kero/ablation_matlab>`_
+       *Changes post-python port: See git-log
+       *Changes pre-python port: See `matlab-version <https://gitlab.irf.se/kero/ablation_matlab>`_
 
 
     **Symbol definintions:**
 
-        * Pv: vapour pressure of meteoroid [N/m^2]
-        * CA, CB: Clausius-Clapeyron coeff [K]
-        * mu: mean molecular mass of ablated vapour [kg]
-        * rho_m: meteoroid density [kg/m3]
+       *Pv: vapour pressure of meteoroid [N/m^2]
+       *CA, CB: Clausius-Clapeyron coeff [K]
+       *mu: mean molecular mass of ablated vapour [kg]
+       *rho_m: meteoroid density [kg/m3]
 
 
-    '''
+    """
 
-    CA = material_data['CA']
-    CB = material_data['CB']
-    mu = material_data['mu']
-    rho_m = material_data['rho_m']
+    CA = material_data["CA"]
+    CB = material_data["CB"]
+    mu = material_data["mu"]
+    rho_m = material_data["rho_m"]
 
     # 2007-03-21 Ed suggests that the vapor pressure should be lowered by a factor of 0.8 or 0.7
     # due to the large ram pressure forcing the evaporated atoms and molecules back on to the surface
     # thus leading to evaporation at a pressure that is lower than the equilibrium vapor pressure.
 
-    Pv = 10.0**(CA - CB/temperature) # in [d/cm2]...; d=dyne=10-5 Newton: the force required to accelearte a mass of one g at a rate of one cm per s^2
-    Pv = Pv*1E-5/1E-4 # Convert to [N/m2]
+    Pv = 10.0**(CA - CB/temperature)
+    # in [d/cm2]...; d=dyne=10-5 Newton: the force required to accelearte a
+    # mass of one g at a rate of one cm per s^2
+    Pv = Pv*1e-5/1e-4  # Convert to [N/m2]
 
-    dmdt = -4.0*shape_factor*(mass/rho_m)**(2.0/3.0)*Pv*np.sqrt(mu/(2.0*np.pi*constants.k*temperature)) #[kg/s]
+    coef0 = np.sqrt(mu/(2.0*np.pi*constants.k*temperature))
+    dmdt = -4.0*shape_factor*(mass/rho_m)**(2.0/3.0)*Pv*coef0  # [kg/s]
 
     return dmdt
