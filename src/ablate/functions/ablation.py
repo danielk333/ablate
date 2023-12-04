@@ -30,8 +30,8 @@ Calculate thermal ablation:
 import logging
 import numpy as np
 from scipy import constants
-import scipy.optimize
-import scipy.special
+import scipy.optimize as sco
+import scipy.special as scs
 
 
 logger = logging.getLogger(__name__)
@@ -46,6 +46,43 @@ def alpha_beta_final_mass(entry_mass, beta, shape_change_coef, final_norm_vel):
     return entry_mass*np.exp(-beta/(1 - shape_change_coef)*(1 - final_norm_vel**2))
 
 
+def alpha_beta_velocity_Q4_min(velocities, heights, h0, v0):
+    """TODO docstring
+
+    # TODO: proper default and customizable limits
+    """
+    Yvalues = heights/h0  # normalisation of heights here
+    b0 = 0.01
+    a0 = np.exp(Yvalues[-1]) / (2.0 * b0)
+    x0 = [a0, b0, v0 / 1000]
+
+    # /1000 is a hack to make velocities small so minimisation doesnt use stupid steps
+    xmin = [0.01, 0.0001, v0 * 0.7 / 1000]
+    xmax = [100000.0, 200.0, v0 * 1.3 / 1000]
+
+    bnds = ((xmin[0], xmax[0]), (xmin[1], xmax[1]), (xmin[2], xmax[2]))
+
+    res = sco.minimize(alpha_beta_velocity_min_fun, x0, args=(velocities, Yvalues), bounds=bnds)
+    out = res.x
+    out[2] *= 1000.0  # fix velocities for return
+    return out
+
+
+def alpha_beta_velocity_min_fun(x, velocities, yvals):
+    """TODO docstring
+
+    # TODO: this can be vectorized for speed in the future
+
+    """
+    res = 0
+    for i in range(len(velocities)):
+        vval = velocities[i] / (x[2] * 1000.0)
+        r0 = 2*x[0]*np.exp(-yvals[i]) - (scs.expi(x[1]) - scs.expi(x[1] * vval**2))*np.exp(-x[1])
+        if not np.isnan(r0):
+            res += pow(r0, 2)
+    return res
+
+
 def alpha_beta_Q4_min(Vvalues, Yvalues):
     """Solve for alpha and beta using Q4 minimization.
 
@@ -56,11 +93,11 @@ def alpha_beta_Q4_min(Vvalues, Yvalues):
     a0 = np.exp(Yvalues[-1])/(2.0*b0)
     x0 = [a0, b0]
     xmin = [0.001, 0.00001]
-    xmax = [10000.0, 50.0]
+    xmax = [10000.0, 500.0]
 
     bnds = ((xmin[0], xmax[0]), (xmin[1], xmax[1]))
 
-    res = scipy.optimize.minimize(
+    res = sco.minimize(
         alpha_beta_min_fun, x0, args=(Vvalues, Yvalues), bounds=bnds
     )
     return res.x
@@ -73,8 +110,8 @@ def alpha_beta_min_fun(x, vvals, yvals):
     """
     res = 0.0
     for i in range(len(vvals)):
-        r0 = 2*x[0]*np.exp(-yvals[i])
-        r0 -= (scipy.special.expi(x[1]) - scipy.special.expi(x[1]*vvals[i]**2))*np.exp(-x[1])
+        r0 = 2*x[0, ...]*np.exp(-yvals[i])
+        r0 -= (scs.expi(x[1, ...]) - scs.expi(x[1, ...]*vvals[i]**2))*np.exp(-x[1, ...])
         res += pow(r0, 2)
     return res
 

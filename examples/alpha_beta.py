@@ -15,33 +15,54 @@ from ablate.functions import ablation
 
 f = "/home/danielk/data/test_data/DN150417.csv"
 slope = 15.17
-
 vel_col = "D_DT_geo"
 h_col = "height"
-
 data = np.genfromtxt(
     f, delimiter=",", dtype="f8,f8,f8", names=["height", "D_DT_geo", "D_DT_fitted"]
 )
-slope = np.deg2rad(slope)
 
+# f = "/home/danielk/data/MU/test_tabledata.txt"
+# vel_col = "velocity"
+# h_col = "height"
+# data = np.genfromtxt(
+#     f, skip_header=1, delimiter=",", dtype="f8,f8", names=["height", "velocity"],
+# )
+# slope = 14.2256
+
+
+slope = np.deg2rad(slope)
 # remove any nan values
 data = data[np.logical_not(np.isnan(data[vel_col]))]
 vel = data[vel_col]
 alt = data[h_col]
 
 # Initial velocity
-v0 = np.nanmean(vel[0:10])
+v0 = vel[0]
 
 # dimensionless parameter for velocity
 Vvalues = vel/v0
 
 
 # normalise height - if statement accounts for km vs. metres data values.
-if alt[0] < 1000:
-    h0 = 7.160  # km
-else:
-    h0 = 7160.0  # metres
+h0 = 7160.0  # metres
 Yvalues = alt/h0
+
+mat_shape = (300, 200)
+alpha_mat, beta_mat = np.meshgrid(
+    np.linspace(-3, 5, mat_shape[1]),
+    np.linspace(-5, 3, mat_shape[0]),
+)
+
+xvec = np.stack([10.0**alpha_mat.flatten(), 10.0**beta_mat.flatten()])
+fit_func = ablation.alpha_beta_min_fun(xvec, Vvalues, Yvalues)
+
+fit_func = fit_func.reshape(mat_shape)
+
+fig, ax = plt.subplots()
+ax.pcolormesh(alpha_mat, beta_mat, np.exp(-fit_func))
+
+plt.show()
+
 
 Gparams = ablation.alpha_beta_Q4_min(Vvalues, Yvalues)
 
