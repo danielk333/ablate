@@ -38,11 +38,13 @@ logger = logging.getLogger(__name__)
 
 
 def alpha_beta_entry_mass(alpha, beta, slope, aerodynamic_cd, density, shape_coef, sea_level_rho=1.29):
+    """ TODO: validate, docstring and make sure no coefficients are left over """
     sin_gamma = np.sin(slope)
     return (0.5*aerodynamic_cd*sea_level_rho*7160*shape_coef/(alpha*sin_gamma*density**(2/3.0)))**3
 
 
 def alpha_beta_final_mass(entry_mass, beta, shape_change_coef, final_norm_vel):
+    """ TODO: validate, docstring and make sure no coefficients are left over """
     return entry_mass*np.exp(-beta/(1 - shape_change_coef)*(1 - final_norm_vel**2))
 
 
@@ -58,7 +60,7 @@ def alpha_beta_velocity_Q4_min(velocities, heights, h0, v0):
 
     # /1000 is a hack to make velocities small so minimisation doesnt use stupid steps
     xmin = [0.01, 0.0001, v0 * 0.7 / 1000]
-    xmax = [100000.0, 200.0, v0 * 1.3 / 1000]
+    xmax = [1000000.0, 200.0, v0 * 1.3 / 1000]
 
     bnds = ((xmin[0], xmax[0]), (xmin[1], xmax[1]), (xmin[2], xmax[2]))
 
@@ -74,18 +76,26 @@ def alpha_beta_velocity_min_fun(x, velocities, yvals):
     # TODO: this can be vectorized for speed in the future
 
     """
-    res = 0
+    if len(x.shape) == 1:
+        x.shape = (x.size, 1)
+    size = x.shape[1]
+
+    res = np.zeros((size,))
     for i in range(len(velocities)):
-        vval = velocities[i] / (x[2] * 1000.0)
-        r0 = 2*x[0]*np.exp(-yvals[i]) - (scs.expi(x[1]) - scs.expi(x[1] * vval**2))*np.exp(-x[1])
-        if not np.isnan(r0):
-            res += pow(r0, 2)
-    return res
+        vval = velocities[i] / (x[2, ...] * 1000.0)
+        r0 = 2*x[0, ...]*np.exp(-yvals[i])
+        r0 -= (scs.expi(x[1, ...]) - scs.expi(x[1, ...] * vval**2))*np.exp(-x[1, ...])
+        inds = np.logical_not(np.isnan(r0))
+        res[inds] += r0[inds]**2
+    if res.size == 1:
+        return res[0]
+    else:
+        return res
 
 
 def alpha_beta_Q4_min(Vvalues, Yvalues):
     """Solve for alpha and beta using Q4 minimization.
-
+    TODO: validate, docstring and make sure no coefficients are left over
     Reference: Gritsevich 2007 ( https://doi.org/10.1134/S1028335808020110 )
     """
 
@@ -105,7 +115,7 @@ def alpha_beta_Q4_min(Vvalues, Yvalues):
 
 def alpha_beta_min_fun(x, vvals, yvals):
     """alpha and beta Q4 minimization function.
-
+    TODO: validate, docstring and make sure no coefficients are left over
     Reference: Gritsevich 2007 ( https://doi.org/10.1134/S1028335808020110 )
     """
     res = 0.0

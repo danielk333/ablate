@@ -6,6 +6,8 @@ Example adapted from:
  - https://github.com/desertfireballnetwork/alpha_beta_modules
  - https://doi.org/10.1016/j.asr.2009.03.030
 
+# TODO: clean up
+
 """
 import scipy
 import numpy as np
