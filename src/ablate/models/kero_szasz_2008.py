@@ -96,7 +96,7 @@ class KeroSzasz2008(ScipyODESolve):
             alt = alt,
         )
 
-        rho_tot = atm['Total'].values.squeeze()
+        N_rho_tot = atm["Total"].values.squeeze() / self.atm_mean_mass
 
         if self.options['sputtering']:
             dmdt_s = functions.sputtering.sputtering(
@@ -124,10 +124,10 @@ class KeroSzasz2008(ScipyODESolve):
                 velocity = vel,
                 temperature = T,
                 material_data = material_data,
-                atm_total_density = rho_tot,
                 thermal_ablation = dmdt_a,
                 atm_mean_mass = self.atm_mean_mass,
                 res = self.options['integral_resolution'],
+                atm_total_density=N_rho_tot,
             )
 
         if Gamma is None:
@@ -136,9 +136,9 @@ class KeroSzasz2008(ScipyODESolve):
                 velocity = vel,
                 temperature = T,
                 material_data = material_data,
-                atm_total_density = rho_tot,
                 atm_mean_mass = self.atm_mean_mass,
                 res = self.options['integral_resolution'],
+                atm_total_density=N_rho_tot,
             )
 
         #-- Differential equation for the velocity to solve
@@ -155,11 +155,11 @@ class KeroSzasz2008(ScipyODESolve):
             temperature = T,
             material_data = material_data,
             shape_factor = self.options['shape_factor'],
-            atm_total_density = rho_tot,
             thermal_ablation = dmdt_a,
             Lambda = Lambda,
             atm_temperature = self.options['temperature0'],
             emissivity = self.options['emissivity'],
+            atm_total_density=N_rho_tot,
         )
 
         dmdt = dmdt_a + dmdt_s #total mass loss
