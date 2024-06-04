@@ -66,6 +66,17 @@ material_data = {
         'c': 1200,
         'L': 6.0E6,
     },
+'carbon': {
+        'rho_m': 2267.0,                        # Density of carbon (graphite) in kg/m³
+        'mu': 12.0 * constants.u,               # Mean molecular mass of ablated vapour [kg]
+        'm2': 12.0 * constants.u,               # Mean atomic mass [1]
+        'CA': 6.0,                              # Clausius-Clapeyron coeff [K]
+        'CB': 3490.0,                           # Clausius-Clapeyron coeff [K]
+        'u0': 1.0,                              # Surface binding energy [eV]
+        'z2': 6,                                # Atomic number of carbon
+        'c': 710,                               # Specific heat capacity of carbon (graphite) in J/(kg·K)
+        'L': 1.05E6,                            # Latent heat of fusion of carbon (graphite) in J/kg
+    },
 }
 '''dict: Meteoroid material data.
 
@@ -92,10 +103,10 @@ def material_parameters(material):
     **List of properties:**
         * m2: mean atomic mass [1]
         * u0: surface binding energy [eV]
-        * k: average atomic number [1]
+        * z2: average atomic number [1]
         * CA, CB: Clausius-Clapeyron coeff [K]
         * mu: mean molecular mass of ablated vapour [kg]
-        * k: Botzmann constant [J/K]
+        * k: free param for each material, used for sputtering
         * rho_m: meteoroid density [kg/m3]
         * c: specific heat of meteoroid [J/(K*kg)]
         * L: latent heat of fusion + vapourization [J/kg]
