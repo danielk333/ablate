@@ -69,21 +69,21 @@ plugins:
   - mkdocs-jupyter:
       execute: true
       include_source: True
-      # ignore: ["_wip*"]
-      ignore: ["*"]
+      ignore: ["_wip*"]
+      # ignore: ["*"]
 
 nav:
   - Home: index.md
   - Getting started: getting_started.md
-  # - Examples:
-  #   - examples/index.md
-  #   - alpha_beta: examples/alpha_beta.py
-  #   - calculate_gamma_lambda: examples/calculate_gamma_lambda.py
-  #   - compare_sputtering: examples/compare_sputtering.py
-  #   - drag_versus_size: examples/drag_versus_size.py
-  #   - example_ablation_model_run: examples/example_ablation_model_run.py
-  #   - heat_coef_versus_size: examples/heat_coef_versus_size.py
-  #   - plot_msise00: examples/plot_msise00.py
-  # - Notebooks:
-  #   - notebooks/index.md
+  - Examples:
+    - examples/index.md
+    - alpha_beta: examples/alpha_beta.py
+    - calculate_gamma_lambda: examples/calculate_gamma_lambda.py
+    - compare_sputtering: examples/compare_sputtering.py
+    - drag_versus_size: examples/drag_versus_size.py
+    - example_ablation_model_run: examples/example_ablation_model_run.py
+    - heat_coef_versus_size: examples/heat_coef_versus_size.py
+    - plot_msise00: examples/plot_msise00.py
+  - Notebooks:
+    - notebooks/index.md
   - Reference: reference/
