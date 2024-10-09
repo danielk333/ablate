@@ -1,20 +1,10 @@
-#!/usr/bin/env python
-
 '''
-Meteoroid material physics
-===========================
+# Meteoroid material physics
 '''
-
-# Basic Python
-import copy
 import logging
+from scipy import constants
 
 logger = logging.getLogger(__name__)
-
-
-# External packages
-import numpy as np
-from scipy import constants
 
 
 material_data = {
@@ -72,6 +62,7 @@ material_data = {
 # TODO: List origin for all data.
 '''
 
+
 def list_materials():
     '''List currently available meteoroid materials.
 
@@ -83,7 +74,6 @@ def list_materials():
 
 def material_parameters(material):
     '''Returns the physical parameters of the meteoroid based on its material.
-    
     :param str material: Meteoroid material, see :func:`~functions.material.material_parameters`.
 
     :rtype: dict

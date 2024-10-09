@@ -14,7 +14,6 @@ import xarray
 
 from ..ode import ScipyODESolve
 from .. import functions
-from .. import atmosphere as atm
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +151,7 @@ class KeroSzasz2008(ScipyODESolve):
             temperature=T,
             material_data=material_data,
             shape_factor=self.options["shape_factor"],
-            atm_total_density=rho_tot,
+            atm_total_mass_density=rho_tot,
             thermal_ablation=dmdt_a,
             Lambda=Lambda,
             atm_temperature=self.options["temperature0"],
@@ -183,20 +182,30 @@ class KeroSzasz2008(ScipyODESolve):
         lon,
         alt,
     ):
-        """This function is based on calc_sput.m which was used to verify the sputtering described in Rogers et al.: Mass loss due to  sputtering and thermal processes in meteoroid ablation, Planetary and Space Science 53 p. 1341-1354 (2005).
+        """This function is based on calc_sput.m which was used to verify the 
+        sputtering described in Rogers et al.: Mass loss due to sputtering and 
+        thermal processes in meteoroid ablation, 
+        Planetary and Space Science 53 p. 1341-1354 (2005).
 
         :param float/numpy.ndarray velocity0: Meteoroid initial velocity [m/s]
         :param float/numpy.ndarray mass0: Meteoroid initial mass [kg]
         :param float/numpy.ndarray altitude0: Meteoroid initial altitude [m]
-        :param float/numpy.ndarray zenith_ang: Zenith angle of the trajectory (-velocity vector) w.r.t reference point [deg]
-        :param float/numpy.ndarray azimuth_ang: Azimuthal angle east of north of the trajectory (-velocity vector) w.r.t reference point [deg]
-        :param dict material_data: Meteoroid material data, see :mod:`~functions.material.material_data`.
-        :param float/numpy.ndarray lat: Geographic latitude in degrees of reference point on the meteoroid trajectory
-        :param float/numpy.ndarray lon: Geographic longitude in degrees of reference point on the meteoroid trajectory
-        :param float/numpy.ndarray alt: Altitude above geoid in meters of reference point on the meteoroid trajectory
+        :param float/numpy.ndarray zenith_ang: 
+            Zenith angle of the trajectory (-velocity vector) w.r.t reference point [deg]
+        :param float/numpy.ndarray azimuth_ang: 
+            Azimuthal angle east of north of the trajectory (-velocity vector) w.r.t reference point [deg]
+        :param dict material_data: 
+            Meteoroid material data, see :mod:`~functions.material.material_data`.
+        :param float/numpy.ndarray lat: 
+            Geographic latitude in degrees of reference point on the meteoroid trajectory
+        :param float/numpy.ndarray lon: 
+            Geographic longitude in degrees of reference point on the meteoroid trajectory
+        :param float/numpy.ndarray alt: 
+            Altitude above geoid in meters of reference point on the meteoroid trajectory
 
 
-        #TODO: Add additional dynamical parameters to data structure e.g. lambda and gamma if they are not constant
+        #TODO: Add additional dynamical parameters to data structure e.g. 
+        #   lambda and gamma if they are not constant
 
 
         **Keyword arguments:**
@@ -205,8 +214,14 @@ class KeroSzasz2008(ScipyODESolve):
             * shape_factor = 1.21 [1]: Shape is assumed to be a sphere.
             * emissivity = 0.9 [1]: Hill et al.; Love & Brownlee: 1; (metal oxides)
             * sputtering = True [bool]: If sputtering is used in mass loss calculation.
-            * Gamma = None [1]: Drag coefficient, if :code:`None` it is dynamically calculated assuming a transition from (and including) free molecular flow to a (and not including) shock regime. Otherwise assumed a constant with the given value.
-            * Lambda = None [1]: Heat transfer coefficient, if :code:`None` it is dynamically calculated assuming a transition from (and including) free molecular flow to a (and not including) shock regime. Otherwise assumed a constant with the given value.
+            * Gamma = None [1]: Drag coefficient, if :code:`None` it is dynamically
+                calculated assuming a transition from (and including) free molecular
+                flow to a (and not including) shock regime. Otherwise assumed a
+                constant with the given value.
+            * Lambda = None [1]: Heat transfer coefficient, if :code:`None` it is
+                dynamically calculated assuming a transition from (and including)
+                free molecular flow to a (and not including) shock regime.
+                Otherwise assumed a constant with the given value.
 
         """
         logger.debug(f"Running {self.__class__} model")
@@ -280,28 +295,3 @@ class KeroSzasz2008(ScipyODESolve):
             coords={"t": t},
             attrs={key: val for key, val in self.options.items()},
         )
-
-
-# TODO: fix this is very ugly
-try:
-    import msise00 as msise_test
-
-    msise_test = True
-except ImportError:
-    msise_test = False
-
-if msise_test:
-    msise00 = atm.NRLMSISE00()
-
-    def _meta_getter():
-        return msise00.species
-
-    KeroSzasz2008._register_atmosphere("msise00", msise00.density, _meta_getter)
-else:
-
-    def _msise_getter(*args, **kwargs):
-        raise ImportError(
-            'msise00 import error: cannot use "msise00" as atmosphere. Plase confirm it has been installed.'
-        )
-
-    KeroSzasz2008._register_atmosphere("msise00", _msise_getter, _msise_getter)

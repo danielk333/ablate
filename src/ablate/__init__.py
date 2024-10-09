@@ -1,7 +1,5 @@
 '''
-Meteoroid Ablation Models
-==========================
-
+# Meteoroid Ablation Models
 '''
 
 from .models import *
