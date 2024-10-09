@@ -5,146 +5,97 @@ image: python:3.8.10
 stages:
   - test
   - release
-  - deploy
-
-variables:
-  #Change pip's cache directory to be inside 
-  # the project directory since we can
-  # only cache local items.
-  PIP_CACHE_DIR: "${CI_PROJECT_DIR}/.cache/pip"
 
 
-#Pip's cache doesn't store the python packages
-# https://pip.pypa.io/en/stable/reference/pip_install/#caching
-# If you want to also cache the installed packages, you have to install
-# them in a virtualenv and cache it as well.
-cache:
-  key: "${CI_JOB_NAME}"
-  paths:
-    - .cache/pip
-    - .venv
-
-# #
-# Template information: 
-#   https://docs.gitlab.com/ee/ci/yaml/yaml_specific_features.html
-# #
-
-#Template script for all jobs that installs
-# the package and dependancies into a virtualenv
-.install-deps-template: &install-deps
-  # Print version for debug
-  - python -V
-  # Prepare and activate virtualenv
-  - pip install virtualenv
-  - pip install -U pip
-  - virtualenv venv
-  - source venv/bin/activate
-  # install the develop dependancies
-  - pip install .[develop]
-  # Install extras for tests and examples
-  #  PRE-REQS for msise00
-  - apt update
-  - apt install -y make build-essential gfortran 
-  - wget https://github.com/Kitware/CMake/releases/download/v3.21.5/cmake-3.21.5.tar.gz
-  - tar -zxf cmake-3.21.5.tar.gz
-  - cd cmake-3.21.5
-  - ./bootstrap && make && make install
-  - cd ..
-  # Print for debug
-  - cmake --version
-  - export FC="/usr/bin/gfortran"
-  # Install msise00
-  - pip install .[msise]
-  - python -c "import msise00; msise00.base.build()"
-
-
-default:
-  tags:
-    - IRF
+# Prepare the development enviornment
+.devsetup:
   before_script:
-    - *install-deps # execute script in alias
+    - python -V
+    # Prepare and activate virtualenv
+    - pip install -U pip
+    - pip install virtualenv
+    - virtualenv venv
+    - source venv/bin/activate
+    # Install the package
+    - pip install .[develop]
+
+# Prepare the nominal usage enviornment
+.setup:
+  before_script:
+    - python -V
+    # Prepare and activate virtualenv
+    - pip install -U pip
+    - pip install virtualenv
+    - virtualenv venv
+    - source venv/bin/activate
+    # Install dependancies
+    - apt update
+    - apt install -y gcc libfftw3-dev libhdf5-dev
+    # install the package
+    - pip install .
 
 
-#Template for testing on python images, 
-# extend this for each python-platform 
+#######################
+## Platforms testing ##
+
+#Template for testing on python images,
+# extend this for each python-platform
 # the package is intended to work on
-.py-test-template: &python-test
+.pytest:
   stage: test
+  extends: .setup
   allow_failure: true
-  script: 
-    - coverage run -m pytest
-    - coverage report -m
+  script:
+    - pip install pytest
+    - pytest
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
 
-
-#Run flake8 to check code-style adherance to PEP8
-# check-flake8:
-#   stage: test
-#   script: 
-#     - python -m flake8 --extend-exclude venv
-#   allow_failure: true
-
-
-##########################
-## Platforms to test on ##
-#
-# 
-#Official language images, look for the different tagged releases at:
-# https://hub.docker.com/r/library/python/tags/
-# And use the `python-test` alias
-# 
-#To test on OS distributions, find the OS images, e.g:
-# https://hub.docker.com/_/ubuntu
-# and use the `os-test` alias to allow for specific 
-# os-dependancy setup (e.g. gcc or gfortran) before 
-# install of the pacakge trough `before_script`
-# 
-
-# python3.7:
-#   <<: *python-test # Merge the contents of the alias
-#   image: python:3.7
-
+### TODO: NO TESTSING FOR NOW
 # python:
-#   <<: *python-test # Merge the contents of the alias
+#   extends: .pytest
 
-# python3.9:
-#   <<: *python-test # Merge the contents of the alias
-#   image: python:3.9
+# python3.10:
+#   extends: .pytest
+#   image: python:3.10
 
+###############
+## Releasing ##
 
-#Build and check integrity of distribution
-# package:
-#   stage: release
-#   script:
-#     - python -m build
-#     - python -m twine check dist/*
-#   artifacts:
-#     paths:
-#       - dist/*
-
-
-#Compile documentation for publication
+# Compile documentation for publication
 pages:
-  stage: deploy
+  stage: release
+  extends: .devsetup
   script:
     - cd docs
     - make html
-    - mv build ../public
+    - mv build/html ../public
   artifacts:
     paths:
       - public
   rules:
-    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"
+#  only:
+#    - tags
 
-#Publish package on local PyPI if
-# the commit has a version tag
-upload:
-  stage: deploy
-  script:
-    - >
-      TWINE_USERNAME=gitlab-ci-token
-      TWINE_PASSWORD=$CI_JOB_TOKEN
-      python -m twine upload
-      --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi
-      dist/*
-  rules:
-    - if: $CI_COMMIT_TAG
+# Build and check integrity of distribution
+# Then publish package on public PyPI
+### TODO: WE DONT UPLOAD YET
+# pypi:
+#   stage: release
+#   extends: .devsetup
+#   variables:
+#     #Use a gitlab variable to securly store the token
+#     PYPI_TOKEN: $PYPI_TOKEN
+#   script:
+#     - python -m build
+#     - python -m twine check dist/*
+#     - >
+#       TWINE_USERNAME=__token__
+#       TWINE_PASSWORD=$PYPI_TOKEN
+#       python -m twine upload dist/*
+#   artifacts:
+#     paths:
+#       - dist/*
+#   only:
+#     - tags

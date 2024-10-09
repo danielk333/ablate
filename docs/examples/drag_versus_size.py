@@ -50,7 +50,7 @@ Gamma = func.dynamics.drag_coefficient(
 )
 
 fig, axes = plt.subplots(2, 1)
-axes[0].loglog(masses, Gamma)
+axes[0].semilogx(masses, Gamma)
 axes[0].set_xlabel("Mass [kg]")
 axes[0].set_ylabel("Drag coefficient")
 axes[0].set_title(f"{velocity=} km/s")

@@ -1,3 +1,89 @@
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "ablate"
+description = "A collection of meteor ablation models"
+readme = {file = "README.md", content-type = "text/markdown"}
+authors = [
+    {name = "Daniel Kastinen", email = "daniel.kastinen@irf.se"},
+    {name = "Johan Kero", email = "kero@irf.se"},
+]
+maintainers = [
+    {name = "Daniel Kastinen", email = "daniel.kastinen@irf.se"},
+]
+license = {file = "LICENSE"}
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
+    "Operating System :: Unix",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+]
+requires-python = ">=3.7"
+dependencies = [
+    "pint",
+    "tqdm",
+    "scipy",
+    "numpy",
+    "matplotlib",
+    "xarray",
+]
+dynamic = ["version"]
+
+[tool.setuptools]
+include-package-data = true
+license-files = ["LICENSE"]
+
+[tool.setuptools.dynamic]
+version = {attr = "ablate.version.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.optional-dependencies]
+amospheres = [
+    "pymsis",
+]
+profiling = [
+    "yappi",
+]
+all = [
+    "pymsis",
+    "yappi",
+]
+develop = [
+    "pytest",
+    "flake8",
+    "wheel",
+    "build",
+    "twine",
+    "pytest-cov",
+    "matplotlib",
+    "ipykernel",
+    "radon",
+    "numpydoc",
+    "pre-commit",
+    "black",
+    "auditwheel",
+    "patchelf",
+    "mkdocs-material",
+    "mkdocstrings[python]",
+    "mkdocs-jupyter",
+    "mkdocs-gen-files",
+    "mkdocs-literate-nav",
+    "mkdocs-section-index",
+]
+
+
+[project.urls]
+Documentation = "https://danielk.developer.irf.se/ablate/"
+Repository = "https://github.com/danielk333/ablate"
+Homepage = "https://github.com/danielk333/ablate"
+Issues = "https://github.com/danielk333/ablate/issues"
+
+[tool.black]
+line-length = 100
+target_version = ['py35', 'py36', 'py37', 'py38', 'py39', 'py310']

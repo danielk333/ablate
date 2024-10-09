@@ -38,6 +38,7 @@ material_data = ablate.functions.material.material_parameters("iron")
 result = model.run(
     velocity0=60 * 1e3,
     mass0=1e-6,
+    # mass0=1e-3,
     altitude0=120e3,
     zenith_ang=75.7744,
     azimuth_ang=0.0,

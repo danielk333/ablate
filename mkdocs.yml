@@ -1,0 +1,89 @@
+site_name: pyant
+
+theme:
+  name: "material"
+  logo: assets/ablate.png
+  favicon: assets/ablate_fav.png
+  features:
+    - navigation.instant
+    - navigation.path
+    - navigation.top
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: "#002d72"
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: "#002d72"
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+  icon:
+    repo: fontawesome/brands/github
+
+
+repo_url: https://github.com/danielk333/ablate
+
+extra_css:
+  - assets/style.css
+
+markdown_extensions:
+  - footnotes
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+plugins:
+  - search
+  - section-index
+  - gen-files:
+      scripts:
+        - scripts/generate_api_docs.py
+  - literate-nav:
+      nav_file: nav.md
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: numpy
+            docstring_section_style: table
+            show_docstring_functions: true
+            show_docstring_modules: true
+            show_docstring_description: true
+  - mkdocs-jupyter:
+      execute: true
+      include_source: True
+      # ignore: ["_wip*"]
+      ignore: ["*"]
+
+nav:
+  - Home: index.md
+  - Getting started: getting_started.md
+  # - Examples:
+  #   - examples/index.md
+  #   - alpha_beta: examples/alpha_beta.py
+  #   - calculate_gamma_lambda: examples/calculate_gamma_lambda.py
+  #   - compare_sputtering: examples/compare_sputtering.py
+  #   - drag_versus_size: examples/drag_versus_size.py
+  #   - example_ablation_model_run: examples/example_ablation_model_run.py
+  #   - heat_coef_versus_size: examples/heat_coef_versus_size.py
+  #   - plot_msise00: examples/plot_msise00.py
+  # - Notebooks:
+  #   - notebooks/index.md
+  - Reference: reference/

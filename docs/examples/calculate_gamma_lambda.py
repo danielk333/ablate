@@ -21,43 +21,52 @@ data = model.density(
 )
 
 print(data)
+mass = 0.5e-6
+velocity = 32e3
+temperature = 3700
 
 material_data = func.material.material_parameters("ast")
 
 dmdt_th = func.ablation.thermal_ablation(
-    mass=np.array([0.5, 0.2]),
-    temperature=3700,
+    mass=mass,
+    temperature=temperature,
     material_data=material_data,
     shape_factor=1.21,
 )
 
+print(f"{dmdt_th=})")
+
 atm_mean_mass = (
     np.array([x["A"] for _, x in model.species.items()]).mean() * constants.u
 )  # [kg]
+atm_total_density = data["Total"].values.squeeze()
+N_rho_tot = atm_total_density / atm_mean_mass
+
+print(f"{N_rho_tot=}")
 
 Gamma = func.dynamics.drag_coefficient(
-    mass=0.5,
-    velocity=32e3,
-    temperature=3700,
+    mass=mass,
+    velocity=velocity,
+    temperature=temperature,
     material_data=material_data,
-    atm_total_density=data["Total"].values.squeeze(),
+    atm_total_density=N_rho_tot,
     atm_mean_mass=atm_mean_mass,
     res=100,
 )
 
 Lambda = func.dynamics.heat_transfer(
-    mass=0.5,
-    velocity=32e3,
-    temperature=3700,
+    mass=mass,
+    velocity=velocity,
+    temperature=temperature,
     material_data=material_data,
-    atm_total_density=data["Total"].values.squeeze(),
-    thermal_ablation=dmdt_th[0],
+    atm_total_density=N_rho_tot,
+    thermal_ablation=dmdt_th,
     atm_mean_mass=atm_mean_mass,
     res=100,
 )
 
 print("Alt:")
-print([90e3, 120e3])
+print([100e3, 120e3])
 
 print("Gamma:")
 print(Gamma)
