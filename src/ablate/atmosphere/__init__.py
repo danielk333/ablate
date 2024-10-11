@@ -3,5 +3,6 @@ Meteoroid Ablation Models - Atmospheric models
 ===============================================
 
 '''
-
-from .nrl_msise import NRLMSISE00
+from .atmosphere import Atmosphere
+from .atm_msise00 import AtmMSISE00
+from .atm_pymsis import AtmPymsis

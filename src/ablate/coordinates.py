@@ -15,11 +15,13 @@ WGS84_e1sq = 6.73949674228 * 0.001
 
 
 def geodetic2ecef(lat, lon, alt):
-    """Convert WGS84 geodetic coordinates to ECEF coordinates.
+    """Convert WGS84 geodetic coordinates to ECEF coordinates [^1].
 
-    [^1] J. Zhu, "Conversion of Earth-centered Earth-fixed coordinates to geodetic coordinates,"
+    [^1]: J. Zhu, "Conversion of Earth-centered Earth-fixed coordinates to geodetic coordinates,"
         IEEE Transactions on Aerospace and Electronic Systems, vol. 30, pp. 957-961, 1994.
 
+    Parameters
+    ----------
     lat : float
         Geographic latitude [deg]
     lon : float
@@ -27,8 +29,10 @@ def geodetic2ecef(lat, lon, alt):
     alt : float
         Geographic altitude [deg]
 
-    :rtype: np.ndarray
-    :return: [x, y, z] in ECEF coordinates
+    Returns
+    -------
+    numpy.ndarray
+        [x, y, z] in ECEF coordinates
 
     """
     lat, lon = np.radians(lat), np.radians(lon)
@@ -40,18 +44,24 @@ def geodetic2ecef(lat, lon, alt):
 
 
 def ecef2geodetic(x, y, z):
-    """Convert ECEF coordinates to WGS84 geodetic coordinates.
+    """Convert ECEF coordinates to WGS84 geodetic coordinates [^1].
 
-    :param float x: Position along prime meridian [m]
-    :param float y: Position along prime meridian + 90 degrees [m]
-    :param float z: Position along earth rotation axis [m]
+    [^1]: J. Zhu, "Conversion of Earth-centered Earth-fixed coordinates to geodetic coordinates,"
+        IEEE Transactions on Aerospace and Electronic Systems, vol. 30, pp. 957-961, 1994.
 
-    :rtype: np.ndarray
-    :return: [lat [deg], lon [deg], alt [m]] in WGS84 geodetic coordinates
+    Parameters
+    ----------
+    x : float
+        Position along prime meridian [m]
+    y : float
+        Position along prime meridian + 90 degrees [m]
+    z : float
+        Position along earth rotation axis [m]
 
-    **References:**
-
-        * J. Zhu, "Conversion of Earth-centered Earth-fixed coordinates to geodetic coordinates," IEEE Transactions on Aerospace and Electronic Systems, vol. 30, pp. 957-961, 1994.
+    Returns
+    -------
+    numpy.ndarray
+        [lat [deg], lon [deg], alt [m]] in WGS84 geodetic coordinates
 
     """
     r = np.sqrt(x * x + y * y)
@@ -137,20 +147,3 @@ def azel_to_cart(az, el, r):
     _az = np.radians(az)
     _el = np.radians(el)
     return r * np.array([np.sin(_az) * np.cos(_el), np.cos(_az) * np.cos(_el), np.sin(_el)])
-
-
-def curved_earth(s, rp, h_obs, zd, h_start):
-    """Calculates the error of the height? what
-
-
-
-    distance :code:`s` along the trajectory at :code:`h=h_start` when :code:`s=0` at :code:`h=h_obs` given that the zentith distance is :code:`zd` at :code:`h=h_obs`.
-
-    """
-
-    theta = np.arctan2(s * np.sin(zd), (rp + h_obs + s * np.cos(zd)))
-    h = (rp + h_obs + s * np.cos(zd)) / np.cos(theta) - rp
-
-    err = h - h_start
-
-    return err

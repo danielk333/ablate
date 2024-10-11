@@ -1,12 +1,18 @@
 import numpy as np
 
 
-def hill_2005_luminosity(velocity, thermal_ablation):
+def luminosity_hill_2005(velocity, thermal_ablation):
     """Luminosity during thermal ablation.
 
     Luminosity occurs in meteors as a result of decay of excited atomic (and
     a few molecular) states following collisions between ablated meteor atoms
     and atmospheric constituents. This specific model is described in [^1] and [^2].
+
+    [^1]: Friichtenicht and Becker: Determination of meteor paramters using laboratory
+        simulations techniques, 'Evolutionary and physical properties of meteoroids',
+        National Astronautics and Space Administration, Chapter 6, p. 53-81 (1973)
+
+    [^2]: Hill et al.: High geocentric velocity meteor ablation, A&A 444 p. 615-624 (2005)
 
     Parameters
     ----------
@@ -32,13 +38,6 @@ def hill_2005_luminosity(velocity, thermal_ablation):
      - `zeta` = excitation coeff
      - `rho_m` = [kg/m3] meteoroid density
      - `abla` = mass loss due to thermal ablation
-
-
-    [^1]: Friichtenicht and Becker: Determination of meteor paramters using laboratory
-        simulations techniques, 'Evolutionary and physical properties of meteoroids',
-        National Astronautics and Space Administration, Chapter 6, p. 53-81 (1973)
-
-    [^2]: Hill et al.: High geocentric velocity meteor ablation, A&A 444 p. 615-624 (2005)
 
     """
 

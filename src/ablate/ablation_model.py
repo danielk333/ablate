@@ -20,7 +20,7 @@ class AblationModel:
     DEFAULT_CONFIG = {}
 
     def __init__(self, config: Union[dict, str, Path, ConfigParser]):
-        self.config = ConfigParser()
+        self.config = ConfigParser(allow_no_value=True)
         self.config.read_dict(self.DEFAULT_CONFIG)
 
         if isinstance(config, ConfigParser):

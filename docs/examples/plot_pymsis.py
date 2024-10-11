@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-model = atm.AtmMSISE00()
+model = atm.AtmPymsis()
 
 print("NRL MSISE00 species:")
 for name, species_data in model.species.items():
