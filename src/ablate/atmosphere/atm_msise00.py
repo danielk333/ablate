@@ -51,6 +51,8 @@ class AtmMSISE00(Atmosphere):
             ),
             **kwargs
         )
+        result["alt_km"] = result["alt_km"]*1e3
+        result = result.rename({'alt_km': 'alt'})
 
         if mass_densities:
             for symbol, s in self.species.items():

@@ -30,11 +30,11 @@ print(data1)
 
 fig, axes = plt.subplots(2, 1)
 
-index = dict(lat=0, lon=0, alt_km=slice(None, None), time=0)
+index = dict(lat=0, lon=0, alt=slice(None, None), time=0)
 
-axes[0].semilogx(data1["Total"][index].values, data1.alt_km.values, label="Total")
+axes[0].semilogx(data1["Total"][index].values, data1.alt.values, label="Total")
 for name in select_species:
-    axes[0].semilogx(data1[name][index].values, data1.alt_km.values, label=name)
+    axes[0].semilogx(data1[name][index].values, data1.alt.values, label=name)
 axes[0].legend()
 axes[0].set_ylabel("Altitude [km]")
 axes[0].set_xlabel("Total density [kg/m^3]")
@@ -50,7 +50,7 @@ data2 = model.density(
     alt=120e3,
 )
 
-index = dict(lat=0, lon=0, alt_km=0, time=slice(None, None))
+index = dict(lat=0, lon=0, alt=0, time=slice(None, None))
 
 axes[1].plot(data2.time.values, data2["Total"][:, 0, 0, 0].values)
 axes[1].set_xlabel("Time")

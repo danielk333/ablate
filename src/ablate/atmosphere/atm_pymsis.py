@@ -6,6 +6,7 @@
 from typing import Union
 import scipy.constants
 from .atmosphere import Atmosphere
+import numpy as np
 import numpy.typing as npt
 import xarray as xr
 
@@ -65,27 +66,36 @@ class AtmPymsis(Atmosphere):
             **kwargs,
         )
         if len(result.shape) == 2:
-            result = result.reshape(result.shape[0], 1, 1, result.shape[1])
+            result = result.reshape(result.shape[0], 1, 1, 1, result.shape[1])
+
+        time = np.array(time) if not isinstance(time, np.ndarray) else time
+        lon = np.array(lon) if not isinstance(lon, np.ndarray) else lon
+        lat = np.array(lat) if not isinstance(lat, np.ndarray) else lat
+        alt = np.array(alt) if not isinstance(alt, np.ndarray) else alt
+
+        for inp in [time, lon, lat, alt]:
+            if len(inp.shape) == 0:
+                inp.shape = (1,)
 
         result = xr.Dataset(
             {
-                "Total": (["time", "lon", "lat", "alt"], result[:, :, :, 0]),
-                "N2": (["time", "lon", "lat", "alt"], result[:, :, :, 1]),
-                "O2": (["time", "lon", "lat", "alt"], result[:, :, :, 2]),
-                "O": (["time", "lon", "lat", "alt"], result[:, :, :, 3]),
-                "He": (["time", "lon", "lat", "alt"], result[:, :, :, 4]),
-                "H": (["time", "lon", "lat", "alt"], result[:, :, :, 5]),
-                "Ar": (["time", "lon", "lat", "alt"], result[:, :, :, 6]),
-                "N": (["time", "lon", "lat", "alt"], result[:, :, :, 7]),
-                "Anomalous_O": (["time", "lon", "lat", "alt"], result[:, :, :, 8]),
-                "NO": (["time", "lon", "lat", "alt"], result[:, :, :, 9]),
-                "Temperature": (["time", "lon", "lat", "alt"], result[:, :, :, 10]),
+                "Total": (["time", "lon", "lat", "alt"], result[:, :, :, :, 0]),
+                "N2": (["time", "lon", "lat", "alt"], result[:, :, :, :, 1]),
+                "O2": (["time", "lon", "lat", "alt"], result[:, :, :, :, 2]),
+                "O": (["time", "lon", "lat", "alt"], result[:, :, :, :, 3]),
+                "He": (["time", "lon", "lat", "alt"], result[:, :, :, :, 4]),
+                "H": (["time", "lon", "lat", "alt"], result[:, :, :, :, 5]),
+                "Ar": (["time", "lon", "lat", "alt"], result[:, :, :, :, 6]),
+                "N": (["time", "lon", "lat", "alt"], result[:, :, :, :, 7]),
+                "Anomalous_O": (["time", "lon", "lat", "alt"], result[:, :, :, :, 8]),
+                "NO": (["time", "lon", "lat", "alt"], result[:, :, :, :, 9]),
+                "Temperature": (["time", "lon", "lat", "alt"], result[:, :, :, :, 10]),
             },
             coords={
+                "time": time,
                 "lon": lon,
                 "lat": lat,
                 "alt": alt,
-                "time": time,
             },
             attrs=dict(
                 f107 = f107,

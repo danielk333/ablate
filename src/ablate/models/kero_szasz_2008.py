@@ -304,7 +304,7 @@ class KeroSzasz2008(ScipyODESolve):
         results = xarray.Dataset(
             _data,
             coords={"t": t},
-            attrs={key: val for key, val in self.options.items()},
+            attrs={key: val for key, val in self.config.items("options")},
         )
 
         results["mass"][:] = ivp_result.y[0, :]
@@ -312,9 +312,9 @@ class KeroSzasz2008(ScipyODESolve):
         results["position"][:] = ivp_result.y[2, :]
         results["temperature"][:] = ivp_result.y[3, :]
 
-        ecef = self._ivp_result.y[2, :]
+        ecef = ivp_result.y[2, :]
         ecef = reference_ecef[:, None] - v_dir_ecef[:, None] * ecef[None, :]
-        alts = np.array([self.s_to_geo(_s)[2] for _s in self._ivp_result.y[2, :]])
+        alts = np.array([s_to_geo(_s)[2] for _s in ivp_result.y[2, :]])
 
         results["ecef_x"][:] = ecef[0, :]
         results["ecef_y"][:] = ecef[1, :]
