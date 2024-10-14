@@ -10,6 +10,7 @@ def alpha_direct(
     initial_cross_section,
     initial_mass,
     radiant_local_elevation,
+    degrees=False,
 ):
     """Ballistic coefficient used to describe the analytic solutions to the
     ablation equations described in [^1].
@@ -43,13 +44,14 @@ def alpha_direct(
         Ballistic coefficient [1]
 
     """
+    el = np.radians(radiant_local_elevation) if degrees else radiant_local_elevation
     return (
         0.5
         * aerodynamic_cd
         * sea_level_rho
         * atmospheric_scale_height
         * initial_cross_section
-        / (initial_mass * np.sin(np.degrees(radiant_local_elevation)))
+        / (initial_mass * np.sin(el))
     )
 
 
@@ -145,9 +147,11 @@ def area_to_mass_ratio(
     sea_level_rho,
     atmospheric_scale_height,
     radiant_local_elevation,
+    degrees=False,
 ):
     """Area to mass ratio from alpha."""
-    sin_gamma = np.sin(np.degrees(radiant_local_elevation))
+    el = np.radians(radiant_local_elevation) if degrees else radiant_local_elevation
+    sin_gamma = np.sin(el)
     return 2 * alpha * sin_gamma / (aerodynamic_cd * sea_level_rho * atmospheric_scale_height)
 
 
@@ -181,9 +185,12 @@ def initial_mass_direct(
     radiant_local_elevation,
     bulk_density,
     shape_factor,
+    degrees=False,
 ):
-    """ """
-    sin_gamma = np.sin(np.degrees(radiant_local_elevation))
+    """Directly compute initial mass from analytic solution coefficients"""
+
+    el = np.radians(radiant_local_elevation) if degrees else radiant_local_elevation
+    sin_gamma = np.sin(el)
     return (
         0.5
         * aerodynamic_cd
