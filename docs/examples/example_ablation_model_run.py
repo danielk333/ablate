@@ -6,34 +6,40 @@ Docstring for this example
 """
 
 import logging
-import sys
-
 import numpy as np
 import matplotlib.pyplot as plt
 
 import ablate
 
-handler = logging.StreamHandler(sys.stdout)
-
-for name in logging.root.manager.loggerDict:
-    if name.startswith("ablate"):
-        print(f"logger: {name}")
-
-
 logger = logging.getLogger("ablate")
 logger.setLevel(logging.DEBUG)
-logger.addHandler(handler)
+
 
 model = ablate.KeroSzasz2008(
-    atmosphere="msise00",
-    options=dict(
-        sputtering=True,
-        minimum_mass=1e-11,
-        max_step_size=5e-3,
-    ),
+    atmosphere = ablate.atmosphere.AtmPymsis(),
+    config = {
+        "options": {
+            "temperature0": 290,
+            "shape_factor": 1.21,
+            "emissivity": 0.9,
+            "sputtering": False,
+            "Gamma": None,
+            "Lambda": None,
+        },
+        "atmosphere": {
+            "version": 2.1,
+        },
+        "integrate": {
+            "minimum_mass_kg": 1e-11,
+            "max_step_size_sec": 1e-3,
+            "max_time_sec": 100.0,
+            "method": "RK45",
+        },
+    }
 )
 
-material_data = ablate.functions.material.material_parameters("iron")
+material_data = ablate.material.get("iron")
+print(material_data)
 
 result = model.run(
     velocity0=60 * 1e3,

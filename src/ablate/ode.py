@@ -39,7 +39,7 @@ class ScipyODESolve(AblationModel):
     def integrate(self, state, *args, **kwargs):
 
         def _low_mass(t, y):
-            res = y[0] / self.config.getfloat("solver_settings", "minimum_mass_kg") - 1
+            res = y[0] / self.config.getfloat("integrate", "minimum_mass_kg") - 1
             # logger.debug(
             #   f'Stopping @ {t:<1.4e} s = {res}: {np.log10(y[0]):1.4e} log10(kg) | {y[0]:1.4e} kg'
             # )
@@ -50,7 +50,7 @@ class ScipyODESolve(AblationModel):
 
         events = [_low_mass]
 
-        method = self.config["solver_settings"].get("method")
+        method = self.config.get("integrate", "method")
         method_options = {key: val for key, val in self.config.items("method_options")}
 
         logger.debug(
@@ -64,10 +64,10 @@ class ScipyODESolve(AblationModel):
 
         ivp_result = solve_ivp(
             fun=lambda t, y: self.rhs(t, y[0], y[1:], *args, **kwargs),
-            t_span=(0, self.options["max_time_sec"]),
+            t_span=(0, self.config.getfloat("integrate", "max_time_sec")),
             y0=state,
-            method=self.method,
-            max_step=self.options["max_step_size_sec"],
+            method=method,
+            max_step=self.config.getfloat("integrate", "max_step_size_sec"),
             dense_output=False,
             events=events,
             **method_options,

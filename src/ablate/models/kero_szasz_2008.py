@@ -23,7 +23,24 @@ logger = logging.getLogger(__name__)
 
 
 class KeroSzasz2008(ScipyODESolve):
-    """Ablation model"""
+    """Ablation model
+
+    Keyword arguments:
+
+    - temperature0 = 290 [K]: Meteoroid temperature at starting height
+    - shape_factor = 1.21 [1]: Shape is assumed to be a sphere.
+    - emissivity = 0.9 [1]: Hill et al.; Love & Brownlee: 1; (metal oxides)
+    - sputtering = True [bool]: If sputtering is used in mass loss calculation.
+    - Gamma = None [1]: Drag coefficient, if :code:`None` it is dynamically
+        calculated assuming a transition from (and including) free molecular
+        flow to a (and not including) shock regime. Otherwise assumed a
+        constant with the given value.
+    - Lambda = None [1]: Heat transfer coefficient, if :code:`None` it is
+        dynamically calculated assuming a transition from (and including)
+        free molecular flow to a (and not including) shock regime.
+        Otherwise assumed a constant with the given value.
+
+    """
 
     DEFAULT_CONFIG = {
         "options": {
@@ -106,20 +123,30 @@ class KeroSzasz2008(ScipyODESolve):
         # logger.debug(f'vel = {vel*1e-3} km/s, traj-s = {s*1e-3} km, mass = {mass} kg, temp = {T} K')
         # logger.debug(f'altitude = {alt*1e-3} km')
 
+        f107 = self.config.get("atmosphere", "f107")
+        if f107 is not None:
+            f107 = float(f107)
+        f107s = self.config.get("atmosphere", "f107s")
+        if f107s is not None:
+            f107s = float(f107s)
+        Ap = self.config.get("atmosphere", "Ap")
+        if Ap is not None:
+            Ap = float(Ap)
+
         atm = self.atmosphere.density(
             time=epoch + np.timedelta64(int(t * 1e6), "us"),
             lat=lat,
             lon=lon,
             alt=alt,
-            f107=self.config.getfloat("atmosphere", "f107"),
-            f107s=self.config.getfloat("atmosphere", "f107s"),
-            Ap=self.config.getfloat("atmosphere", "Ap"),
+            f107=f107,
+            f107s=f107s,
+            Ap=Ap,
             mass_densities=True,
             version=self.config.getfloat("atmosphere", "version"),
         )
 
         rho_tot = atm["Total"].values.squeeze()
-        N_rho_tot = rho_tot / self.atm_mean_mass
+        N_rho_tot = rho_tot / atm_mean_mass
 
         if self.config.getboolean("options", "sputtering"):
             dmdt_s = physics.sputtering.sputtering(
@@ -149,8 +176,8 @@ class KeroSzasz2008(ScipyODESolve):
                 material_data=material_data,
                 atm_total_density=N_rho_tot,
                 thermal_ablation=dmdt_a,
-                atm_mean_mass=self.atm_mean_mass,
-                res=self.options["integral_resolution"],
+                atm_mean_mass=atm_mean_mass,
+                res=self.config.getint("options", "integral_resolution"),
             )
 
         if Gamma is None:
@@ -160,8 +187,8 @@ class KeroSzasz2008(ScipyODESolve):
                 temperature=T,
                 material_data=material_data,
                 atm_total_density=N_rho_tot,
-                atm_mean_mass=self.atm_mean_mass,
-                res=self.options["integral_resolution"],
+                atm_mean_mass=atm_mean_mass,
+                res=self.config.getint("options", "integral_resolution"),
             )
 
         # -- Differential equation for the velocity to solve
@@ -170,7 +197,7 @@ class KeroSzasz2008(ScipyODESolve):
             * self.config.getfloat("options", "shape_factor")
             * rho_tot
             * vel**2
-            / (mass ** (1.0 / 3.0) * material_data.rho_m ** (2.0 / 3.0))
+            / (mass ** (1.0 / 3.0) * material_data["rho_m"] ** (2.0 / 3.0))
         )  # [m/s2] drag equation (because of conservation of linear momentum):
         # decelearation=Drag_coeff*shape_factor*atm_dens*vel/(mass^1/2 * meteoroid_dens^2/3)
         dvdt_g = self._G * self._M / (r**2)  # [m/s2] acceleration due to earth gravitaion
@@ -216,52 +243,50 @@ class KeroSzasz2008(ScipyODESolve):
         lon,
         alt,
     ):
-        """This function is based on calc_sput.m which was used to verify the
+        """Runs the ablation model.
+
+        Parameters
+        ----------
+        velocity0 : float or numpy.ndarray
+            Meteoroid initial velocity [m/s]
+        mass0 : float or numpy.ndarray
+            Meteoroid initial mass [kg]
+        altitude0 : float or numpy.ndarray
+            Meteoroid initial altitude [m]
+        zenith_ang : float or numpy.ndarray
+            Zenith angle of the trajectory (-velocity vector) w.r.t reference point [deg]
+        azimuth_ang : float or numpy.ndarray
+            Azimuthal angle east of north of the trajectory (-velocity vector) w.r.t reference point [deg]
+        material_data : dict
+            Meteoroid material data, see [`material_data`][ablate.functions.material.material_data].
+        lat : float or numpy.ndarray
+            Geographic latitude in degrees of reference point on the meteoroid trajectory
+        lon : float or numpy.ndarray
+            Geographic longitude in degrees of reference point on the meteoroid trajectory
+        alt : float or numpy.ndarray
+            Altitude above geoid in meters of reference point on the meteoroid trajectory
+
+        Returns
+        -------
+        xarray.Dataset
+            mass, velocity, position, temperature, ecef_x, ecef_y, ecef_z, altitude as variables.
+
+        Notes
+        -----
+        This function is based on calc_sput.m which was used to verify the
         sputtering described in Rogers et al.: Mass loss due to sputtering and
         thermal processes in meteoroid ablation,
         Planetary and Space Science 53 p. 1341-1354 (2005).
 
-        :param float/numpy.ndarray velocity0: Meteoroid initial velocity [m/s]
-        :param float/numpy.ndarray mass0: Meteoroid initial mass [kg]
-        :param float/numpy.ndarray altitude0: Meteoroid initial altitude [m]
-        :param float/numpy.ndarray zenith_ang:
-            Zenith angle of the trajectory (-velocity vector) w.r.t reference point [deg]
-        :param float/numpy.ndarray azimuth_ang:
-            Azimuthal angle east of north of the trajectory (-velocity vector) w.r.t reference point [deg]
-        :param dict material_data:
-            Meteoroid material data, see :mod:`~functions.material.material_data`.
-        :param float/numpy.ndarray lat:
-            Geographic latitude in degrees of reference point on the meteoroid trajectory
-        :param float/numpy.ndarray lon:
-            Geographic longitude in degrees of reference point on the meteoroid trajectory
-        :param float/numpy.ndarray alt:
-            Altitude above geoid in meters of reference point on the meteoroid trajectory
-
-
-        #TODO: Add additional dynamical parameters to data structure e.g.
-        #   lambda and gamma if they are not constant
-
-
-        **Keyword arguments:**
-
-            * temperature0 = 290 [K]: Meteoroid temperature at starting height
-            * shape_factor = 1.21 [1]: Shape is assumed to be a sphere.
-            * emissivity = 0.9 [1]: Hill et al.; Love & Brownlee: 1; (metal oxides)
-            * sputtering = True [bool]: If sputtering is used in mass loss calculation.
-            * Gamma = None [1]: Drag coefficient, if :code:`None` it is dynamically
-                calculated assuming a transition from (and including) free molecular
-                flow to a (and not including) shock regime. Otherwise assumed a
-                constant with the given value.
-            * Lambda = None [1]: Heat transfer coefficient, if :code:`None` it is
-                dynamically calculated assuming a transition from (and including)
-                free molecular flow to a (and not including) shock regime.
-                Otherwise assumed a constant with the given value.
+        TODO: Add additional dynamical parameters to data structure e.g.
+        lambda and gamma if they are not constant
 
         """
         logger.debug(f"Running {self.__class__} model")
 
-        meta = self.get_atmosphere_meta()
-        atm_mean_mass = np.array([x["A"] for _, x in meta.items()]).mean() * constants.u
+        atm_mean_mass = (
+            np.array([x.A for _, x in self.atmosphere.species.items()]).mean() * constants.u
+        )
 
         reference_ecef = coordinates.geodetic2ecef(lat, lon, alt)
         v_dir = -1.0 * coordinates.azel_to_cart(azimuth_ang, zenith_ang, 1.0)
@@ -273,14 +298,24 @@ class KeroSzasz2008(ScipyODESolve):
             return geo
 
         s0 = scipy.optimize.minimize_scalar(lambda s: np.abs(s_to_geo(s)[2] - altitude0)).x
+        t0 = self.config.getfloat("options", "temperature0")
+        y0 = np.array(
+            [mass0, velocity0, s0, t0],
+            dtype=np.float64,
+        )
 
-        y0 = np.array([mass0, velocity0, s0, self.options["temperature0"]], dtype=np.float64)
+        Lambda = self.config.get("options", "Lambda")
+        if Lambda is not None:
+            Lambda = float(Lambda)
+        Gamma = self.config.get("options", "Gamma")
+        if Gamma is not None:
+            Gamma = float(Gamma)
 
         ivp_result = self.integrate(
             y0,
             material_data,
-            self.config.getfloat("options", "Lambda"),
-            self.config.getfloat("options", "Gamma"),
+            Lambda,
+            Gamma,
             time,
             atm_mean_mass,
             reference_ecef,

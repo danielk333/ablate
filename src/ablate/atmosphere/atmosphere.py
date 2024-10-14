@@ -54,6 +54,7 @@ SPECIES = {
 }
 
 
+# TODO: get a a hold of other atm models to figure out how to generalize interface better
 class Atmosphere:
     def __init__(self, supported_species):
         self.species = {}

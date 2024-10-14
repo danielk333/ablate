@@ -117,14 +117,16 @@ porous = Material(
 MATERIALS["porous"] = porous
 
 
-def list_materials():
+def available():
     '''List currently available meteoroid materials.
     '''
     return list(MATERIALS.keys())
 
 
-def material_parameters(material, as_dict=False):
+def get(material, as_dict=True):
     '''Returns the physical parameters of the meteoroid based on its material.
+
+    # TODO: figure out if we keep as dict or keep as material???
 
     Parameters
     ----------
