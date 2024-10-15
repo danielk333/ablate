@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.optimize as sco
 import scipy.special as scs
+import scipy.interpolate as sci
 
 
 def alpha_direct(
@@ -201,7 +202,14 @@ def initial_mass_direct(
     ) ** 3
 
 
-def mass_direct(velocity, initial_velocity, initial_mass, beta, shape_change_coefficient):
+def mass_direct(velocity, initial_mass, beta, shape_change_coefficient, initial_velocity=None):
+    """Shorthand for `norm_mass_direct` scaled to physical units"""
+    return initial_mass * norm_mass_direct(
+        velocity, beta, shape_change_coefficient, initial_velocity=initial_velocity
+    )
+
+
+def norm_mass_direct(velocity, beta, shape_change_coefficient, initial_velocity=None):
     """The solution for mass from the analytic solutions of the ablation eqations [^1].
 
     $$
@@ -212,56 +220,110 @@ def mass_direct(velocity, initial_velocity, initial_mass, beta, shape_change_coe
         Determining Fireball Fates Using the α–β Criterion. ApJ 885:115.
         https://doi.org/10.3847/1538-4357/ab4516
     """
-    return initial_mass * np.exp(
-        -beta / (1 - shape_change_coefficient) * (1 - (velocity / initial_velocity) ** 2)
+    v = velocity
+    if initial_velocity is not None:
+        v = v / initial_velocity
+    return np.exp(-beta / (1 - shape_change_coefficient) * (1 - v**2))
+
+
+def height_direct(velocity, atmospheric_scale_height, alpha, beta, initial_velocity=None):
+    """Shorthand for `norm_mass_direct` scaled to physical units"""
+    return atmospheric_scale_height * norm_height_direct(
+        velocity, alpha, beta, initial_velocity=initial_velocity
     )
 
 
+def norm_height_direct(velocity, alpha, beta, initial_velocity=None):
+    """The solution for height as a function of velocity from the analytic
+    solutions of the ablation eqations.
+    """
+    v = velocity
+    if initial_velocity is not None:
+        v = v / initial_velocity
+    return np.log(alpha) + beta - np.log((scs.expi(beta) - scs.expi(beta * v**2)) * 0.5)
+
+
+def velocity_estimate(height, initial_velocity, alpha, beta, atmospheric_scale_height=None):
+    """Shorthand for `norm_mass_direct` scaled to physical units"""
+    return initial_velocity * norm_velocity_estimate(
+        height, alpha, beta, atmospheric_scale_height=atmospheric_scale_height
+    )
+
+
+def norm_velocity_estimate(
+    height, alpha, beta, atmospheric_scale_height=None, resolution=1000, edge_delta=1e-10, sampling=None,
+):
+    """The solution for height as a function of velocity from the analytic
+    solutions of the ablation eqations.
+    """
+    y = height
+    if atmospheric_scale_height is not None:
+        y = y / atmospheric_scale_height
+
+    if sampling is None:
+        # Sample according to a rescaled inverse exponential line to match the 
+        # tangent space of the interpolated function
+        v_grid = 1 - np.exp(np.linspace(np.log(1 - edge_delta), np.log(edge_delta), resolution))
+    else:
+        v_grid = sampling
+    h_grid = norm_height_direct(v_grid, alpha, beta)
+    interp = sci.interp1d(h_grid, v_grid, kind="linear", fill_value=np.nan)
+    return interp(y)
+
+
 def final_mass_direct(
-    final_velocity, initial_velocity, initial_mass, beta, shape_change_coefficient
+    final_velocity,
+    initial_mass,
+    beta,
+    shape_change_coefficient,
+    initial_velocity=None,
 ):
     """Final mass based on the analytic solutions in
     [`mass_direct`][`ablate.ablation.alpha_beta.mass_direct`].
     """
     return mass_direct(
-        final_velocity, initial_velocity, initial_mass, beta, shape_change_coefficient
+        final_velocity,
+        initial_mass,
+        beta,
+        shape_change_coefficient,
+        initial_velocity=initial_velocity,
     )
+
+
+def Q5(x, velocities, yvals):
+    """ """
+    if len(x.shape) == 1:
+        x.shape = (x.size, 1)
+    size = x.shape[1]
+
+    res = np.zeros((size,))
+    for i in range(len(velocities)):
+        vval = velocities[i] / (x[2, ...] * 1000.0)
+        r0 = 2 * x[0, ...] * np.exp(-yvals[i])
+        r0 -= (scs.expi(x[1, ...]) - scs.expi(x[1, ...] * vval**2)) * np.exp(-x[1, ...])
+        inds = np.logical_not(np.isnan(r0))
+        res[inds] += r0[inds] ** 2
+    if res.size == 1:
+        return res[0]
+    else:
+        return res
 
 
 def solve_alpha_beta_velocity_versionQ5(
     velocities,
     heights,
-    initial_height=None,
+    atmospheric_scale_height=None,
     start=None,
-    bounds = ((0.01, 1000000.0), (0.0001, 200.0), (0, None)),
+    bounds=((0.01, 1000000.0), (0.0001, 200.0), (0, None)),
 ):
     """Solve for alpha and beta using minimization of the least squares of the
     observables input into the preserved analytical relation.
 
     [^1]: In preparation.
     """
-
-    def Q5(x, velocities, yvals):
-        if len(x.shape) == 1:
-            x.shape = (x.size, 1)
-        size = x.shape[1]
-
-        res = np.zeros((size,))
-        for i in range(len(velocities)):
-            vval = velocities[i] / (x[2, ...] * 1000.0)
-            r0 = 2 * x[0, ...] * np.exp(-yvals[i])
-            r0 -= (scs.expi(x[1, ...]) - scs.expi(x[1, ...] * vval**2)) * np.exp(-x[1, ...])
-            inds = np.logical_not(np.isnan(r0))
-            res[inds] += r0[inds] ** 2
-        if res.size == 1:
-            return res[0]
-        else:
-            return res
-
-    if initial_height is None:
-        initial_height = heights[0]
-
-    Yvalues = heights / initial_height
+    Yvalues = heights
+    if atmospheric_scale_height is not None:
+        Yvalues = Yvalues / atmospheric_scale_height
 
     b0 = 0.01
     a0 = np.exp(Yvalues[-1]) / (2.0 * b0)
@@ -283,11 +345,21 @@ def solve_alpha_beta_velocity_versionQ5(
     return out
 
 
+def Q4(x, vvals, yvals):
+    """ """
+    res = 0.0
+    for i in range(len(vvals)):
+        r0 = 2 * x[0, ...] * np.exp(-yvals[i])
+        r0 -= (scs.expi(x[1, ...]) - scs.expi(x[1, ...] * vvals[i] ** 2)) * np.exp(-x[1, ...])
+        res += pow(r0, 2)
+    return res
+
+
 def solve_alpha_beta_versionQ4(
     velocities,
     heights,
     initial_velocity=None,
-    initial_height=None,
+    atmospheric_scale_height=None,
     start=None,
     bounds=((0.001, 10000.0), (0.00001, 500.0)),
 ):
@@ -299,22 +371,13 @@ def solve_alpha_beta_versionQ4(
         https://doi.org/10.1007/s11971-008-1001-5
     """
 
-    def Q4(x, vvals, yvals):
-        res = 0.0
-        for i in range(len(vvals)):
-            r0 = 2 * x[0, ...] * np.exp(-yvals[i])
-            r0 -= (scs.expi(x[1, ...]) - scs.expi(x[1, ...] * vvals[i] ** 2)) * np.exp(-x[1, ...])
-            res += pow(r0, 2)
-        return res
+    Yvalues = heights
+    if atmospheric_scale_height is not None:
+        Yvalues = Yvalues / atmospheric_scale_height
 
-    if initial_velocity is None:
-        initial_velocity = velocities[0]
-
-    if initial_height is None:
-        initial_height = heights[0]
-
-    Vvalues = velocities / initial_velocity
-    Yvalues = heights / initial_height
+    Vvalues = velocities
+    if initial_velocity is not None:
+        Vvalues = Vvalues / initial_velocity
 
     b0 = 1.0
     a0 = np.exp(Yvalues[-1]) / (2.0 * b0)

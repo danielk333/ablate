@@ -35,6 +35,8 @@ logger = logging.getLogger(__name__)
 class Material:
     """Container for material properties
 
+    TODO: proper names for all vars
+
 List of properties:
  - `m2`: mean atomic mass [1]
  - `u0`: surface binding energy [eV]
