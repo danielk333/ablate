@@ -255,8 +255,7 @@ def norm_velocity_direct(mass, beta, shape_change_coefficient, initial_mass=None
     m = mass
     if initial_mass is not None:
         m = m / initial_mass
-
-    return np.sqrt(1 + np.log(m) * (1 - shape_change_coefficient) / beta)
+    return np.sqrt(np.abs(1 + np.log(m) * (1 - shape_change_coefficient) / beta))
 
 
 def velocity_estimate(height, initial_velocity, alpha, beta, atmospheric_scale_height=None):
@@ -289,7 +288,7 @@ def norm_velocity_estimate(
     else:
         v_grid = sampling
     h_grid = norm_height_direct(v_grid, alpha, beta)
-    interp = sci.interp1d(h_grid, v_grid, kind="linear", fill_value=np.nan)
+    interp = sci.interp1d(h_grid, v_grid, kind="linear", fill_value=np.nan, bounds_error=False)
     return interp(y)
 
 
@@ -310,6 +309,10 @@ def final_mass_direct(
         shape_change_coefficient,
         initial_velocity=initial_velocity,
     )
+
+
+def atmosphere_density(height, atmospheric_scale_height, sea_level_rho):
+    return sea_level_rho * np.exp(-height / atmospheric_scale_height)
 
 
 def Q5(x, velocities, yvals):
@@ -347,7 +350,7 @@ def solve_alpha_beta_velocity_versionQ5(
     if atmospheric_scale_height is not None:
         Yvalues = Yvalues / atmospheric_scale_height
 
-    b0 = 0.01
+    b0 = 1.0
     a0 = np.exp(Yvalues[-1]) / (2.0 * b0)
     # /1000 is a hack to make velocities small so minimisation doesnt use stupid steps
     v0 = velocities[0] / 1000
@@ -360,7 +363,6 @@ def solve_alpha_beta_velocity_versionQ5(
             start[0] = np.exp(Yvalues[-1]) / (2.0 * start[1])
         if start[2] is None:
             start[2] = v0
-
     res = sco.minimize(Q5, start, args=(velocities, Yvalues), bounds=bounds)
     out = res.x
     out[2] *= 1000.0  # fix velocities for return
