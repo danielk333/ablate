@@ -33,7 +33,7 @@ def temperature_rate_hill_et_al_2005(
     material_data,
     shape_factor,
     atm_total_mass_density,
-    thermal_ablation,
+    mass_loss_thermal_ablation,
     Lambda,
     atm_temperature=280,
     emissivity=0.9,
@@ -57,8 +57,8 @@ def temperature_rate_hill_et_al_2005(
         Shape factor [1]
     atm_total_mass_density : float or numpy.ndarray
         Total atmospheric mass density [kg/m^3]
-    thermal_ablation : float or numpy.ndarray
-        Mass loss due to thermal ablation [kg/s]
+    mass_loss_thermal_ablation : float or numpy.ndarray
+        Mass loss due to thermal ablation, i.e. -dm_dt [kg/s]
     Lambda : float or numpy.ndarray
         Heat transfer coefficient [1]
     atm_temperature : float or numpy.ndarray
@@ -107,7 +107,7 @@ def temperature_rate_hill_et_al_2005(
 
     coef0 = 0.5 * Lambda * atm_total_mass_density * velocity**3
     coef0 -= 4 * kB * emissivity * (temperature**4 - atm_temperature**4)
-    coef0 += L / shape_factor * (rho_m / mass) ** (2.0 / 3.0) * thermal_ablation
+    coef0 += L / shape_factor * (rho_m / mass) ** (2.0 / 3.0) * (-mass_loss_thermal_ablation)
 
     coef1 = c * mass ** (1.0 / 3.0) * rho_m ** (2.0 / 3.0)
 
@@ -120,8 +120,8 @@ def heat_transfer_bronshten_1983(
     velocity,
     temperature,
     material_data,
-    atm_total_density,
-    thermal_ablation,
+    atm_total_number_density,
+    mass_loss_thermal_ablation,
     atm_mean_mass,
     res=100,
 ):
@@ -149,10 +149,10 @@ def heat_transfer_bronshten_1983(
         Meteoroid temperature [K]
     material_data : dict
         Meteoroid material data, see [`material_data`][ablate.functions.material.material_data].
-    atm_total_density : float or numpy.ndarray
+    atm_total_number_density : float or numpy.ndarray
         Total atmospheric number density [1/m^3]
-    thermal_ablation : float or numpy.ndarray
-        Mass loss due to thermal ablation [kg/s]
+    mass_loss_thermal_ablation : float or numpy.ndarray
+        Mass loss due to thermal ablation, i.e. -dm_dt [kg/s]
     atm_mean_mass : float or numpy.ndarray
         Mean mass of atmospheric constituents [kg]
     res : int
@@ -177,7 +177,7 @@ def heat_transfer_bronshten_1983(
 
     a_e = thermal_accommodation_bronshten_1983(atm_mean_mass, met_mean_mass)
     u_s = nomalized_evaporated_velocity_bronshten_1983(velocity, temperature, atm_mean_mass)
-    Kn_inf, L = Knudsen_number_kero_szasz_2008(mass, met_density, atm_total_density)
+    Kn_inf, L = Knudsen_number_kero_szasz_2008(mass, met_density, atm_total_number_density)
 
     # parameter... Bronshten p. 69 eq. 10.7
     h_star = atm_mean_mass * velocity**2 / (2.0 * kB * temperature)  # [dimensionless]
@@ -228,7 +228,7 @@ def heat_transfer_bronshten_1983(
     v_e = np.sqrt(8 * kB * temperature / (np.pi * met_mean_mass))  # [m/s]
 
     # mean free path of the evaporated molecules, Bronshten p. 79 eq. 11.8; Bronshten II. eq. 2
-    mfp_e = v_e / (atm_total_density * velocity * sigmaD)  # [m]
+    mfp_e = v_e / (atm_total_number_density * velocity * sigmaD)  # [m]
 
     # the toatal fraction of evaporated molecules from the entire front surface 
     # of the meteoroid, Bronshten II. eq. 35
@@ -236,14 +236,14 @@ def heat_transfer_bronshten_1983(
 
     # the total number of molecules evaporated from a certain area of cross section
     # and which takes part in shielding, Bronshten II. eq. 42 and eq. 1
-    N_i = eta / met_mean_mass * (-1.0 * thermal_ablation)  # [number]
+    N_i = eta / met_mean_mass * mass_loss_thermal_ablation  # [number]
 
     # cross section area of meteoroid (L = characteristic length, but here it is
     # equal to the meteoroid radius)
     S_m = np.pi * L**2  # [m^2]
 
     # the number of molecules advancing on the area S, Bronshten II. p. 135
-    N_a = atm_total_density * velocity * S_m  # [number]
+    N_a = atm_total_number_density * velocity * S_m  # [number]
 
     # average velocity of evaporated molecules from the meteoroid surface, see 
     # v_s which is the same thing but for reflected molecules
@@ -423,7 +423,7 @@ def drag_coefficient_bronshten_1983(
     velocity,
     temperature,
     material_data,
-    atm_total_density,
+    atm_total_number_density,
     atm_mean_mass,
     res=100,
 ):
@@ -452,7 +452,7 @@ def drag_coefficient_bronshten_1983(
         Meteoroid temperature [K]
     material_data : dict
         Meteoroid material data, see [`material_data`][ablate.functions.material.material_data].
-    atm_total_density : float or numpy.ndarray
+    atm_total_number_density : float or numpy.ndarray
         Total atmospheric number density [1/m^3]
     atm_mean_mass : float or numpy.ndarray
         Mean mass of atmospheric constituents [kg]
@@ -480,7 +480,7 @@ def drag_coefficient_bronshten_1983(
 
     a_e = thermal_accommodation_bronshten_1983(atm_mean_mass, met_mean_mass)
     u_s = nomalized_evaporated_velocity_bronshten_1983(velocity, temperature, atm_mean_mass)
-    Kn_inf, _ = Knudsen_number_kero_szasz_2008(mass, met_density, atm_total_density)
+    Kn_inf, _ = Knudsen_number_kero_szasz_2008(mass, met_density, atm_total_number_density)
 
     # ####### Gamma ##########
     epsilon_p = 0.86  # [dimensionless] Bronshten p. 69 eq. 10.7 and p. 71
@@ -540,7 +540,7 @@ def drag_coefficient_bronshten_1983(
     return Gamma
 
 
-def Knudsen_number_kero_szasz_2008(met_mass, met_density, atm_total_density):
+def Knudsen_number_kero_szasz_2008(met_mass, met_density, atm_total_number_density):
     """Calculate the Knudsen number.
 
     Parameters
@@ -549,7 +549,7 @@ def Knudsen_number_kero_szasz_2008(met_mass, met_density, atm_total_density):
         Meteoroid mass [kg]
     met_density : float or numpy.ndarray
         Meteoroid density [kg/m^3]
-    atm_total_density : float or numpy.ndarray
+    atm_total_number_density : float or numpy.ndarray
         Total atmospheric number density [1/m^3]
 
     Returns
@@ -561,7 +561,7 @@ def Knudsen_number_kero_szasz_2008(met_mass, met_density, atm_total_density):
 
     # Atmospheric mean free path, source: Westman et al.
     # Physics Handbook p. 186 This is the one used!
-    mfp_inf = 1.0 / (np.pi * (3.62e-10) ** 2 * atm_total_density)  # [m]
+    mfp_inf = 1.0 / (np.pi * (3.62e-10) ** 2 * atm_total_number_density)  # [m]
 
     # The Knudsen number
     # Calculating the radius of the meteoroid at different altutude to get L

@@ -7,29 +7,31 @@ Docstring for this example
 
 import numpy as np
 
-import ablate.functions as func
-import ablate.atmosphere as atm
+import ablate.physics as phys
+import ablate
 
 # data for 2 different meteoroids
-model = atm.NRLMSISE00()
+model = ablate.atmosphere.AtmPymsis()
 data = model.density(
-    time=np.datetime64("2018-07-28"),
-    lat=np.array([69.0, 69.0]),
-    lon=np.array([12.0, 12.0]),
+    time=np.datetime64("2018-07-28T00:00:00"),
+    lat=np.array([69.0]),
+    lon=np.array([12.0]),
     alt=np.array([90e3, 120e3]),
+    mass_densities=False,
 )
+
 print(data)
 
-material_data = func.material.material_parameters("ast")
+material_data = ablate.material.get("asteroidal")
 
-dmdt = func.sputtering.sputtering(
+dmdt = phys.sputtering.sputtering_kero_szasz_2008(
     mass=np.array([0.5, 0.2]),
     velocity=np.array([40e3, 40e3]),
     material_data=material_data,
     density=data,
 )
 
-dmdt_th = func.ablation.thermal_ablation(
+dmdt_th = phys.thermal_ablation.thermal_ablation_hill_et_al_2005(
     mass=np.array([0.5, 0.2]),
     temperature=3700,
     material_data=material_data,

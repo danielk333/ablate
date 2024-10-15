@@ -243,6 +243,22 @@ def norm_height_direct(velocity, alpha, beta, initial_velocity=None):
     return np.log(alpha) + beta - np.log((scs.expi(beta) - scs.expi(beta * v**2)) * 0.5)
 
 
+def velocity_direct(mass, beta, initial_velocity, shape_change_coefficient, initial_mass=None):
+    """Shorthand..."""
+    return initial_velocity * norm_velocity_direct(
+        mass, beta, shape_change_coefficient, initial_mass=initial_mass
+    )
+
+
+def norm_velocity_direct(mass, beta, shape_change_coefficient, initial_mass=None):
+    """Inverse of `norm_mass_direct`"""
+    m = mass
+    if initial_mass is not None:
+        m = m / initial_mass
+
+    return np.sqrt(1 + np.log(m) * (1 - shape_change_coefficient) / beta)
+
+
 def velocity_estimate(height, initial_velocity, alpha, beta, atmospheric_scale_height=None):
     """Shorthand for `norm_mass_direct` scaled to physical units"""
     return initial_velocity * norm_velocity_estimate(
@@ -251,7 +267,13 @@ def velocity_estimate(height, initial_velocity, alpha, beta, atmospheric_scale_h
 
 
 def norm_velocity_estimate(
-    height, alpha, beta, atmospheric_scale_height=None, resolution=1000, edge_delta=1e-10, sampling=None,
+    height,
+    alpha,
+    beta,
+    atmospheric_scale_height=None,
+    resolution=1000,
+    edge_delta=1e-10,
+    sampling=None,
 ):
     """The solution for height as a function of velocity from the analytic
     solutions of the ablation eqations.
@@ -261,7 +283,7 @@ def norm_velocity_estimate(
         y = y / atmospheric_scale_height
 
     if sampling is None:
-        # Sample according to a rescaled inverse exponential line to match the 
+        # Sample according to a rescaled inverse exponential line to match the
         # tangent space of the interpolated function
         v_grid = 1 - np.exp(np.linspace(np.log(1 - edge_delta), np.log(edge_delta), resolution))
     else:

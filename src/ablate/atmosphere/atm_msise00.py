@@ -28,7 +28,7 @@ class AtmMSISE00(Atmosphere):
         f107: float = 80.0,
         f107s: float = 80.0,
         Ap: float = 4.0,
-        mass_densities: bool = True,
+        mass_densities: bool = False,
         **kwargs
     ):
         """TODO: Write docstring
@@ -52,7 +52,12 @@ class AtmMSISE00(Atmosphere):
             **kwargs
         )
         result["alt_km"] = result["alt_km"]*1e3
-        result = result.rename({'alt_km': 'alt'})
+        result = result.rename({
+            "alt_km": "alt",
+            "Tn": "Temperature",
+        })
+        result = result.transpose("time", "lon", "lat", "alt")
+        result.attrs["mass_densities"] = mass_densities
 
         if mass_densities:
             for symbol, s in self.species.items():

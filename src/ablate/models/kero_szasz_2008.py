@@ -55,7 +55,6 @@ class KeroSzasz2008(ScipyODESolve):
         "atmosphere": {
             "f107": None,
             "f107s": None,
-            "Ap": None,
             "version": 2.1,
         },
         "integrate": {
@@ -82,7 +81,6 @@ class KeroSzasz2008(ScipyODESolve):
         Lambda,
         Gamma,
         epoch,
-        atm_mean_mass,
         reference_ecef,
         v_dir_ecef,
     ):
@@ -129,9 +127,6 @@ class KeroSzasz2008(ScipyODESolve):
         f107s = self.config.get("atmosphere", "f107s")
         if f107s is not None:
             f107s = float(f107s)
-        Ap = self.config.get("atmosphere", "Ap")
-        if Ap is not None:
-            Ap = float(Ap)
 
         atm = self.atmosphere.density(
             time=epoch + np.timedelta64(int(t * 1e6), "us"),
@@ -140,13 +135,12 @@ class KeroSzasz2008(ScipyODESolve):
             alt=alt,
             f107=f107,
             f107s=f107s,
-            Ap=Ap,
-            mass_densities=True,
+            mass_densities=False,
             version=self.config.getfloat("atmosphere", "version"),
         )
 
         rho_tot = atm["Total"].values.squeeze()
-        N_rho_tot = rho_tot / atm_mean_mass
+        N_rho_tot = rho_tot / self.atmosphere.mean_mass
 
         if self.config.getboolean("options", "sputtering"):
             dmdt_s = physics.sputtering.sputtering(
@@ -174,9 +168,9 @@ class KeroSzasz2008(ScipyODESolve):
                 velocity=vel,
                 temperature=T,
                 material_data=material_data,
-                atm_total_density=N_rho_tot,
-                thermal_ablation=dmdt_a,
-                atm_mean_mass=atm_mean_mass,
+                atm_total_number_density=N_rho_tot,
+                mass_loss_thermal_ablation=dmdt_a,
+                atm_mean_mass=self.atmosphere.mean_mass,
                 res=self.config.getint("options", "integral_resolution"),
             )
 
@@ -186,8 +180,8 @@ class KeroSzasz2008(ScipyODESolve):
                 velocity=vel,
                 temperature=T,
                 material_data=material_data,
-                atm_total_density=N_rho_tot,
-                atm_mean_mass=atm_mean_mass,
+                atm_total_number_density=N_rho_tot,
+                atm_mean_mass=self.atmosphere.mean_mass,
                 res=self.config.getint("options", "integral_resolution"),
             )
 
@@ -213,7 +207,7 @@ class KeroSzasz2008(ScipyODESolve):
             material_data=material_data,
             shape_factor=self.config.getfloat("options", "shape_factor"),
             atm_total_mass_density=rho_tot,
-            thermal_ablation=dmdt_a,
+            mass_loss_thermal_ablation=-dmdt_a,
             Lambda=Lambda,
             atm_temperature=self.config.getfloat("options", "temperature0"),
             emissivity=self.config.getfloat("options", "emissivity"),
@@ -284,10 +278,6 @@ class KeroSzasz2008(ScipyODESolve):
         """
         logger.debug(f"Running {self.__class__} model")
 
-        atm_mean_mass = (
-            np.array([x.A for _, x in self.atmosphere.species.items()]).mean() * constants.u
-        )
-
         reference_ecef = coordinates.geodetic2ecef(lat, lon, alt)
         v_dir = -1.0 * coordinates.azel_to_cart(azimuth_ang, zenith_ang, 1.0)
         v_dir_ecef = coordinates.enu2ecef(lat, lon, alt, *v_dir.tolist())
@@ -317,7 +307,6 @@ class KeroSzasz2008(ScipyODESolve):
             Lambda,
             Gamma,
             time,
-            atm_mean_mass,
             reference_ecef,
             v_dir_ecef,
         )

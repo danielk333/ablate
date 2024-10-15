@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 import ablate
 
-material = ablate.material.get("asteroroidal", as_dict=False)
+material = ablate.material.get("asteroidal", as_dict=False)
 
 radius = 2e-2  # m
 cross_section = np.pi * radius**2
@@ -35,7 +35,12 @@ beta = ablate.physics.alpha_beta.beta_direct(
 )
 print(f"{alpha=:.2f} {beta=:.2f}")
 
-velocities_vec = np.linspace(59.99e3, 59e3, 1000)
+vel_lims = [
+    ablate.physics.alpha_beta.velocity_direct(1 - 1e-6, beta, 60e3, shape_change_coefficient=2/3),
+    ablate.physics.alpha_beta.velocity_direct(1e-6, beta, 60e3, shape_change_coefficient=2/3),
+]
+print(vel_lims)
+velocities_vec = np.linspace(vel_lims[0], vel_lims[1], 1000)
 
 masses = ablate.physics.alpha_beta.mass_direct(
     velocity=velocities_vec,

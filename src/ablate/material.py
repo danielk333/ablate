@@ -76,7 +76,7 @@ iron = Material(
 )
 MATERIALS["iron"] = iron
 
-asteroroidal = Material(
+asteroidal = Material(
     rho_m = 3300.0,
     mu = 50.0*constants.u,
     m2 = 20.0*constants.u,
@@ -88,7 +88,7 @@ asteroroidal = Material(
     c = 1200,
     L = 6.0E6,
 )
-MATERIALS["asteroroidal"] = asteroroidal
+MATERIALS["asteroidal"] = asteroidal
 
 cometary = Material(
     rho_m = 1000.0,
@@ -145,7 +145,10 @@ def get(material, as_dict=True):
 
     _material = material.lower().strip()
     if _material not in MATERIALS:
-        raise ValueError(f'No data exists for material "{_material}"')
+        raise ValueError(
+            f'No data exists for material "{_material}"\n'
+            f'Avalible materials are: {available()}'
+        )
     if as_dict:
         return asdict(MATERIALS[_material])
     else:

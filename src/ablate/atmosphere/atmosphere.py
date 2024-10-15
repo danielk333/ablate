@@ -3,6 +3,8 @@ from dataclasses import dataclass
 import logging
 from copy import copy
 
+import scipy.constants as constants
+import numpy as np
 import numpy.typing as npt
 
 logger = logging.getLogger(__name__)
@@ -63,6 +65,8 @@ class Atmosphere:
                 self.species[s.symbol] = s
             else:
                 self.species[s] = copy(SPECIES[s])
+
+        self.mean_mass = np.array([x.A for _, x in self.species.items()]).mean() * constants.u  # [kg]
 
     @abstractmethod
     def density(

@@ -41,8 +41,8 @@ class AtmPymsis(Atmosphere):
         alt: npt.ArrayLike,
         f107: npt.ArrayLike = None,
         f107s: npt.ArrayLike = None,
-        Ap: npt.ArrayLike = None,
-        mass_densities: bool = True,
+        aps: npt.ArrayLike = None,
+        mass_densities: bool = False,
         version: Union[float, str] = 2.1,
         **kwargs
     ):
@@ -54,20 +54,6 @@ class AtmPymsis(Atmosphere):
         if msis is None:
             raise ImportError("pymsis is not installed")
 
-        result = msis.run(
-            dates=time,
-            lons=lon,
-            lats=lat,
-            alts=alt * 1e-3,
-            f107s=f107,
-            f107as=f107s,
-            aps=Ap,
-            version=version,
-            **kwargs,
-        )
-        if len(result.shape) == 2:
-            result = result.reshape(result.shape[0], 1, 1, 1, result.shape[1])
-
         time = np.array(time) if not isinstance(time, np.ndarray) else time
         lon = np.array(lon) if not isinstance(lon, np.ndarray) else lon
         lat = np.array(lat) if not isinstance(lat, np.ndarray) else lat
@@ -76,6 +62,20 @@ class AtmPymsis(Atmosphere):
         for inp in [time, lon, lat, alt]:
             if len(inp.shape) == 0:
                 inp.shape = (1,)
+
+        result = msis.run(
+            dates=time,
+            lons=lon,
+            lats=lat,
+            alts=alt * 1e-3,
+            f107s=f107,
+            f107as=f107s,
+            aps=aps,
+            version=version,
+            **kwargs,
+        )
+        if len(result.shape) == 2:
+            result = result.reshape(result.shape[0], 1, 1, 1, result.shape[1])
 
         result = xr.Dataset(
             {
@@ -87,7 +87,7 @@ class AtmPymsis(Atmosphere):
                 "H": (["time", "lon", "lat", "alt"], result[:, :, :, :, 5]),
                 "Ar": (["time", "lon", "lat", "alt"], result[:, :, :, :, 6]),
                 "N": (["time", "lon", "lat", "alt"], result[:, :, :, :, 7]),
-                "Anomalous_O": (["time", "lon", "lat", "alt"], result[:, :, :, :, 8]),
+                "AnomalousO": (["time", "lon", "lat", "alt"], result[:, :, :, :, 8]),
                 "NO": (["time", "lon", "lat", "alt"], result[:, :, :, :, 9]),
                 "Temperature": (["time", "lon", "lat", "alt"], result[:, :, :, :, 10]),
             },
@@ -100,7 +100,7 @@ class AtmPymsis(Atmosphere):
             attrs=dict(
                 f107 = f107,
                 f107s = f107s,
-                Ap = Ap,
+                aps = aps,
                 mass_densities = mass_densities,
                 version = version,
             )

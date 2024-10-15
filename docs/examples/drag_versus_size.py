@@ -6,29 +6,25 @@ Docstring for this example
 """
 
 import numpy as np
-import scipy.constants as constants
 import matplotlib.pyplot as plt
 
-import ablate.functions as func
-import ablate.atmosphere as atm
+import ablate.physics as phys
+import ablate
 
 # data for 2 different meteoroids
-model = atm.NRLMSISE00()
+model = ablate.atmosphere.AtmPymsis()
 data = model.density(
     time=np.datetime64("2018-07-28"),
     lat=np.array([69.0]),
     lon=np.array([12.0]),
     alt=np.array([80e3]),
 )
-atm_total_density = data["Total"].values.squeeze()
+atm_total_mass_density = data["Total"].values.squeeze()
+atm_total_number_density = atm_total_mass_density / model.mean_mass
 
 print(data)
 
-material_data = func.material.material_parameters("ast")
-
-atm_mean_mass = (
-    np.array([x["A"] for _, x in model.species.items()]).mean() * constants.u
-)  # [kg]
+material_data = ablate.material.get("asteroidal")
 
 log_masses = np.linspace(-9, 4, 200)
 masses = 10.0**log_masses
@@ -36,16 +32,17 @@ velocity = 32.0
 
 temperature = 3700
 
-N_rho_tot = atm_total_density / atm_mean_mass
-Kn_inf, L = func.dynamics.Knudsen_number(masses, material_data["rho_m"], N_rho_tot)
+Kn_inf, L = phys.thermal_ablation.Knudsen_number_kero_szasz_2008(
+    masses, material_data["rho_m"], atm_total_number_density
+)
 
-Gamma = func.dynamics.drag_coefficient(
+Gamma = phys.thermal_ablation.drag_coefficient_bronshten_1983(
     mass=masses,
-    velocity=velocity*1e3,
+    velocity=velocity * 1e3,
     temperature=temperature,
     material_data=material_data,
-    atm_total_density=N_rho_tot,
-    atm_mean_mass=atm_mean_mass,
+    atm_total_number_density=atm_total_number_density,
+    atm_mean_mass=model.mean_mass,
     res=100,
 )
 

@@ -114,8 +114,8 @@ def sputtering_kero_szasz_2008(mass, velocity, material_data, density):
     _density = np.empty(m1.shape, dtype=np.float64)
     for ind, key in enumerate(avalible_species):
         if key in density:
-            use_species[ind] = True
             _density[ind, ...] = density[key].values.squeeze()
+            use_species[ind] = np.logical_not(np.any(np.isnan(_density[ind, ...])))
 
     m1 = m1[use_species, ...]
     z1 = z1[use_species, ...]

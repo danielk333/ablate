@@ -1,252 +1,197 @@
 """
-Example run of an ablation model
-=================================
+Compare analytical and numerical
+================================
 
 Docstring for this example
 """
-
-import logging
-import sys
 
 import numpy as np
 import matplotlib.pyplot as plt
 
 import ablate
 
-handler = logging.StreamHandler(sys.stdout)
+material = ablate.material.get("asteroidal")
 
-for name in logging.root.manager.loggerDict:
-    if name.startswith("ablate"):
-        print(f"logger: {name}")
+radius = 2e-2  # m
+cross_section = np.pi * radius**2
+mass = material["rho_m"] * 4 / 3 * np.pi * radius**3
+ze = 75.7744
+initial_velocity = 60e3
+cd = 0.47
+Lambda = 0.9
+mu = 2 / 3
+h0 = 7610.0  # at T = 260 K
 
+print(f"{radius=:1.3e} {cross_section=:1.3e} {mass=:1.3e}")
 
-logger = logging.getLogger("ablate")
-logger.setLevel(logging.DEBUG)
-logger.addHandler(handler)
+alpha = ablate.physics.alpha_beta.alpha_direct(
+    aerodynamic_cd=cd,
+    sea_level_rho=1.225,
+    atmospheric_scale_height=h0,
+    initial_cross_section=cross_section,
+    initial_mass=mass,
+    radiant_local_elevation=90 - ze,
+    degrees=True,
+)
+beta = ablate.physics.alpha_beta.beta_direct(
+    shape_change_coefficient=mu,
+    heat_exchange_coefficient=Lambda,  # Lambda
+    initial_velocity=initial_velocity,
+    aerodynamic_cd=cd,
+    enthalpy_of_massloss=material["L"],
+)
+print(f"{alpha=:.2f} {beta=:.2f}")
 
-model = ablate.KeroSzasz2008(
-    atmosphere="msise00",
-    options=dict(
-        sputtering=True,
-        minimum_mass=1e-11,
-        max_step_size=5e-3,
+vel_lims = [
+    ablate.physics.alpha_beta.velocity_direct(
+        1 - 1e-6, beta, initial_velocity, shape_change_coefficient=2 / 3
     ),
+    ablate.physics.alpha_beta.velocity_direct(
+        1e-6, beta, initial_velocity, shape_change_coefficient=2 / 3
+    ),
+]
+print(vel_lims)
+velocities_vec = np.linspace(vel_lims[0], vel_lims[1], 1000)
+
+masses = ablate.physics.alpha_beta.mass_direct(
+    velocity=velocities_vec,
+    initial_mass=mass,
+    beta=beta,
+    shape_change_coefficient=mu,
+    initial_velocity=initial_velocity,
+)
+heights = ablate.physics.alpha_beta.height_direct(
+    velocity=velocities_vec,
+    atmospheric_scale_height=h0,
+    alpha=alpha,
+    beta=beta,
+    initial_velocity=initial_velocity,
 )
 
-material_data = ablate.functions.material.material_parameters("iron")
+
+model = ablate.KeroSzasz2008(
+    atmosphere=ablate.atmosphere.AtmPymsis(),
+    config={
+        "options": {
+            "temperature0": 290,
+            "shape_factor": 1.21,
+            "emissivity": 0.9,
+            "sputtering": False,
+            "Gamma": cd,
+            "Lambda": Lambda,
+        },
+        "atmosphere": {
+            "version": 2.1,
+        },
+        "integrate": {
+            "minimum_mass_kg": 1e-11,
+            "max_step_size_sec": 1e-3,
+            "max_time_sec": 100.0,
+            "method": "RK45",
+        },
+    },
+)
+
 
 result = model.run(
-    velocity0=60 * 1e3,
-    mass0=1e-6,
-    # mass0=1e-3,
+    velocity0=initial_velocity,
+    mass0=mass,
     altitude0=120e3,
-    zenith_ang=75.7744,
+    zenith_ang=ze,
     azimuth_ang=0.0,
-    material_data=material_data,
+    material_data=material,
     time=np.datetime64("2018-06-28T12:45:33"),
     lat=69.5866115,
     lon=19.221555,
     alt=100e3,
 )
-
 print(result)
 
-fig = plt.figure(figsize=(15, 15))
-fig.suptitle("Meteoroid ablation simulation")
+alpha_est, beta_est = ablate.physics.alpha_beta.solve_alpha_beta_versionQ4(
+    result.velocity[::10],
+    result.altitude[::10],
+    initial_velocity=result.velocity.max(),
+    atmospheric_scale_height=h0,
+    start=None,
+    bounds=((0.001, 10000.0), (0.00001, 500.0)),
+)
+print(f"{alpha_est=:.2f} {beta_est=:.2f}")
 
-ax = fig.add_subplot(221)
-ax.plot(result.t, np.log10(result.mass))
-ax.set_ylabel("Mass [log$_{10}$(kg)]")
-ax.set_xlabel("Time [s]")
+norm_massloss_model = np.diff(result.mass.values) / np.diff(result.altitude.values)
+norm_massloss_model = norm_massloss_model / norm_massloss_model.max()
+inds = norm_massloss_model > 0.9
 
-ax = fig.add_subplot(222)
-ax.plot(result.t, result.velocity * 1e-3)
-ax.set_ylabel("Velocity [km/s]")
-ax.set_xlabel("Time [s]")
-
-ax = fig.add_subplot(223)
-ax.plot(result.t, result.position * 1e-3)
-ax.set_ylabel("Position on trajectory [km]")
-ax.set_xlabel("Time [s]")
-
-ax = fig.add_subplot(224)
-ax.plot(result.t, result.temperature)
-ax.set_ylabel("Meteoroid temperature [K]")
-ax.set_xlabel("Time [s]")
+alpha_est2, beta_est2 = ablate.physics.alpha_beta.solve_alpha_beta_velocity_versionQ5(
+    result.velocity[1:][inds],
+    result.altitude[1:][inds],
+    atmospheric_scale_height=h0,
+)
+print(f"{alpha_est2=:.2f} {beta_est2=:.2f}")
 
 
-fig = plt.figure(figsize=(15, 15))
-ax = fig.add_subplot(111)
+masses_est = ablate.physics.alpha_beta.mass_direct(
+    velocity=result.velocity,
+    initial_mass=mass,
+    beta=beta_est,
+    shape_change_coefficient=mu,
+    initial_velocity=result.velocity.max(),
+)
+heights_est = ablate.physics.alpha_beta.height_direct(
+    velocity=result.velocity,
+    atmospheric_scale_height=h0,
+    alpha=alpha_est,
+    beta=beta_est,
+    initial_velocity=result.velocity.max(),
+)
+
+
+fig, axes = plt.subplots(2, 2, figsize=(15, 15))
+fig.suptitle("Meteoroid ablation simulation vs analytical solution")
+
+ax = axes[0, 0]
+ax.plot(np.log10(result.mass), result.altitude * 1e-3, c="b", label="KeroSzasz2008")
+ax.plot(
+    np.log10(masses), heights * 1e-3, c="g", label=f"alpha-beta direct {alpha=:.2f} {beta=:.2f}"
+)
+ax.plot(
+    np.log10(masses_est),
+    heights_est * 1e-3,
+    c="r",
+    label=f"alpha-beta fit {alpha_est=:.2f} {beta_est=:.2f}",
+)
+ax.set_xlabel("Mass [log$_{10}$(kg)]")
+ax.set_ylabel("Height [km]")
+ax.legend()
+
+ax = axes[1, 0]
+ax.plot(result.velocity * 1e-3, result.altitude * 1e-3, c="b")
+ax.plot(velocities_vec * 1e-3, heights * 1e-3, c="g")
+ax.plot(result.velocity * 1e-3, heights_est * 1e-3, c="r")
+ax.set_xlabel("Velocity [km/s]")
+ax.set_ylabel("Height [km]")
+
+ax = axes[0, 1]
 ax.plot(
     np.diff(result.mass.values) / np.diff(result.altitude.values),
     result.altitude.values[:-1] * 1e-3,
+    c="b",
+)
+ax.plot(
+    np.diff(masses) / np.diff(heights),
+    heights[:-1] * 1e-3,
+    c="g",
+)
+ax.plot(
+    np.diff(masses_est) / np.diff(heights_est),
+    heights_est[:-1] * 1e-3,
+    c="r",
 )
 ax.set_xlabel("Mass loss [kg/m]")
-ax.set_ylabel("Altitude [km]")
+ax.set_ylabel("Height [km]")
 
-
-plt.show()
-
-
-"""
-Alpha-beta model usage
-=======================
-
-Example adapted from:
- - https://github.com/desertfireballnetwork/alpha_beta_modules
- - https://doi.org/10.1016/j.asr.2009.03.030
-
-# TODO: clean up
-
-"""
-import scipy
-import numpy as np
-import matplotlib.pyplot as plt
-
-from ablate.functions import ablation
-
-f = "/home/danielk/data/test_data/DN150417.csv"
-slope = 15.17
-vel_col = "D_DT_geo"
-h_col = "height"
-data = np.genfromtxt(
-    f, delimiter=",", dtype="f8,f8,f8", names=["height", "D_DT_geo", "D_DT_fitted"]
-)
-
-# f = "/home/danielk/data/MU/test_tabledata.txt"
-# vel_col = "velocity"
-# h_col = "height"
-# data = np.genfromtxt(
-#     f, skip_header=1, delimiter=",", dtype="f8,f8", names=["height", "velocity"],
-# )
-# slope = 14.2256
-
-
-slope = np.deg2rad(slope)
-# remove any nan values
-data = data[np.logical_not(np.isnan(data[vel_col]))]
-vel = data[vel_col]
-alt = data[h_col]
-
-# Initial velocity
-v0 = vel[0]
-
-# dimensionless parameter for velocity
-Vvalues = vel/v0
-
-
-# normalise height - if statement accounts for km vs. metres data values.
-h0 = 7160.0  # metres
-Yvalues = alt/h0
-
-mat_shape = (300, 200)
-alpha_mat, beta_mat = np.meshgrid(
-    np.linspace(-3, 5, mat_shape[1]),
-    np.linspace(-5, 3, mat_shape[0]),
-)
-
-xvec = np.stack([10.0**alpha_mat.flatten(), 10.0**beta_mat.flatten()])
-fit_func = ablation.alpha_beta_min_fun(xvec, Vvalues, Yvalues)
-
-fit_func = fit_func.reshape(mat_shape)
-
-fig, ax = plt.subplots()
-ax.pcolormesh(alpha_mat, beta_mat, np.exp(-fit_func))
-
-plt.show()
-
-
-Gparams = ablation.alpha_beta_Q4_min(Vvalues, Yvalues)
-
-alpha = Gparams[0]
-beta = Gparams[1]
-
-print(f"alpha = {alpha}, beta = {beta}")
-
-norm_v = np.arange(0.1, 1, 0.00005)
-
-
-def norm_hight(norm_velocity):
-    y = np.log(alpha) + beta
-    y -= np.log((scipy.special.expi(beta) - scipy.special.expi(beta*norm_velocity**2))/2)
-    return y
-
-
-norm_h = norm_hight(norm_v)
-
-fig, ax = plt.subplots()
-
-ax.scatter(Vvalues, Yvalues, marker="x", label=None)
-plt.plot(norm_v, norm_h, color="r")
-
-ax.set_xlabel("normalised velocity")
-ax.set_ylabel("normalised height")
-
-# define x values
-ln_alpha_singamma = np.arange(0, 10, 0.00005)
-
-
-# The parameter mu represents rotation during the flight
-# If mu = 0, no rotation; if mu = 2/3, the ablation becomes uniform
-# over the surface (shape factor A does not change).
-
-
-def ln_beta_paramerized(ln_alpha_singamma, shape_change_coef, log_mass_fraction):
-    # function for mu = 0, 50 g possible meteorite:
-    beta = (shape_change_coef - 1)*(log_mass_fraction + 3*ln_alpha_singamma)
-    return np.log(beta)
-
-
-log_mass_fraction_50g = -13.2
-
-ln_beta_0 = ln_beta_paramerized(ln_alpha_singamma, 0, log_mass_fraction_50g)
-ln_beta_23 = ln_beta_paramerized(ln_alpha_singamma, 2.0/3.0, log_mass_fraction_50g)
-
-
-fig, ax = plt.subplots()
-
-# plot mu0, mu2/3 lines and your point:
-ax.plot(ln_alpha_singamma, ln_beta_0, color="black")
-ax.plot(ln_alpha_singamma, ln_beta_23, color="grey")
-ax.scatter([np.log(alpha*np.sin(slope))], [np.log(beta)], color="r")
-
-# defite plot parameters
-ax.set_xlim((-1, 7))
-ax.set_ylim((-3, 4))
-ax.set_xlabel("ln(alpha x sin(slope))")
-ax.set_ylabel("ln(beta)")
-ax.set_aspect("equal")
-
-# Assumeing values:
-# AERODYNAMIC drag coefficient (not Gamma)
-cd = 1.3
-# Possible shape coefficients
-A = [1.21, 1.3, 1.55]
-# possible meteoroid densities
-m_rho = [2700, 3500, 7000]
-# shape change coefficient
-mu = 2./3.
-
-
-me_sphere = [ablation.alpha_beta_entry_mass(alpha, beta, slope, cd, rho, A[0]) for rho in m_rho]
-me_round_brick = [ablation.alpha_beta_entry_mass(alpha, beta, slope, cd, rho, A[1]) for rho in m_rho]
-me_brick = [ablation.alpha_beta_entry_mass(alpha, beta, slope, cd, rho, A[2]) for rho in m_rho]
-
-mf_sphere = [ablation.alpha_beta_final_mass(me, beta, mu, Vvalues[-1]) for me in me_sphere]
-mf_round_brick = [ablation.alpha_beta_final_mass(me, beta, mu, Vvalues[-1]) for me in me_round_brick]
-mf_brick = [ablation.alpha_beta_final_mass(me, beta, mu, Vvalues[-1]) for me in me_brick]
-
-print("Masses in [g]")
-print("Density in [kg/m^3]")
-print(f"Entry mass of spherical body with {m_rho} density =\n", np.array(me_sphere)*1e3)
-print(f"Final mass of spherical body with {m_rho} density =\n", np.array(mf_sphere)*1e3)
-print("\n")
-print(f"Entry mass of typical shape with {m_rho} density =\n", np.array(me_round_brick)*1e3)
-print(f"Final mass of typical shape with {m_rho} density =\n", np.array(mf_round_brick)*1e3)
-print("\n")
-print(f"Entry mass of brick shape with {m_rho} density =\n", np.array(me_brick)*1e3)
-print(f"Final mass of brick shape with {m_rho} density =\n", np.array(mf_brick)*1e3)
-print("\n")
-
+ax = axes[1, 1]
+ax.plot(result.temperature, result.altitude * 1e-3)
+ax.set_xlabel("Meteoroid temperature [K]")
+ax.set_ylabel("Height [km]")
 
 plt.show()
