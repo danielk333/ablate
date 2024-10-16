@@ -67,14 +67,12 @@ pages:
   stage: release
   extends: .devsetup
   script:
-    - cd docs
-    - make html
-    - mv build/html ../public
+    - mkdocs build --site-dir public
   artifacts:
     paths:
       - public
   rules:
-    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_COMMIT_BRANCH == "main"
 #  only:
 #    - tags
 

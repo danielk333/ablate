@@ -69,8 +69,10 @@ plugins:
   - mkdocs-jupyter:
       execute: true
       include_source: True
+      include: ["*.py", "*.ipynb"]
       ignore: ["_wip*"]
       # ignore: ["*"]
+      theme: dark
 
 nav:
   - Home: index.md
@@ -78,12 +80,17 @@ nav:
   - Examples:
     - examples/index.md
     - alpha_beta: examples/alpha_beta.py
+    - alpha_beta_partial_data: examples/alpha_beta_partial_data.py
     - calculate_gamma_lambda: examples/calculate_gamma_lambda.py
+    - compare_alpha_beta_num_ablation: examples/compare_alpha_beta_num_ablation.py
     - compare_sputtering: examples/compare_sputtering.py
     - drag_versus_size: examples/drag_versus_size.py
     - example_ablation_model_run: examples/example_ablation_model_run.py
+    - fit_alpha_beta: examples/fit_alpha_beta.py
     - heat_coef_versus_size: examples/heat_coef_versus_size.py
+    - height_rescaling: examples/height_rescaling.py
     - plot_msise00: examples/plot_msise00.py
+    - plot_pymsis: examples/plot_pymsis.py
   - Notebooks:
     - notebooks/index.md
   - Reference: reference/
