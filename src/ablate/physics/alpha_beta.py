@@ -311,7 +311,17 @@ def final_mass_direct(
     )
 
 
+def rescale_hight(atm_total_mass_density, atmospheric_scale_height, sea_level_rho):
+    """Rescale heights using an arbitrary but strictly decreeing atmospheric
+    density model as a function of the original height, so that the new heights gives the
+    same density using a simple exponential atmospheric density model.
+    """
+    return -np.log(atm_total_mass_density / sea_level_rho) * atmospheric_scale_height
+
+
 def atmosphere_density(height, atmospheric_scale_height, sea_level_rho):
+    """The atmospheric density model used by alpha-beta
+    """
     return sea_level_rho * np.exp(-height / atmospheric_scale_height)
 
 
