@@ -29,6 +29,7 @@ dependencies = [
     "numpy",
     "matplotlib",
     "xarray",
+    "pymsis",
 ]
 dynamic = ["version"]
 
@@ -43,14 +44,10 @@ version = {attr = "ablate.version.__version__"}
 where = ["src"]
 
 [project.optional-dependencies]
-amospheres = [
-    "pymsis",
-]
 profiling = [
     "yappi",
 ]
 all = [
-    "pymsis",
     "yappi",
 ]
 develop = [
