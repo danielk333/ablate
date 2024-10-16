@@ -350,11 +350,16 @@ def solve_alpha_beta_velocity_versionQ5(
     atmospheric_scale_height=None,
     start=None,
     bounds=((0.01, 1000000.0), (0.0001, 200.0), (0, None)),
+    minimize_kwargs={},
 ):
     """Solve for alpha and beta using minimization of the least squares of the
-    observables input into the preserved analytical relation.
+    observables input into the preserved analytical relation [^1].
+
+    Adapted from [^2] and [^3].
 
     [^1]: In preparation.
+    [^2]: https://github.com/desertfireballnetwork/alpha_beta_modules
+    [^3]: https://doi.org/10.1016/j.asr.2009.03.030
     """
     Yvalues = heights
     if atmospheric_scale_height is not None:
@@ -373,7 +378,7 @@ def solve_alpha_beta_velocity_versionQ5(
             start[0] = np.exp(Yvalues[-1]) / (2.0 * start[1])
         if start[2] is None:
             start[2] = v0
-    res = sco.minimize(Q5, start, args=(velocities, Yvalues), bounds=bounds)
+    res = sco.minimize(Q5, start, args=(velocities, Yvalues), bounds=bounds, **minimize_kwargs)
     out = res.x
     out[2] *= 1000.0  # fix velocities for return
     return out
@@ -396,6 +401,7 @@ def solve_alpha_beta_versionQ4(
     atmospheric_scale_height=None,
     start=None,
     bounds=((0.001, 10000.0), (0.00001, 500.0)),
+    minimize_kwargs={},
 ):
     """Solve for alpha and beta using minimization of the least squares of the
     observables input into the preserved analytical relation [^1].
@@ -423,5 +429,5 @@ def solve_alpha_beta_versionQ4(
         if start[0] is None:
             start[0] = np.exp(Yvalues[-1]) / (2.0 * start[1])
 
-    res = sco.minimize(Q4, start, args=(Vvalues, Yvalues), bounds=bounds)
+    res = sco.minimize(Q4, start, args=(Vvalues, Yvalues), bounds=bounds, **minimize_kwargs)
     return res.x

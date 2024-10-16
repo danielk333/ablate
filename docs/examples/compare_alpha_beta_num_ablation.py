@@ -147,8 +147,11 @@ def analyse_scenario(radius, initial_velocity, material_name, integrate_options)
         sim_h_samples,
         initial_velocity=sim_vels.max(),
         atmospheric_scale_height=h0,
-        start=None,
-        bounds=((0.001, 10000.0), (0.00001, 500.0)),
+        bounds=((0.01, 1000000.0), (10.0, 500.0)),
+        start=[None, 50.0],
+        minimize_kwargs=dict(
+            method="Nelder-Mead",
+        )
     )
     alpha_scaled_est, beta_scaled_est = alpha_beta.solve_alpha_beta_versionQ4(
         sim_vels_samples,
