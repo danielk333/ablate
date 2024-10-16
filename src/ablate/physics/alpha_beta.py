@@ -320,8 +320,7 @@ def rescale_hight(atm_total_mass_density, atmospheric_scale_height, sea_level_rh
 
 
 def atmosphere_density(height, atmospheric_scale_height, sea_level_rho):
-    """The atmospheric density model used by alpha-beta
-    """
+    """The atmospheric density model used by alpha-beta"""
     return sea_level_rho * np.exp(-height / atmospheric_scale_height)
 
 
@@ -431,3 +430,33 @@ def solve_alpha_beta_versionQ4(
 
     res = sco.minimize(Q4, start, args=(Vvalues, Yvalues), bounds=bounds, **minimize_kwargs)
     return res.x
+
+
+def logposterior_alpha_beta(
+    alpha,
+    beta,
+    heights,
+    velocities,
+    velocities_std,
+    initial_velocity=None,
+    atmospheric_scale_height=None,
+    fill_value=-1e10,
+    inverse_kwargs={},
+):
+    Vvalues = velocities
+    Vstd = velocities_std
+    if initial_velocity is not None:
+        Vvalues = Vvalues / initial_velocity
+        Vstd = Vstd / initial_velocity
+
+    Yvalues = heights
+    if atmospheric_scale_height is not None:
+        Yvalues = Yvalues / atmospheric_scale_height
+
+    try:
+        vn = norm_velocity_estimate(
+            Yvalues, alpha, beta, atmospheric_scale_height=None, **inverse_kwargs
+        )
+    except RuntimeError:
+        return fill_value
+    return -0.5 * np.sum(((Vvalues - vn) / Vstd) ** 2)
