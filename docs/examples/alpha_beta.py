@@ -31,7 +31,7 @@ beta = ablate.physics.alpha_beta.beta_direct(
     heat_exchange_coefficient=1,  # Lambda
     initial_velocity=60e3,
     aerodynamic_cd=0.47,
-    enthalpy_of_massloss=material.L,
+    enthalpy_of_massloss=material.L*20,  # Probably non-physical value in reality
 )
 print(f"{alpha=:.2f} {beta=:.2f}")
 
@@ -56,13 +56,6 @@ heights = ablate.physics.alpha_beta.height_direct(
     beta=beta,
     initial_velocity=60e3,
 )
-velocities_est = ablate.physics.alpha_beta.velocity_estimate(
-    height=heights,
-    initial_velocity=60e3,
-    alpha=alpha,
-    beta=beta,
-    atmospheric_scale_height=7610.0,
-)
 
 mass_loss = np.diff(masses)/np.diff(heights)
 
@@ -76,9 +69,9 @@ axes[1, 0].plot(velocities_vec*1e-3, heights*1e-3)
 axes[1, 0].set_xlabel("Velocity [km/s]")
 axes[1, 0].set_ylabel("Height [km]")
 
-axes[0, 1].plot(velocities_est*1e-3, heights*1e-3)
-axes[0, 1].set_xlabel("Velocity [km/s]")
+axes[0, 1].plot(masses, heights*1e-3)
 axes[0, 1].set_ylabel("Height [km]")
+axes[0, 1].set_xlabel("Remaining mass [kg]")
 
 axes[1, 1].plot(mass_loss, heights[1:]*1e-3)
 axes[1, 1].set_xlabel("Mass loss [kg/m]")
