@@ -58,7 +58,7 @@ dens = atm.density(
     alt=data["alt0"],
 )
 atm_density = dens["Total"].values.squeeze()
-data["alt"] = ablate.physics.alpha_beta.rescale_hight(
+data["alt"] = ablate.physics.alpha_beta.scale_hight_to_exponential_atm(
     atm_total_mass_density=atm_density, 
     atmospheric_scale_height=7610.0,
     sea_level_rho=1.225,

@@ -340,39 +340,48 @@ def final_mass_direct(
     )
 
 
-def rescale_hight(atm_total_mass_density, atmospheric_scale_height, sea_level_rho):
-    """Rescale heights using an arbitrary but strictly decreeing atmospheric
+def scale_hight_to_exponential_atm(atm_total_mass_density, atmospheric_scale_height, sea_level_rho):
+    """Scale heights using an arbitrary but strictly decreeing atmospheric
     density model as a function of the original height, so that the new heights gives the
     same density using a simple exponential atmospheric density model.
     """
     return -np.log(atm_total_mass_density / sea_level_rho) * atmospheric_scale_height
 
 
-def rescale_hight_inverse(
+def scale_hight_to_model_atm(
     height,
-    atmospheric_scale_height,
+    atmosphere,
     sea_level_rho,
-    resolution=1000,
-    edge_delta=1e-10,
-    sampling=None,
+    density_args=(),
+    density_kwargs={},
+    atmospheric_scale_height=None,
+    lims=[0, 200e3],
+    root_find_kwargs={},
 ):
-    """The solution for height as a function of velocity from the analytic
-    solutions of the ablation eqations.
+    """Scale heights from an exponential model to an arbitrary but strictly decreeing atmospheric
+    density model as a function of the new height, so that the new heights in the atmospheric 
+    model gives the same density as the simple exponential model.
     """
-    raise NotImplementedError()
-    y = height
+    Yvalues = height
     if atmospheric_scale_height is not None:
-        y = y / atmospheric_scale_height
+        Yvalues = Yvalues / atmospheric_scale_height
 
-    if sampling is None:
-        # Sample according to a rescaled inverse exponential line to match the
-        # tangent space of the interpolated function
-        v_grid = 1 - np.exp(np.linspace(np.log(1 - edge_delta), np.log(edge_delta), resolution))
-    else:
-        v_grid = sampling
-    h_grid = norm_height_direct(v_grid, alpha, beta)
-    interp = sci.interp1d(h_grid, v_grid, kind="linear", fill_value=np.nan, bounds_error=False)
-    return interp(y)
+    def get_density(h):
+        d = atmosphere.density(*density_args, alt=h, **density_kwargs)
+        return d["Total"].values.squeeze()
+
+    def func_exact(h, y):
+        return sea_level_rho * np.exp(-y) - get_density(h)
+
+    scaled_height = np.zeros_like(height)
+    for ind in range(len(height)):
+        scaled_height[ind] = sco.bisect(
+            func_exact,
+            lims[0], lims[1],
+            args=(Yvalues[ind],),
+            **root_find_kwargs
+        )
+    return scaled_height
 
 
 def atmosphere_density(height, atmospheric_scale_height, sea_level_rho):
