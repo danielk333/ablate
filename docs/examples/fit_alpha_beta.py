@@ -74,6 +74,7 @@ alpha_Q4, beta_Q4 = alpha_beta.solve_alpha_beta_versionQ4(
 alpha_Q5, beta_Q5, vel_Q5 = alpha_beta.solve_alpha_beta_velocity_versionQ5(
     data["vel"],
     data["alt"],
+    bounds=((1e-2, 1e6), (1e-6, 1e3), (0, None)),
     atmospheric_scale_height=h0,
 )
 alpha_P, beta_P, vel_P = alpha_beta.solve_alpha_beta_posterior(

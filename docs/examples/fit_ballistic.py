@@ -55,7 +55,7 @@ cB_est, v0 = ballistic.fit_velocity(
     data["vel"],
     msis_density,
     weights=data["vel_std"],
-    radiant_local_elevation=meta["slope"],
+    radiant_local_elevation=90 - meta["slope"],
     degrees=True,
 )
 inds = np.argsort(data["alt"])[::-1]
@@ -63,7 +63,7 @@ fit_vels = ballistic.velocity(
     data["alt"][inds],
     msis_density[inds],
     cB_est,
-    radiant_local_elevation=meta["slope"],
+    radiant_local_elevation=90 - meta["slope"],
     initial_velocity=v0,
     degrees=True,
 )

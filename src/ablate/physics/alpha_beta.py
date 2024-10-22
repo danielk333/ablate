@@ -313,10 +313,7 @@ def norm_velocity_estimate(
     Vvalues = np.zeros_like(Yvalues)
     for ind in range(len(height)):
         Vvalues[ind] = sco.bisect(
-            func_exact,
-            lims[0], lims[1],
-            args=(Yvalues[ind],),
-            **root_find_kwargs
+            func_exact, lims[0], lims[1], args=(Yvalues[ind],), **root_find_kwargs
         )
     return Vvalues
 
@@ -359,7 +356,7 @@ def scale_hight_to_model_atm(
     root_find_kwargs={},
 ):
     """Scale heights from an exponential model to an arbitrary but strictly decreeing atmospheric
-    density model as a function of the new height, so that the new heights in the atmospheric 
+    density model as a function of the new height, so that the new heights in the atmospheric
     model gives the same density as the simple exponential model.
     """
     Yvalues = height
@@ -376,10 +373,7 @@ def scale_hight_to_model_atm(
     scaled_height = np.zeros_like(height)
     for ind in range(len(height)):
         scaled_height[ind] = sco.bisect(
-            func_exact,
-            lims[0], lims[1],
-            args=(Yvalues[ind],),
-            **root_find_kwargs
+            func_exact, lims[0], lims[1], args=(Yvalues[ind],), **root_find_kwargs
         )
     return scaled_height
 
@@ -389,7 +383,7 @@ def atmosphere_density(height, atmospheric_scale_height, sea_level_rho):
     return sea_level_rho * np.exp(-height / atmospheric_scale_height)
 
 
-def Q5(x, velocities, yvals):
+def Q5(x, velocities, yvals, fill_value=0):
     """ """
     if len(x.shape) == 1:
         x.shape = (x.size, 1)
@@ -398,10 +392,12 @@ def Q5(x, velocities, yvals):
     res = np.zeros((size,))
     for i in range(len(velocities)):
         vval = velocities[i] / (x[2, ...] * 1000.0)
-        r0 = 2 * x[0, ...] * np.exp(-yvals[i])
-        r0 -= (scs.expi(x[1, ...]) - scs.expi(x[1, ...] * vval**2)) * np.exp(-x[1, ...])
-        inds = np.logical_not(np.isnan(r0))
-        res[inds] += r0[inds] ** 2
+        r0 = 2 * x[0, ...] * np.exp(-yvals[i]) - (
+            (scs.expi(x[1, ...]) - scs.expi(x[1, ...] * vval**2)) * np.exp(-x[1, ...])
+        )
+        r0[np.isnan(r0)] = fill_value
+        res += r0 ** 2
+
     if res.size == 1:
         return res[0]
     else:
@@ -413,7 +409,7 @@ def solve_alpha_beta_velocity_versionQ5(
     heights,
     atmospheric_scale_height=None,
     start=None,
-    bounds=((0.01, 1000000.0), (0.0001, 200.0), (0, None)),
+    bounds=((1e-2, 1e6), (1e-4, 1e3), (0, None)),
     minimize_kwargs={},
 ):
     """Solve for alpha and beta using minimization of the least squares of the
@@ -466,7 +462,7 @@ def solve_alpha_beta_versionQ4(
     initial_velocity=None,
     atmospheric_scale_height=None,
     start=None,
-    bounds=((0.001, 10000.0), (0.00001, 500.0)),
+    bounds=((1e-3, 1e4), (1e-5, 1e3)),
     minimize_kwargs={},
 ):
     """Solve for alpha and beta using minimization of the least squares of the
@@ -570,5 +566,4 @@ def solve_alpha_beta_posterior(
 
     res = sco.minimize(wrap_func, start, bounds=bounds, **minimize_kwargs)
     out = res.x
-    print(res)
     return out
