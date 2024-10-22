@@ -156,8 +156,26 @@ def area_to_mass_ratio(
     return 2 * alpha * sin_gamma / (aerodynamic_cd * sea_level_rho * atmospheric_scale_height)
 
 
-def ballistic_coefficient(bulk_density, aerodynamic_cd, characteristic_length):
-    return bulk_density * characteristic_length / aerodynamic_cd
+def alpha_from_ballistic_coefficient(
+    ballistic_coefficient,
+    sea_level_rho,
+    atmospheric_scale_height,
+    radiant_local_elevation,
+    degrees=False,
+):
+    el = np.radians(radiant_local_elevation) if degrees else radiant_local_elevation
+    return sea_level_rho * atmospheric_scale_height / (2 * ballistic_coefficient * np.sin(el))
+
+
+def ballistic_coefficient_from_alpha(
+    alpha,
+    sea_level_rho,
+    atmospheric_scale_height,
+    radiant_local_elevation,
+    degrees=False,
+):
+    el = np.radians(radiant_local_elevation) if degrees else radiant_local_elevation
+    return sea_level_rho * atmospheric_scale_height / (2 * alpha * np.sin(el))
 
 
 def shape_factor_direct(initial_cross_section, initial_mass, bulk_density):
@@ -396,7 +414,7 @@ def Q5(x, velocities, yvals, fill_value=0):
             (scs.expi(x[1, ...]) - scs.expi(x[1, ...] * vval**2)) * np.exp(-x[1, ...])
         )
         r0[np.isnan(r0)] = fill_value
-        res += r0 ** 2
+        res += r0**2
 
     if res.size == 1:
         return res[0]
