@@ -11,7 +11,14 @@ def velocity(
     initial_velocity=None,
     degrees=False,
 ):
-    """
+    """Velocity function for ballistic coefficient solution of trajectory
+
+    $$
+        c_b = \\frac{M_e}{c_d S_e}
+    $$
+
+    where $M_e$ is entry mass, $S_e$ is cross-sectional area and $c_d$ is
+    aerodynamic drag coefficient.
 
     Notes
     -----
