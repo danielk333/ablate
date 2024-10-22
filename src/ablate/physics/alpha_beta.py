@@ -370,7 +370,7 @@ def scale_hight_to_model_atm(
     density_args=(),
     density_kwargs={},
     atmospheric_scale_height=None,
-    lims=[0, 200e3],
+    lims=None,
     root_find_kwargs={},
 ):
     """Scale heights from an exponential model to an arbitrary but strictly decreeing atmospheric
@@ -390,8 +390,9 @@ def scale_hight_to_model_atm(
 
     scaled_height = np.zeros_like(height)
     for ind in range(len(height)):
+        _lim = lims if lims is not None else [height[ind]*0.7, height[ind]*1.3]
         scaled_height[ind] = sco.bisect(
-            func_exact, lims[0], lims[1], args=(Yvalues[ind],), **root_find_kwargs
+            func_exact, _lim[0], _lim[1], args=(Yvalues[ind],), **root_find_kwargs
         )
     return scaled_height
 
