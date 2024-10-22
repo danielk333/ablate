@@ -265,7 +265,7 @@ def velocity_estimate(height, initial_velocity, alpha, beta, atmospheric_scale_h
     )
 
 
-def norm_velocity_estimate(
+def norm_velocity_estimate_brute(
     height,
     alpha,
     beta,
@@ -274,8 +274,8 @@ def norm_velocity_estimate(
     edge_delta=1e-10,
     sampling=None,
 ):
-    """The solution for height as a function of velocity from the analytic
-    solutions of the ablation eqations.
+    """Brute force approach to estimating velocity as a function of height from the analytic
+    solutions of the ablation equations.
     """
     y = height
     if atmospheric_scale_height is not None:
@@ -290,6 +290,35 @@ def norm_velocity_estimate(
     h_grid = norm_height_direct(v_grid, alpha, beta)
     interp = sci.interp1d(h_grid, v_grid, kind="linear", fill_value=np.nan, bounds_error=False)
     return interp(y)
+
+
+def norm_velocity_estimate(
+    height,
+    alpha,
+    beta,
+    atmospheric_scale_height=None,
+    lims=[0, 1],
+    root_find_kwargs={},
+):
+    """Root-solver estimation of velocity as a function of height from the analytic
+    solutions of the ablation equations.
+    """
+    Yvalues = height
+    if atmospheric_scale_height is not None:
+        Yvalues = Yvalues / atmospheric_scale_height
+
+    def func_exact(v, y):
+        return np.log(alpha) + beta - np.log((scs.expi(beta) - scs.expi(beta * v**2)) * 0.5) - y
+
+    Vvalues = np.zeros_like(Yvalues)
+    for ind in range(len(height)):
+        Vvalues[ind] = sco.bisect(
+            func_exact,
+            lims[0], lims[1],
+            args=(Yvalues[ind],),
+            **root_find_kwargs
+        )
+    return Vvalues
 
 
 def final_mass_direct(
@@ -317,6 +346,33 @@ def rescale_hight(atm_total_mass_density, atmospheric_scale_height, sea_level_rh
     same density using a simple exponential atmospheric density model.
     """
     return -np.log(atm_total_mass_density / sea_level_rho) * atmospheric_scale_height
+
+
+def rescale_hight_inverse(
+    height,
+    atmospheric_scale_height,
+    sea_level_rho,
+    resolution=1000,
+    edge_delta=1e-10,
+    sampling=None,
+):
+    """The solution for height as a function of velocity from the analytic
+    solutions of the ablation eqations.
+    """
+    raise NotImplementedError()
+    y = height
+    if atmospheric_scale_height is not None:
+        y = y / atmospheric_scale_height
+
+    if sampling is None:
+        # Sample according to a rescaled inverse exponential line to match the
+        # tangent space of the interpolated function
+        v_grid = 1 - np.exp(np.linspace(np.log(1 - edge_delta), np.log(edge_delta), resolution))
+    else:
+        v_grid = sampling
+    h_grid = norm_height_direct(v_grid, alpha, beta)
+    interp = sci.interp1d(h_grid, v_grid, kind="linear", fill_value=np.nan, bounds_error=False)
+    return interp(y)
 
 
 def atmosphere_density(height, atmospheric_scale_height, sea_level_rho):
@@ -417,7 +473,7 @@ def solve_alpha_beta_versionQ4(
     Vvalues = velocities
     if initial_velocity is not None:
         Vvalues = Vvalues / initial_velocity
-
+    # TODO: automatic better initial guess for beta
     b0 = 1.0
     a0 = np.exp(Yvalues[-1]) / (2.0 * b0)
     if start is None:
@@ -440,7 +496,6 @@ def logposterior_alpha_beta(
     velocities_std,
     initial_velocity=None,
     atmospheric_scale_height=None,
-    fill_value=-1e10,
     inverse_kwargs={},
 ):
     Vvalues = velocities
@@ -452,11 +507,57 @@ def logposterior_alpha_beta(
     Yvalues = heights
     if atmospheric_scale_height is not None:
         Yvalues = Yvalues / atmospheric_scale_height
-
-    try:
-        vn = norm_velocity_estimate(
-            Yvalues, alpha, beta, atmospheric_scale_height=None, **inverse_kwargs
-        )
-    except RuntimeError:
-        return fill_value
+    # TODO: propagate a gaussian trough alpha-beta solution to also include h_std in the posterior
+    vn = norm_velocity_estimate(
+        Yvalues, alpha, beta, atmospheric_scale_height=None, **inverse_kwargs
+    )
     return -0.5 * np.sum(((Vvalues - vn) / Vstd) ** 2)
+
+
+def solve_alpha_beta_posterior(
+    velocities,
+    velocities_std,
+    heights,
+    atmospheric_scale_height=None,
+    start=None,
+    bounds=((0.01, 1000000.0), (0.0001, 200.0), (0, None)),
+    minimize_kwargs={},
+    inverse_kwargs={},
+):
+    """Solve for alpha and beta using minimization of the posterior [^1].
+
+    [^1]: Kastinen et al (202x) in preparation
+    """
+    Yvalues = heights
+    if atmospheric_scale_height is not None:
+        Yvalues = Yvalues / atmospheric_scale_height
+
+    b0 = 1.0
+    a0 = np.exp(Yvalues[-1]) / (2.0 * b0)
+    v0 = velocities[0]
+    if start is None:
+        start = [a0, b0, v0]
+    else:
+        if start[1] is None:
+            start[1] = b0
+        if start[0] is None:
+            start[0] = np.exp(Yvalues[-1]) / (2.0 * start[1])
+        if start[2] is None:
+            start[2] = v0
+
+    def wrap_func(x):
+        return -logposterior_alpha_beta(
+            x[0],
+            x[1],
+            Yvalues,
+            velocities,
+            velocities_std,
+            initial_velocity=x[2],
+            atmospheric_scale_height=None,
+            inverse_kwargs=inverse_kwargs,
+        )
+
+    res = sco.minimize(wrap_func, start, bounds=bounds, **minimize_kwargs)
+    out = res.x
+    print(res)
+    return out

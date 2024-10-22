@@ -2,161 +2,135 @@
 Alpha-beta model usage
 =======================
 
-Example adapted from:
- - https://github.com/desertfireballnetwork/alpha_beta_modules
- - https://doi.org/10.1016/j.asr.2009.03.030
-
-# TODO: clean up
-
 """
-import scipy
+
+from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
+import json
 
-from ablate.functions import ablation
+from ablate.physics import alpha_beta
+import ablate
 
-f = "/home/danielk/data/test_data/DN150417.csv"
-slope = 15.17
-vel_col = "D_DT_geo"
-h_col = "height"
-data = np.genfromtxt(
-    f, delimiter=",", dtype="f8,f8,f8", names=["height", "D_DT_geo", "D_DT_fitted"]
+HERE = Path(__file__).parent.absolute()
+data_file = HERE / "data" / "20140104-025436.json"
+
+h0 = 7160.0
+
+# Load some data
+data = {}
+with open(data_file, "r") as fh:
+    json_data = json.load(fh)
+data["vel"] = np.array([x if x is not None else np.nan for x in json_data.pop("velocity")])
+data["alt"] = np.array([x if x is not None else np.nan for x in json_data.pop("height")])
+data["vel_std"] = np.array([x if x is not None else np.nan for x in json_data.pop("vel_std")])
+data["alt_std"] = np.array([x if x is not None else np.nan for x in json_data.pop("alt_std")])
+data["t"] = np.array(json_data["t"])
+meta = {
+    "date": json_data.pop("date"),
+    "slope": json_data.pop("slope"),
+}
+
+not_nans = np.logical_not(
+    np.logical_or.reduce(
+        [
+            np.isnan(data["alt"]),
+            np.isnan(data["vel"]),
+        ]
+    )
+)
+data["alt"] = data["alt"][not_nans]
+data["vel"] = data["vel"][not_nans]
+data["vel_std"] = data["vel_std"][not_nans]
+data["alt_std"] = data["alt_std"][not_nans]
+data["alt0"] = data["alt"]
+
+vel_obs0 = np.max(data["vel"])
+
+lat = 34.0 + (51.0 + 14.50 / 60.0) / 60.0
+lon = 136.0 + (06.0 + 20.24 / 60.0) / 60.0
+
+atm = ablate.atmosphere.AtmPymsis()
+dens = atm.density(
+    time=np.datetime64("2018-07-28T00:00:00"),
+    lat=np.array([lat]),
+    lon=np.array([lon]),
+    alt=data["alt0"],
+)
+atm_density = dens["Total"].values.squeeze()
+data["alt"] = ablate.physics.alpha_beta.rescale_hight(
+    atm_total_mass_density=atm_density, 
+    atmospheric_scale_height=7610.0,
+    sea_level_rho=1.225,
 )
 
-# f = "/home/danielk/data/MU/test_tabledata.txt"
-# vel_col = "velocity"
-# h_col = "height"
-# data = np.genfromtxt(
-#     f, skip_header=1, delimiter=",", dtype="f8,f8", names=["height", "velocity"],
-# )
-# slope = 14.2256
+alpha_Q4, beta_Q4 = alpha_beta.solve_alpha_beta_versionQ4(
+    data["vel"],
+    data["alt"],
+    initial_velocity=vel_obs0,
+    atmospheric_scale_height=h0,
+    bounds=((1e-4, None), (1e-4, None)),
+)
+alpha_Q5, beta_Q5, vel_Q5 = alpha_beta.solve_alpha_beta_velocity_versionQ5(
+    data["vel"],
+    data["alt"],
+    atmospheric_scale_height=h0,
+)
+alpha_P, beta_P, vel_P = alpha_beta.solve_alpha_beta_posterior(
+    data["vel"],
+    data["vel_std"],
+    data["alt"],
+    atmospheric_scale_height=h0,
+    minimize_kwargs={"method": "Nelder-Mead"},
+)
+print(f"{alpha_Q4=:.3e} {beta_Q4=:.3e}")
+print(f"{alpha_Q5=:.3e} {beta_Q5=:.3e} {vel_Q5=:.3e}")
+print(f"{alpha_P=:.3e} {beta_P=:.3e} {vel_P=:.3e}")
 
+norm_v = np.arange(np.nanmin(data["vel"]) / vel_P, 1, 0.00005)
 
-slope = np.deg2rad(slope)
-# remove any nan values
-data = data[np.logical_not(np.isnan(data[vel_col]))]
-vel = data[vel_col]
-alt = data[h_col]
-
-# Initial velocity
-v0 = vel[0]
-
-# dimensionless parameter for velocity
-Vvalues = vel/v0
-
-
-# normalise height - if statement accounts for km vs. metres data values.
-h0 = 7160.0  # metres
-Yvalues = alt/h0
-
-mat_shape = (300, 200)
-alpha_mat, beta_mat = np.meshgrid(
-    np.linspace(-3, 5, mat_shape[1]),
-    np.linspace(-5, 3, mat_shape[0]),
+heights_Q4 = alpha_beta.height_direct(
+    norm_v,
+    h0,
+    alpha_Q4,
+    beta_Q4,
+)
+heights_Q5 = alpha_beta.height_direct(
+    norm_v,
+    h0,
+    alpha_Q5,
+    beta_Q5,
+)
+heights_P = alpha_beta.height_direct(
+    norm_v,
+    h0,
+    alpha_P,
+    beta_P,
 )
 
-xvec = np.stack([10.0**alpha_mat.flatten(), 10.0**beta_mat.flatten()])
-fit_func = ablation.alpha_beta_min_fun(xvec, Vvalues, Yvalues)
-
-fit_func = fit_func.reshape(mat_shape)
-
 fig, ax = plt.subplots()
-ax.pcolormesh(alpha_mat, beta_mat, np.exp(-fit_func))
-
-plt.show()
-
-
-Gparams = ablation.alpha_beta_Q4_min(Vvalues, Yvalues)
-
-alpha = Gparams[0]
-beta = Gparams[1]
-
-print(f"alpha = {alpha}, beta = {beta}")
-
-norm_v = np.arange(0.1, 1, 0.00005)
-
-
-def norm_hight(norm_velocity):
-    y = np.log(alpha) + beta
-    y -= np.log((scipy.special.expi(beta) - scipy.special.expi(beta*norm_velocity**2))/2)
-    return y
-
-
-norm_h = norm_hight(norm_v)
-
-fig, ax = plt.subplots()
-
-ax.scatter(Vvalues, Yvalues, marker="x", label=None)
-plt.plot(norm_v, norm_h, color="r")
-
-ax.set_xlabel("normalised velocity")
-ax.set_ylabel("normalised height")
-
-# define x values
-ln_alpha_singamma = np.arange(0, 10, 0.00005)
-
-
-# The parameter mu represents rotation during the flight
-# If mu = 0, no rotation; if mu = 2/3, the ablation becomes uniform
-# over the surface (shape factor A does not change).
-
-
-def ln_beta_paramerized(ln_alpha_singamma, shape_change_coef, log_mass_fraction):
-    # function for mu = 0, 50 g possible meteorite:
-    beta = (shape_change_coef - 1)*(log_mass_fraction + 3*ln_alpha_singamma)
-    return np.log(beta)
-
-
-log_mass_fraction_50g = -13.2
-
-ln_beta_0 = ln_beta_paramerized(ln_alpha_singamma, 0, log_mass_fraction_50g)
-ln_beta_23 = ln_beta_paramerized(ln_alpha_singamma, 2.0/3.0, log_mass_fraction_50g)
-
-
-fig, ax = plt.subplots()
-
-# plot mu0, mu2/3 lines and your point:
-ax.plot(ln_alpha_singamma, ln_beta_0, color="black")
-ax.plot(ln_alpha_singamma, ln_beta_23, color="grey")
-ax.scatter([np.log(alpha*np.sin(slope))], [np.log(beta)], color="r")
-
-# defite plot parameters
-ax.set_xlim((-1, 7))
-ax.set_ylim((-3, 4))
-ax.set_xlabel("ln(alpha x sin(slope))")
-ax.set_ylabel("ln(beta)")
-ax.set_aspect("equal")
-
-# Assumeing values:
-# AERODYNAMIC drag coefficient (not Gamma)
-cd = 1.3
-# Possible shape coefficients
-A = [1.21, 1.3, 1.55]
-# possible meteoroid densities
-m_rho = [2700, 3500, 7000]
-# shape change coefficient
-mu = 2./3.
-
-
-me_sphere = [ablation.alpha_beta_entry_mass(alpha, beta, slope, cd, rho, A[0]) for rho in m_rho]
-me_round_brick = [ablation.alpha_beta_entry_mass(alpha, beta, slope, cd, rho, A[1]) for rho in m_rho]
-me_brick = [ablation.alpha_beta_entry_mass(alpha, beta, slope, cd, rho, A[2]) for rho in m_rho]
-
-mf_sphere = [ablation.alpha_beta_final_mass(me, beta, mu, Vvalues[-1]) for me in me_sphere]
-mf_round_brick = [ablation.alpha_beta_final_mass(me, beta, mu, Vvalues[-1]) for me in me_round_brick]
-mf_brick = [ablation.alpha_beta_final_mass(me, beta, mu, Vvalues[-1]) for me in me_brick]
-
-print("Masses in [g]")
-print("Density in [kg/m^3]")
-print(f"Entry mass of spherical body with {m_rho} density =\n", np.array(me_sphere)*1e3)
-print(f"Final mass of spherical body with {m_rho} density =\n", np.array(mf_sphere)*1e3)
-print("\n")
-print(f"Entry mass of typical shape with {m_rho} density =\n", np.array(me_round_brick)*1e3)
-print(f"Final mass of typical shape with {m_rho} density =\n", np.array(mf_round_brick)*1e3)
-print("\n")
-print(f"Entry mass of brick shape with {m_rho} density =\n", np.array(me_brick)*1e3)
-print(f"Final mass of brick shape with {m_rho} density =\n", np.array(mf_brick)*1e3)
-print("\n")
-
+ax.plot(data["vel"] * 1e-3, data["alt"] * 1e-3, ".b")
+ax.plot(
+    norm_v * vel_obs0 * 1e-3,
+    heights_Q4 * 1e-3,
+    "--r",
+    label=f"{alpha_Q4=:.2f} {beta_Q4=:.2f} vel0={vel_obs0*1e-3:.1f} km/s",
+)
+ax.plot(
+    norm_v * vel_Q5 * 1e-3,
+    heights_Q5 * 1e-3,
+    "-r",
+    label=f"{alpha_Q5=:.2f} {beta_Q5=:.2f} vel0={vel_Q5*1e-3:.1f} km/s",
+)
+ax.plot(
+    norm_v * vel_P * 1e-3,
+    heights_P * 1e-3,
+    "-g",
+    label=f"{alpha_P=:.2f} {beta_P=:.2f} vel0={vel_P*1e-3:.1f} km/s",
+)
+ax.set_xlabel("Velocity [km/s]")
+ax.set_ylabel("Height [km]")
+ax.set_title("alpha-beta fitting method comparison")
+ax.legend()
 
 plt.show()
