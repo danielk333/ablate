@@ -251,6 +251,16 @@ def height_direct(velocity, atmospheric_scale_height, alpha, beta, initial_veloc
     )
 
 
+def approx_norm_height_direct(velocity, alpha, beta, initial_velocity=None):
+    """Approximate solution for height for large beta as a function of velocity from the analytic
+    solutions of the ablation eqations.
+    """
+    v = velocity
+    if initial_velocity is not None:
+        v = v / initial_velocity
+    return np.log(alpha) + 0.83*beta(1 - v) - np.log(-np.log(v))
+
+
 def norm_height_direct(velocity, alpha, beta, initial_velocity=None):
     """The solution for height as a function of velocity from the analytic
     solutions of the ablation eqations.
