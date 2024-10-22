@@ -442,6 +442,8 @@ def solve_alpha_beta_velocity_versionQ5(
             start[0] = np.exp(Yvalues[-1]) / (2.0 * start[1])
         if start[2] is None:
             start[2] = v0
+        else:
+            start[2] *= 1e-3
     res = sco.minimize(Q5, start, args=(velocities, Yvalues), bounds=bounds, **minimize_kwargs)
     out = res.x
     out[2] *= 1000.0  # fix velocities for return
