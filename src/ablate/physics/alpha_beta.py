@@ -251,6 +251,47 @@ def height_direct(velocity, atmospheric_scale_height, alpha, beta, initial_veloc
     )
 
 
+def approx_norm_velocity(
+    height,
+    alpha,
+    beta,
+    atmospheric_scale_height=None,
+    start=1 - 1e-12,
+    root_find_kwargs={"tol": 1e-12, "maxiter": 200},
+):
+    """Approximate solution for velocity for large beta as a function of height from the analytic
+    solutions of the ablation eqations.
+    """
+    Yvalues = height
+    if atmospheric_scale_height is not None:
+        Yvalues = Yvalues / atmospheric_scale_height
+
+    if not isinstance(Yvalues, np.ndarray):
+        Yvalues = np.array([Yvalues])
+
+    def func_exact(v, y):
+        return np.log(alpha) + 0.83 * beta * (1 - v) - np.log(-np.log(v)) - y
+
+    def abs_func_exact(v, y):
+        return np.abs(np.log(alpha) + 0.83 * beta * (1 - v) - np.log(-np.log(v)) - y)
+
+    def dabs_func_exact(v, y):
+        return (- 0.83 * beta - 1 / (v * np.log(v))) * np.sign(func_exact(v, y))
+
+    Vvalues = np.zeros_like(Yvalues)
+    for ind in range(len(Yvalues)):
+        try:
+            Vvalues[ind] = sco.newton(
+                abs_func_exact, start, fprime=dabs_func_exact, args=(Yvalues[ind],), **root_find_kwargs
+            )
+        except RuntimeError:
+            Vvalues[ind] = np.nan
+
+    if not isinstance(height, np.ndarray):
+        Vvalues = Vvalues[0]
+    return Vvalues
+
+
 def approx_norm_height_direct(velocity, alpha, beta, initial_velocity=None):
     """Approximate solution for height for large beta as a function of velocity from the analytic
     solutions of the ablation eqations.
@@ -258,7 +299,7 @@ def approx_norm_height_direct(velocity, alpha, beta, initial_velocity=None):
     v = velocity
     if initial_velocity is not None:
         v = v / initial_velocity
-    return np.log(alpha) + 0.83*beta(1 - v) - np.log(-np.log(v))
+    return np.log(alpha) + 0.83 * beta * (1 - v) - np.log(-np.log(v))
 
 
 def norm_height_direct(velocity, alpha, beta, initial_velocity=None):
@@ -325,8 +366,8 @@ def norm_velocity_estimate(
     alpha,
     beta,
     atmospheric_scale_height=None,
-    lims=[0, 1],
-    root_find_kwargs={},
+    start=1 - 1e-12,
+    minimize_kwargs={"method": "Nelder-Mead"},
 ):
     """Root-solver estimation of velocity as a function of height from the analytic
     solutions of the ablation equations.
@@ -335,14 +376,29 @@ def norm_velocity_estimate(
     if atmospheric_scale_height is not None:
         Yvalues = Yvalues / atmospheric_scale_height
 
+    if not isinstance(Yvalues, np.ndarray):
+        Yvalues = np.array([Yvalues])
+
     def func_exact(v, y):
-        return np.log(alpha) + beta - np.log((scs.expi(beta) - scs.expi(beta * v**2)) * 0.5) - y
+        return np.abs(np.log(alpha) + beta - np.log((scs.expi(beta) - scs.expi(beta * v**2)) * 0.5) - y)
+
+    # If beta is larger than 500, the expi estimation algorithms start having trouble 
+    # as they use float64, we need scs.expi(beta) to work to compute the difference value
+    if beta > 600:
+        if isinstance(height, np.ndarray):
+            return np.full_like(height, np.nan)
+        else:
+            return np.nan
 
     Vvalues = np.zeros_like(Yvalues)
-    for ind in range(len(height)):
-        Vvalues[ind] = sco.bisect(
-            func_exact, lims[0], lims[1], args=(Yvalues[ind],), **root_find_kwargs
+    for ind in range(len(Yvalues)):
+        res = sco.minimize(
+            func_exact, start, args=(Yvalues[ind],), **minimize_kwargs
         )
+        Vvalues[ind] = res.x
+
+    if not isinstance(height, np.ndarray):
+        Vvalues = Vvalues[0]
     return Vvalues
 
 
@@ -400,7 +456,7 @@ def scale_hight_to_model_atm(
 
     scaled_height = np.zeros_like(height)
     for ind in range(len(height)):
-        _lim = lims if lims is not None else [height[ind]*0.7, height[ind]*1.3]
+        _lim = lims if lims is not None else [height[ind] * 0.7, height[ind] * 1.3]
         scaled_height[ind] = sco.bisect(
             func_exact, _lim[0], _lim[1], args=(Yvalues[ind],), **root_find_kwargs
         )
