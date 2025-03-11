@@ -276,13 +276,17 @@ def approx_norm_velocity(
         return np.abs(np.log(alpha) + 0.83 * beta * (1 - v) - np.log(-np.log(v)) - y)
 
     def dabs_func_exact(v, y):
-        return (- 0.83 * beta - 1 / (v * np.log(v))) * np.sign(func_exact(v, y))
+        return (-0.83 * beta - 1 / (v * np.log(v))) * np.sign(func_exact(v, y))
 
     Vvalues = np.zeros_like(Yvalues)
     for ind in range(len(Yvalues)):
         try:
             Vvalues[ind] = sco.newton(
-                abs_func_exact, start, fprime=dabs_func_exact, args=(Yvalues[ind],), **root_find_kwargs
+                abs_func_exact,
+                start,
+                fprime=dabs_func_exact,
+                args=(Yvalues[ind],),
+                **root_find_kwargs,
             )
         except RuntimeError:
             Vvalues[ind] = np.nan
@@ -380,9 +384,11 @@ def norm_velocity_estimate(
         Yvalues = np.array([Yvalues])
 
     def func_exact(v, y):
-        return np.abs(np.log(alpha) + beta - np.log((scs.expi(beta) - scs.expi(beta * v**2)) * 0.5) - y)
+        return np.abs(
+            np.log(alpha) + beta - np.log((scs.expi(beta) - scs.expi(beta * v**2)) * 0.5) - y
+        )
 
-    # If beta is larger than 500, the expi estimation algorithms start having trouble 
+    # If beta is larger than 500, the expi estimation algorithms start having trouble
     # as they use float64, we need scs.expi(beta) to work to compute the difference value
     if beta > 600:
         if isinstance(height, np.ndarray):
@@ -392,9 +398,7 @@ def norm_velocity_estimate(
 
     Vvalues = np.zeros_like(Yvalues)
     for ind in range(len(Yvalues)):
-        res = sco.minimize(
-            func_exact, start, args=(Yvalues[ind],), **minimize_kwargs
-        )
+        res = sco.minimize(func_exact, start, args=(Yvalues[ind],), **minimize_kwargs)
         Vvalues[ind] = res.x
 
     if not isinstance(height, np.ndarray):
@@ -468,7 +472,7 @@ def atmosphere_density(height, atmospheric_scale_height, sea_level_rho):
     return sea_level_rho * np.exp(-height / atmospheric_scale_height)
 
 
-def Q5(x, velocities, yvals, fill_value=0):
+def Q5(x, velocities, yvals, fill_value=10.0):
     """ """
     if len(x.shape) == 1:
         x.shape = (x.size, 1)
@@ -482,7 +486,6 @@ def Q5(x, velocities, yvals, fill_value=0):
         )
         r0[np.isnan(r0)] = fill_value
         res += r0**2
-
     if res.size == 1:
         return res[0]
     else:
@@ -513,7 +516,7 @@ def solve_alpha_beta_velocity_versionQ5(
     b0 = 1.0
     a0 = np.exp(Yvalues[-1]) / (2.0 * b0)
     # /1000 is a hack to make velocities small so minimisation doesnt use stupid steps
-    v0 = velocities[0] / 1000
+    v0 = np.nanmean(velocities[:10]) / 1000
     if start is None:
         start = [a0, b0, v0]
     else:
@@ -521,10 +524,12 @@ def solve_alpha_beta_velocity_versionQ5(
             start[1] = b0
         if start[0] is None:
             start[0] = np.exp(Yvalues[-1]) / (2.0 * start[1])
+
         if start[2] is None:
             start[2] = v0
         else:
             start[2] *= 1e-3
+
     res = sco.minimize(Q5, start, args=(velocities, Yvalues), bounds=bounds, **minimize_kwargs)
     out = res.x
     out[2] *= 1000.0  # fix velocities for return
@@ -652,3 +657,23 @@ def solve_alpha_beta_posterior(
     res = sco.minimize(wrap_func, start, bounds=bounds, **minimize_kwargs)
     out = res.x
     return out
+
+
+def velocity_smoother_dfn(velocity, iters=2):
+    """Velocity smoother based on consistency of neighboring data points,
+    adapted from [^1]. Removes the first and last point `iters` times.
+
+    [^1]: https://github.com/desertfireballnetwork/alpha_beta_modules
+    """
+    vel_smooth = velocity.copy()
+    for ind in range(iters):
+        vel_smooth = (vel_smooth[:-2] + vel_smooth[1:-1] + vel_smooth[2:]) / 3.0
+    return vel_smooth
+
+
+def velocity_smoother_mov_avg(velocity, window=7):
+    movavg = np.cumsum(velocity)
+    movavg[window:] = movavg[window:] - movavg[:-window]
+    return movavg[(window - 1):] / window
+
+
