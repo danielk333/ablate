@@ -5,7 +5,7 @@ Plot the msise00 model
 Docstring for this example
 """
 
-import ablate.atmosphere as atm
+import metablate.atmosphere as atm
 import numpy as np
 import matplotlib.pyplot as plt
 

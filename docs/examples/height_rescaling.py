@@ -1,9 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-import ablate
+import metablate
 
-atm = ablate.atmosphere.AtmPymsis()
+atm = metablate.atmosphere.AtmPymsis()
 heights = np.linspace(70e3, 120e3, 200)
 
 data = atm.density(
@@ -13,20 +13,20 @@ data = atm.density(
     alt=heights,
 )
 atm_density = data["Total"].values.squeeze()
-atm_density_exp = ablate.physics.alpha_beta.atmosphere_density(
+atm_density_exp = metablate.physics.alpha_beta.atmosphere_density(
     height=heights,
     atmospheric_scale_height=7610.0,  # at T = 260 K,
     sea_level_rho=1.225,
 )
 print(data)
 
-exp_scaled_heights = ablate.physics.alpha_beta.scale_hight_to_exponential_atm(
+exp_scaled_heights = metablate.physics.alpha_beta.scale_hight_to_exponential_atm(
     atm_total_mass_density=atm_density, 
     atmospheric_scale_height=7610.0,
     sea_level_rho=1.225,
 )
 
-atm_scale_heights = ablate.physics.alpha_beta.scale_hight_to_model_atm(
+atm_scale_heights = metablate.physics.alpha_beta.scale_hight_to_model_atm(
     heights,
     atm,
     sea_level_rho=1.225,

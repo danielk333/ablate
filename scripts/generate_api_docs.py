@@ -3,7 +3,7 @@ import mkdocs_gen_files
 
 root = pathlib.Path(__file__).parent.parent
 src = root / "src"
-package = src / "ablate"
+package = src / "metablate"
 output_dir = root / "docs" / "reference"
 output_dir.mkdir(exist_ok=True)
 

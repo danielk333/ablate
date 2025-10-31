@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from ablate.physics import alpha_beta
+from metablate.physics import alpha_beta
 
 alpha = 100
 beta = np.linspace(1e1, 1e3, 200)

@@ -6,9 +6,9 @@ Alpha-beta model
 import numpy as np
 import matplotlib.pyplot as plt
 
-import ablate
+import metablate
 
-material = ablate.material.get("asteroidal", as_dict=False)
+material = metablate.material.get("asteroidal", as_dict=False)
 
 radius = 2e-2  # m
 cross_section = np.pi * radius**2
@@ -17,7 +17,7 @@ ze = 75.7744
 
 print(f"{radius=:1.3e} {cross_section=:1.3e} {mass=:1.3e}")
 
-alpha = ablate.physics.alpha_beta.alpha_direct(
+alpha = metablate.physics.alpha_beta.alpha_direct(
     aerodynamic_cd=0.47,
     sea_level_rho=1.225,
     atmospheric_scale_height=7610.0,  # at T = 260 K
@@ -26,7 +26,7 @@ alpha = ablate.physics.alpha_beta.alpha_direct(
     radiant_local_elevation=90 - ze,
     degrees=True,
 )
-beta = ablate.physics.alpha_beta.beta_direct(
+beta = metablate.physics.alpha_beta.beta_direct(
     shape_change_coefficient=2/3,
     heat_exchange_coefficient=1,  # Lambda
     initial_velocity=60e3,
@@ -36,20 +36,20 @@ beta = ablate.physics.alpha_beta.beta_direct(
 print(f"{alpha=:.2f} {beta=:.2f}")
 
 vel_lims = [
-    ablate.physics.alpha_beta.velocity_direct(1 - 1e-6, beta, 60e3, shape_change_coefficient=2/3),
-    ablate.physics.alpha_beta.velocity_direct(1e-6, beta, 60e3, shape_change_coefficient=2/3),
+    metablate.physics.alpha_beta.velocity_direct(1 - 1e-6, beta, 60e3, shape_change_coefficient=2/3),
+    metablate.physics.alpha_beta.velocity_direct(1e-6, beta, 60e3, shape_change_coefficient=2/3),
 ]
 print(vel_lims)
 velocities_vec = np.linspace(vel_lims[0], vel_lims[1], 1000)
 
-masses = ablate.physics.alpha_beta.mass_direct(
+masses = metablate.physics.alpha_beta.mass_direct(
     velocity=velocities_vec,
     initial_mass=mass,
     beta=beta,
     shape_change_coefficient=2/3,
     initial_velocity=60e3,
 )
-heights = ablate.physics.alpha_beta.height_direct(
+heights = metablate.physics.alpha_beta.height_direct(
     velocity=velocities_vec,
     atmospheric_scale_height=7610.0,
     alpha=alpha,

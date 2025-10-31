@@ -1,11 +1,11 @@
-# `ablate`
+# `metablate`
 
 DESCRIPTION HERE
 
 ## Installing
 
 ```bash
-pip install ablate
+pip install metablate
 ```
 
 ### msise00

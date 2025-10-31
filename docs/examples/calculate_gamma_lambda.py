@@ -7,11 +7,11 @@ Docstring for this example
 
 import numpy as np
 
-import ablate.physics as phys
-import ablate
+import metablate.physics as phys
+import metablate
 
 # data for 2 different meteoroids
-model = ablate.atmosphere.AtmPymsis()
+model = metablate.atmosphere.AtmPymsis()
 data = model.density(
     time=np.datetime64("2018-07-28"),
     lat=np.array([69.0, 69.0]),
@@ -24,7 +24,7 @@ mass = 0.5e-6
 velocity = 32e3
 temperature = 3700
 
-material_data = ablate.material.get("asteroidal")
+material_data = metablate.material.get("asteroidal")
 
 dmdt_th = phys.thermal_ablation.thermal_ablation_hill_et_al_2005(
     mass=mass,

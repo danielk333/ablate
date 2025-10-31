@@ -2,4 +2,4 @@
 '''
 
 def test_import_ablate():
-    import ablate
+    import metablate

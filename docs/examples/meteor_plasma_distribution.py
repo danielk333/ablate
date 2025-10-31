@@ -3,9 +3,10 @@ import pathlib
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
-import ablate.atmosphere as atm
-import ablate.models.dimant_oppenheim_2017 as do
 import scipy.constants as consts
+
+import metablate.atmosphere as atm
+import metablate.models.dimant_oppenheim_2017 as do
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--cache", default=None)

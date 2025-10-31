@@ -8,11 +8,11 @@ Docstring for this example
 import numpy as np
 import matplotlib.pyplot as plt
 
-import ablate.physics as phys
-import ablate
+import metablate.physics as phys
+import metablate
 
 # data for 2 different meteoroids
-model = ablate.atmosphere.AtmPymsis()
+model = metablate.atmosphere.AtmPymsis()
 data = model.density(
     time=np.datetime64("2018-07-28"),
     lat=np.array([69.0]),
@@ -24,7 +24,7 @@ atm_total_number_density = atm_total_mass_density / model.mean_mass
 
 print(data)
 
-material_data = ablate.material.get("asteroidal")
+material_data = metablate.material.get("asteroidal")
 
 log_masses = np.linspace(-9, -2, 200)
 masses = 10.0**log_masses

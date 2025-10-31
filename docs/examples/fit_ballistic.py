@@ -9,8 +9,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import json
 
-from ablate.physics import ballistic
-import ablate
+from metablate.physics import ballistic
+import metablate
 
 HERE = Path(__file__).parent.absolute()
 data_file = HERE / "data" / "20140104-025436.json"
@@ -42,7 +42,7 @@ data["vel"] = data["vel"][not_nans]
 data["vel_std"] = data["vel_std"][not_nans]
 
 
-atm = ablate.atmosphere.AtmPymsis()
+atm = metablate.atmosphere.AtmPymsis()
 msis_density = atm.density(
     time=np.datetime64("2018-06-28T12:45:33"),
     lat=69.5866115,

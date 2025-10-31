@@ -9,14 +9,14 @@ import logging
 import numpy as np
 import matplotlib.pyplot as plt
 
-import ablate
+import metablate
 
-logger = logging.getLogger("ablate")
+logger = logging.getLogger("metablate")
 logger.setLevel(logging.DEBUG)
 
 
-model = ablate.KeroSzasz2008(
-    atmosphere = ablate.atmosphere.AtmPymsis(),
+model = metablate.KeroSzasz2008(
+    atmosphere = metablate.atmosphere.AtmPymsis(),
     config = {
         "options": {
             "temperature0": 290,
@@ -38,7 +38,7 @@ model = ablate.KeroSzasz2008(
     }
 )
 
-material_data = ablate.material.get("iron")
+material_data = metablate.material.get("iron")
 print(material_data)
 
 result = model.run(

@@ -9,8 +9,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import json
 
-from ablate.physics import alpha_beta
-import ablate
+from metablate.physics import alpha_beta
+import metablate
 
 HERE = Path(__file__).parent.absolute()
 data_file = HERE / "data" / "20140104-025436.json"
@@ -50,7 +50,7 @@ vel_obs0 = np.max(data["vel"])
 lat = 34.0 + (51.0 + 14.50 / 60.0) / 60.0
 lon = 136.0 + (06.0 + 20.24 / 60.0) / 60.0
 
-atm = ablate.atmosphere.AtmPymsis()
+atm = metablate.atmosphere.AtmPymsis()
 dens = atm.density(
     time=np.datetime64("2018-07-28T00:00:00"),
     lat=np.array([lat]),
@@ -58,7 +58,7 @@ dens = atm.density(
     alt=data["alt0"],
 )
 atm_density = dens["Total"].values.squeeze()
-data["alt"] = ablate.physics.alpha_beta.scale_hight_to_exponential_atm(
+data["alt"] = metablate.physics.alpha_beta.scale_hight_to_exponential_atm(
     atm_total_mass_density=atm_density, 
     atmospheric_scale_height=7610.0,
     sea_level_rho=1.225,

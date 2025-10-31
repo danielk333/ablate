@@ -10,8 +10,7 @@ import numpy as np
 import numpy.testing as nt
 
 # Internal packages
-import ablate.atmosphere as atm
-
+import metablate.atmosphere as atm
 
 
 class TestNRLMSISE00(unittest.TestCase):
@@ -21,3 +20,4 @@ class TestNRLMSISE00(unittest.TestCase):
 
     def test_init(self):
         model = atm.NRLMSISE00()
+
