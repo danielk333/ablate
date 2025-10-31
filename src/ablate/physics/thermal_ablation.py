@@ -19,11 +19,14 @@ dmdt_th = func.ablation.thermal_ablation(
 print(f'Thermal ablation {dmdt_th} kg/s')
 ```
 """
+
 import logging
 from scipy import constants
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+Kn_LIM = 5.0
 
 
 def temperature_rate_hill_et_al_2005(
@@ -130,12 +133,12 @@ def heat_transfer_bronshten_1983(
     Changes pre-python port: See [matlab-version](https://gitlab.irf.se/kero/ablation_matlab)
 
     [^1]: V. A. Bronshten; Physics of meteoric phenomena (1983)
-    [^2]: A. Westman et al.: Meteor head echo altitude distributions and the 
+    [^2]: A. Westman et al.: Meteor head echo altitude distributions and the
         height cutoff effect sudied with the EISCAT HPLA UHF and VHF radars;
         Annales Geophysicae 22: 1575-1584 (2004)
-    [^3]: Tielens et al.: The physics of grain-grain collisions and gas-grain 
+    [^3]: Tielens et al.: The physics of grain-grain collisions and gas-grain
         sputtering in interstellar shocks, The Astrophisicsl Journal 431, p. 321-340 (1994)
-    [^4]: Rogers et al.: Mass loss due to  sputtering and thermal processes in 
+    [^4]: Rogers et al.: Mass loss due to  sputtering and thermal processes in
         meteoroid ablation, Planetary and Space Science 53 p. 1341-1354 (2005)
     [^5]: Salby: Fundamentals of atmospheric physics, Academic Press (1996)
 
@@ -209,18 +212,16 @@ def heat_transfer_bronshten_1983(
     # integrating q_prim over theta0 from 0 - pi/2; Bronshten p. 69, eq. 10.10 and Bronshten I eq. 11
     Q_prim = np.trapz(theta0, _Gp)
 
-    # the energy flux shielding coeff, Bronshten p. 71, same as a_Lambda but with 
+    # the energy flux shielding coeff, Bronshten p. 71, same as a_Lambda but with
     # the integrated vectors; Bronshten p. 69 eq. 10.8
-    A_Lambda_r = (
-        1 - epsilon_q * np.sqrt(h_star) / Kn_inf * Q_prim / Q0
-    )  # [dimensionless]
+    A_Lambda_r = 1 - epsilon_q * np.sqrt(h_star) / Kn_inf * Q_prim / Q0  # [dimensionless]
 
     # Shielding effects of a meteoroid surface due to evaporated molecules:
 
-    # scattering cross section for meteor atoms and ions on N2 and O2 molecules; 
+    # scattering cross section for meteor atoms and ions on N2 and O2 molecules;
     # Bronshten p. 84 eq. 11.29, Bronshten II. eq. 40; the actual equation is for
-    # v in [cm/s] and gives the cross section in cm^2 -> 
-    # sigmaD = 5.6E-11 [cm^2] *(v [cm/s])^-0.8 = 5.6E-11*(1E-2[m])^2*(v [m/s]*1E2)^-0.8 = 
+    # v in [cm/s] and gives the cross section in cm^2 ->
+    # sigmaD = 5.6E-11 [cm^2] *(v [cm/s])^-0.8 = 5.6E-11*(1E-2[m])^2*(v [m/s]*1E2)^-0.8 =
     # 5.6E-11*1E-4*(1E2)^-0.8*v^-0.8 = 5.6E-15*10^-1.6*v^-0.8
     sigmaD = 5.6e-15 * 10 ** (-1.6) * velocity ** (-0.8)  # [m^2]
 
@@ -230,7 +231,7 @@ def heat_transfer_bronshten_1983(
     # mean free path of the evaporated molecules, Bronshten p. 79 eq. 11.8; Bronshten II. eq. 2
     mfp_e = v_e / (atm_total_number_density * velocity * sigmaD)  # [m]
 
-    # the toatal fraction of evaporated molecules from the entire front surface 
+    # the toatal fraction of evaporated molecules from the entire front surface
     # of the meteoroid, Bronshten II. eq. 35
     eta = (L / mfp_e) ** 2 / (1 + 2 * np.sqrt(L / mfp_e))  # [dimensionless]
 
@@ -245,7 +246,7 @@ def heat_transfer_bronshten_1983(
     # the number of molecules advancing on the area S, Bronshten II. p. 135
     N_a = atm_total_number_density * velocity * S_m  # [number]
 
-    # average velocity of evaporated molecules from the meteoroid surface, see 
+    # average velocity of evaporated molecules from the meteoroid surface, see
     # v_s which is the same thing but for reflected molecules
     v_s_e = np.sqrt(
         3
@@ -415,9 +416,6 @@ def thermal_ablation_hill_et_al_2005(mass, temperature, material_data, shape_fac
     return dmdt
 
 
-Kn_LIM = 5.0
-
-
 def drag_coefficient_bronshten_1983(
     mass,
     velocity,
@@ -498,10 +496,7 @@ def drag_coefficient_bronshten_1983(
     _Fp *= (
         np.cos(theta0) * (1 - u_s) / 2
         - 1.0 / 24.0 * (1 + np.cos(theta0)) ** 3
-        + u_s
-        / 24.0
-        * (1 + np.cos(theta0)) ** 2
-        * (4 - 2 * np.cos(theta0) + np.cos(theta0) ** 2)
+        + u_s / 24.0 * (1 + np.cos(theta0)) ** 2 * (4 - 2 * np.cos(theta0) + np.cos(theta0) ** 2)
     )
 
     P0 = np.trapz(theta0, _F)
@@ -519,16 +514,16 @@ def drag_coefficient_bronshten_1983(
         Gamma = A_Gamma_r * a_e  # [dimensionless] drag coeff
 
         # TODO: replace this with actual cont. flow dynamics during ablation
-        Gamma[np.logical_not(inds)] = 0.47*0.5  # [dimensionless] drag coeff of sphere in cont. flow
+        Gamma[np.logical_not(inds)] = (
+            0.47 * 0.5
+        )  # [dimensionless] drag coeff of sphere in cont. flow
     else:
         if Kn_inf > Kn_LIM:
-            A_Gamma_r = (
-                1 - epsilon_p * np.sqrt(h_star) / Kn_inf * P_prim / P0
-            )  # [dimensionless]
+            A_Gamma_r = 1 - epsilon_p * np.sqrt(h_star) / Kn_inf * P_prim / P0  # [dimensionless]
             Gamma = A_Gamma_r * a_e  # [dimensionless] drag coeff
         else:
             # TODO: replace this with actual cont. flow dynamics during ablation
-            Gamma = 0.47*0.5  # [dimensionless] drag coeff of sphere in cont. flow
+            Gamma = 0.47 * 0.5  # [dimensionless] drag coeff of sphere in cont. flow
 
     # We don't want Gamma or Lambda to be > 1, searching for those and setting them = 1
     if isinstance(Gamma, np.ndarray):
@@ -573,3 +568,49 @@ def Knudsen_number_kero_szasz_2008(met_mass, met_density, atm_total_number_densi
     Kn_inf = mfp_inf / L
 
     return Kn_inf, L
+
+
+def ionization_probability_Jones_1997(velocity, meteoroid_bulk_density):
+    """Calculate ionization probability according to [^1].
+
+    [^1]: William Jones; Theoretical and observational determinations
+    of the ionization coefficient of meteors; MNRAS 288, p. 995-1003 (1997)
+
+    """
+    raise NotImplementedError()
+    # v_km = v / 1000.0
+    """
+    # Table 1 from Jones:
+    # %   : procentage composition by weight
+    # p   : proportion by atom number
+    # v0  : minimum velocity at which ionization can take place 
+    # (below this velocity, the ionization energy is greater than 
+    # the total energy of the colliding atoms in the centre-of-mass frame)
+    # c   : empirically derived coeff
+    # mu  : ratio of atom mass to a nitrogen molecule
+    #                 % p v0 c mu element
+    ion_param       = [
+        [45, 0.617, 16.7, 4.66E-6, 0.57],  # O
+        [15, 0.059, 9.4, 34.5E-6, 2.0],  # Fe
+        [9, 0.082, 11.1, 9.29E-6, 0.86],  # Mg
+        [31, 0.242, 11.0, 18.5E-6, 1.0],  # Si
+    ]
+             
+    # beta0 = c .* (v - v0).^2 .* v.^0.8 ./ (1 + c .* (v - v0).^2 .* v.^0.8); primary ionization probability, eq. 33 in Jones
+    # v is needed in km/s!
+
+    if rho_m == 7800:
+        # Then we calculate the ionization probability for pure Fe
+        beta0 = ion_param(2,4) .* (v_km - ion_param(2,3)).^2 .* v_km.^0.8 ./ (1 + ion_param(2,4) .* (v_km - ion_param(2,3)).^2 .* v_km.^0.8);
+        beta0(find(v_km<ion_param(2,3))) = 0;
+    else
+        # Otherwise we use Jones' cometary composition (for porous, cometary as well as asteroidal densities)
+        # It is faster not to use repmat.m but to generate the necessary matrices with more simple tools!
+        c               = [ion_param(1,4)*ones(length(v),1) ion_param(2,4)*ones(length(v),1) ion_param(3,4)*ones(length(v),1) ion_param(4,4)*ones(length(v),1)];
+        v0              = [ion_param(1,3)*ones(length(v),1) ion_param(2,3)*ones(length(v),1) ion_param(3,3)*ones(length(v),1) ion_param(4,3)*ones(length(v),1)];
+        p               = [ion_param(1,2)*ones(length(v),1) ion_param(2,2)*ones(length(v),1) ion_param(3,2)*ones(length(v),1) ion_param(4,2)*ones(length(v),1)];
+        v_km            = [v_km v_km v_km v_km]; 
+        beta0_1         = c .* (v_km - v0).^2 .* v_km.^0.8 ./ (1 + c .* (v_km - v0).^2 .* v_km.^0.8);
+        beta0_1(find(v_km<v0)) = 0;
+        beta0           = sum(beta0_1 .* p , 2);
+    """
