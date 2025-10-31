@@ -10,6 +10,9 @@ pip install ablate
 
 ### msise00
 
+`msise00` currently has a bug where it needs to be manually built upon install, the following
+commands will fix that issue.
+
 ```bash
     mkdir /my/env/msise00_source
     cd /my/env/msise00_source
@@ -20,11 +23,6 @@ pip install ablate
 ```
 
 ## Develop
-
-### Internal development
-
-Please refer to the style and contribution guidelines documented in the
-[IRF Software Contribution Guide](https://danielk.developer.irf.se/software_contribution_guide/).
 
 ### External code-contributions
 

@@ -1,63 +1,54 @@
 # Official language image. Look for the different tagged releases at:
 # https://hub.docker.com/r/library/python/tags/
-image: python:3.8.10
+image: python:3.11
 
 stages:
   - test
+  - type_checking
   - release
 
-
-# Prepare the development enviornment
+# Prepare the development environment
 .devsetup:
   before_script:
     - python -V
-    # Prepare and activate virtualenv
     - pip install -U pip
-    - pip install virtualenv
-    - virtualenv venv
+    - python -m venv venv
     - source venv/bin/activate
-    # Install the package
-    - pip install .[develop]
-
-# Prepare the nominal usage enviornment
-.setup:
-  before_script:
-    - python -V
-    # Prepare and activate virtualenv
-    - pip install -U pip
-    - pip install virtualenv
-    - virtualenv venv
-    - source venv/bin/activate
-    # Install dependancies
     - apt update
     - apt install -y gcc libfftw3-dev libhdf5-dev
-    # install the package
-    - pip install .
-
 
 #######################
 ## Platforms testing ##
 
-#Template for testing on python images,
-# extend this for each python-platform
-# the package is intended to work on
-.pytest:
+pytest:
   stage: test
-  extends: .setup
+  image: ghcr.io/astral-sh/uv:bookworm-slim
   allow_failure: true
+  parallel:
+    matrix:
+      - VERSION: ["3.10", "3.11", "3.12", "3.13"]
   script:
-    - pip install pytest
+    - uv python install $VERSION
+    - uv venv --seed --python $VERSION ./venv
+    - source venv/bin/activate
+    - pip install .[tests]
     - pytest
   rules:
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "develop"
     - if: $CI_COMMIT_BRANCH == "main"
+  coverage: /TOTAL.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/
 
-### TODO: NO TESTSING FOR NOW
-# python:
-#   extends: .pytest
-
-# python3.10:
-#   extends: .pytest
-#   image: python:3.10
+mypy:
+  stage: type_checking
+  extends: .devsetup
+  script:
+    - pip install .[tests]
+    - mypy src/spacecoords --follow-untyped-imports --disallow-untyped-defs --warn-unused-ignores
+  rules:
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "develop"
+    - if: $CI_COMMIT_BRANCH == "main"
 
 ###############
 ## Releasing ##
@@ -67,33 +58,32 @@ pages:
   stage: release
   extends: .devsetup
   script:
+    - pip install .[develop]
     - mkdocs build --site-dir public
   artifacts:
     paths:
       - public
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-#  only:
-#    - tags
+  only:
+    - tags
 
 # Build and check integrity of distribution
 # Then publish package on public PyPI
-### TODO: WE DONT UPLOAD YET
-# pypi:
-#   stage: release
-#   extends: .devsetup
-#   variables:
-#     #Use a gitlab variable to securly store the token
-#     PYPI_TOKEN: $PYPI_TOKEN
-#   script:
-#     - python -m build
-#     - python -m twine check dist/*
-#     - >
-#       TWINE_USERNAME=__token__
-#       TWINE_PASSWORD=$PYPI_TOKEN
-#       python -m twine upload dist/*
-#   artifacts:
-#     paths:
-#       - dist/*
-#   only:
-#     - tags
+pypi:
+  stage: release
+  extends: .devsetup
+  variables:
+    #Use a gitlab variable to securely store the token
+    PYPI_TOKEN: $PYPI_TOKEN
+  script:
+    - pip install .[develop]
+    - python -m build
+    - python -m twine check dist/*
+    - >
+      TWINE_USERNAME=__token__
+      TWINE_PASSWORD=$PYPI_TOKEN
+      python -m twine upload dist/*
+  artifacts:
+    paths:
+      - dist/*
+  only:
+    - tags
