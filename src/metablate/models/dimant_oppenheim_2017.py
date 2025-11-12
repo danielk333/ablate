@@ -233,9 +233,9 @@ def plasma_distribution_morphology(
     ne_morph = np.abs(t1 + t2 + t3)
 
     # todo: this is to fix some numerical shenanigans, can probably be solved better
-    zero_point = np.argmin(np.abs(y_grid))
-    if y_grid[zero_point] < 1e-3:
-        ne_morph[zero_point, :] = (ne_morph[zero_point - 1, :] + ne_morph[zero_point + 1, :]) / 2
+    # zero_point = np.argmin(np.abs(y_grid))
+    # if y_grid[zero_point] < 1e-3:
+    #     ne_morph[zero_point, :] = (ne_morph[zero_point - 1, :] + ne_morph[zero_point + 1, :]) / 2
 
     return Xlam, Ylam, Rlam, ne_morph
 
