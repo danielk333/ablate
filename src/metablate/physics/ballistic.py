@@ -13,6 +13,8 @@ def velocity(
 ):
     """Velocity function for ballistic coefficient solution of trajectory
 
+    TODO: make version with free molecular flow
+
     $$
         c_b = \\frac{M_e}{c_d S_e}
     $$
