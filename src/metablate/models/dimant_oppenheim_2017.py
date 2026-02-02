@@ -6,6 +6,8 @@ import scipy.constants as consts
 from tqdm import tqdm
 import multiprocessing as mp
 
+from ..types import NDArray_N
+
 
 def ablated_thermal_speed_bronshten_1983(meteoroid_surface_temperature, meteoroid_molecular_mass):
     return np.sqrt(
@@ -73,6 +75,9 @@ def _worker(
 
 
 def _do_integral_1(ksi, rlam23, cth):
+    """First integral of equation 5 in Sugar 2018 "Formation of Plasma Around a Small Meteoroid:
+    Simulation and Theory"
+    """
     return (
         np.sqrt(1 + 2 * rlam23 * ksi ** (2 / 3) / np.pi)
         * np.exp(-3 * rlam23 * ksi ** (2 / 3) / 2)
@@ -81,6 +86,9 @@ def _do_integral_1(ksi, rlam23, cth):
 
 
 def _do_integral_2(ksi, rlam23, cth, sth):
+    """Second integral of equation 5 in Sugar 2018 "Formation of Plasma Around a Small Meteoroid:
+    Simulation and Theory"
+    """
     return (
         np.sqrt(1 + 2 * rlam23 * ksi ** (2 / 3) / np.pi)
         * np.exp(-3 * rlam23 * ksi ** (2 / 3) / 2)
@@ -89,6 +97,7 @@ def _do_integral_2(ksi, rlam23, cth, sth):
 
 
 def do_int_1_quad(a, b, rlam23, cth, quad_abs_tol):
+    """Numerically evaluate integral 1 in `_do_integral_1`"""
     int1 = sci.quad(
         _do_integral_1,
         a,
@@ -101,6 +110,7 @@ def do_int_1_quad(a, b, rlam23, cth, quad_abs_tol):
 
 
 def do_int_2_quad(a, b, rlam23, cth, sth, quad_abs_tol):
+    """Numerically evaluate integral 2 in `_do_integral_2`"""
     int2 = sci.quad(
         _do_integral_2,
         a,
@@ -112,7 +122,82 @@ def do_int_2_quad(a, b, rlam23, cth, sth, quad_abs_tol):
     return int2[0]
 
 
-def plasma_distribution_morphology(
+def plasma_distribution_morphology_array(
+    r: NDArray_N,
+    theta: NDArray_N,
+    quad_abs_tol: float = 1e-7,
+    upper_limit_delta: float = 1e-6,
+    pbar: bool = True,
+):
+    # Generate density distribution
+    # Solve for a 2D plane
+    [Xlam, Ylam] = np.meshgrid(x_grid, y_grid)
+
+    Rlam = np.sqrt(Xlam**2 + Ylam**2)
+    Rlam[Rlam == 0] = np.nan
+
+    costh = Xlam / Rlam
+    sinth = Ylam / Rlam
+    Rlam23 = Rlam ** (2 / 3)
+
+    Func1 = np.sqrt(2 * np.pi / 3) / Rlam * scs.erf(
+        np.sqrt(3 / 2) * Rlam ** (1 / 3) * np.abs(costh) ** (1 / 3)
+    ) - np.exp(-3 / 2 * Rlam23 * np.abs(costh) ** (2 / 3)) * (
+        (4 - np.pi)
+        * np.abs(costh)
+        / (2 * np.sqrt((1 + (4 - np.pi) ** 2 * Rlam23 * np.abs(costh) ** (2 / 3)) / (2 * np.pi)))
+        + 2 * np.abs(costh) ** (1 / 3) / Rlam23
+    )
+
+    Func2 = np.sqrt(2 * np.pi / 3) / Rlam * scs.erf(np.sqrt(3 * Rlam23 / 2)) - (
+        1 + 2 / Rlam23
+    ) * np.exp(-3 * Rlam23 / 2)
+
+
+    low_lim = np.abs(costh)  # Lower limit of integration |cosθ|
+    up_lim = np.full_like(
+        costh, 1 - upper_limit_delta
+    )  # Upper limit of integration 1 (avoid singularity at exactly 1)
+
+    # todo: hack to make sure integration limits are sane
+    low_lim[low_lim > up_lim] = up_lim[low_lim > up_lim] - upper_limit_delta
+
+    if pbar:
+        tqdm_bar = tqdm(desc="computing electron density", total=len(costh))
+    Func3_1 = np.empty_like(costh)
+    Func3_2 = np.empty_like(costh)
+    for ind in range(len(costh)):
+        Func3_1[ind] = do_int_1_quad(
+            low_lim[ind],
+            up_lim[ind],
+            Rlam23[ind],
+            costh[ind],
+            quad_abs_tol,
+        )
+        Func3_2[ind] = do_int_2_quad(
+            low_lim[ind],
+            up_lim[ind],
+            Rlam23[ind],
+            costh[ind],
+            sinth[ind],
+            quad_abs_tol,
+        )
+        if pbar:
+            tqdm_bar.update(1)
+    if pbar:
+        tqdm_bar.close()
+
+    t1 = np.abs(costh) * Func1
+    t2 = costh * Func2
+    t3 = np.abs(costh) * Func3_2 + Func3_1
+    t3[np.isnan(t3)] = 0
+
+    ne_morph = np.abs(t1 + t2 + t3)
+
+    return Xlam, Ylam, Rlam, ne_morph
+
+
+def plasma_distribution_morphology_grid(
     x_grid,
     y_grid,
     quad_abs_tol=1e-7,

@@ -63,14 +63,14 @@ if args.cache is not None:
         rlam = _dat["r"]
         do_f_dist = _dat["f"]
     else:
-        xlam, ylam, rlam, do_f_dist = do.plasma_distribution_morphology(
+        xlam, ylam, rlam, do_f_dist = do.plasma_distribution_morphology_grid(
             x_grid=(np.arange(201) - 60) * args.scale,
             y_grid=(np.arange(201) - 100) * args.scale,
             threads=8,
         )
         np.savez(cache, x=xlam, y=ylam, r=rlam, f=do_f_dist)
 else:
-    xlam, ylam, rlam, do_f_dist = do.plasma_distribution_morphology(
+    xlam, ylam, rlam, do_f_dist = do.plasma_distribution_morphology_grid(
         x_grid=(np.arange(201) - 60) * args.scale,
         y_grid=(np.arange(201) - 100) * args.scale,
         threads=8,
