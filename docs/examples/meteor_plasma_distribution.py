@@ -8,6 +8,8 @@ import scipy.constants as consts
 import metablate.atmosphere as atm
 import metablate.models.dimant_oppenheim_2017 as do
 
+plt.style.use("dark_background")
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--cache", default=None)
 parser.add_argument(
@@ -100,12 +102,14 @@ def plasma_freq_to_area(dx, dy, f_p, f_p_limit):
 
 
 fig, ax = plt.subplots()
-cmap = "jet"
+cmap = "inferno"
 im = ax.pcolormesh(xlam, ylam, ne_dist, cmap=cmap, norm=LogNorm())
-fig.colorbar(im, ax=ax)
+cb = fig.colorbar(im, ax=ax)
+cb.set_label("Electron density [m^-3]")
 ax.set_xlabel("x [lambda_T]")
 ax.set_ylabel("y [lambda_T]")
 
+fig.savefig("/home/danielk/git/danielk-presentations/media/2026/irf-seminar/do_model.png", dpi=300)
 
 fig, ax = plt.subplots()
 cmap = "jet"
