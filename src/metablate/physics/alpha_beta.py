@@ -371,7 +371,10 @@ def norm_velocity_estimate(
     beta,
     atmospheric_scale_height=None,
     start=1 - 1e-12,
-    minimize_kwargs={"method": "Nelder-Mead"},
+    minimize_kwargs={
+        "method": "Nelder-Mead",
+        "bounds": [(0, 1)],
+    },
 ):
     """Root-solver estimation of velocity as a function of height from the analytic
     solutions of the ablation equations.
@@ -674,6 +677,4 @@ def velocity_smoother_dfn(velocity, iters=2):
 def velocity_smoother_mov_avg(velocity, window=7):
     movavg = np.cumsum(velocity)
     movavg[window:] = movavg[window:] - movavg[:-window]
-    return movavg[(window - 1):] / window
-
-
+    return movavg[(window - 1) :] / window
