@@ -428,12 +428,36 @@ def final_mass_direct(
     )
 
 
-def scale_hight_to_exponential_atm(atm_total_mass_density, atmospheric_scale_height, sea_level_rho):
+def density_to_height_exponential_atm(
+    atm_total_mass_density, atmospheric_scale_height, sea_level_rho
+):
+    """Calculate height at a given atmospheric mass density given an exponential atmosphere."""
+    return -np.log(atm_total_mass_density / sea_level_rho) * atmospheric_scale_height
+
+
+def scale_hight_to_exponential_atm(
+    height,
+    atmosphere,
+    sea_level_rho,
+    atmospheric_scale_height,
+    density_args=(),
+    density_kwargs={},
+    lims=None,
+    root_find_kwargs={},
+):
     """Scale heights using an arbitrary but strictly decreeing atmospheric
     density model as a function of the original height, so that the new heights gives the
     same density using a simple exponential atmospheric density model.
     """
-    return -np.log(atm_total_mass_density / sea_level_rho) * atmospheric_scale_height
+    d = atmosphere.density(*density_args, alt=height, **density_kwargs)
+    atm_dens = d["Total"].values.squeeze()
+
+    scaled_height = density_to_height_exponential_atm(
+        atm_dens,
+        atmospheric_scale_height,
+        sea_level_rho,
+    )
+    return scaled_height
 
 
 def scale_hight_to_model_atm(
@@ -592,25 +616,24 @@ def logposterior_alpha_beta(
     alpha,
     beta,
     heights,
+    heights_std,
     velocities,
     velocities_std,
     initial_velocity=None,
     atmospheric_scale_height=None,
     inverse_kwargs={},
 ):
-    Vvalues = velocities
-    Vstd = velocities_std
+    vvalues = velocities
+    vstd = velocities_std
     if initial_velocity is not None:
-        Vvalues = Vvalues / initial_velocity
-        Vstd = Vstd / initial_velocity
+        vvalues = vvalues / initial_velocity
+        vstd = vstd / initial_velocity
 
-    Yvalues = heights
+    yvalues = heights
     if atmospheric_scale_height is not None:
-        Yvalues = Yvalues / atmospheric_scale_height
-    # TODO: propagate a gaussian trough alpha-beta solution to also include h_std in the posterior
-    vn = norm_velocity_estimate(
-        Yvalues, alpha, beta, atmospheric_scale_height=None, **inverse_kwargs
-    )
+        yvalues = yvalues / atmospheric_scale_height
+        ystd = ystd / atmospheric_scale_height
+
     return -0.5 * np.sum(((Vvalues - vn) / Vstd) ** 2)
 
 
