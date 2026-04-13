@@ -402,7 +402,7 @@ def norm_velocity_estimate(
     Vvalues = np.zeros_like(Yvalues)
     for ind in range(len(Yvalues)):
         res = sco.minimize(func_exact, start, args=(Yvalues[ind],), **minimize_kwargs)
-        Vvalues[ind] = res.x
+        Vvalues[ind] = res.x[0]
 
     if not isinstance(height, np.ndarray):
         Vvalues = Vvalues[0]
