@@ -2,7 +2,9 @@
 This module contains convenient type information so that typing can be precise
 but not too verbose in the code itself.
 """
-
+from copy import deepcopy
+from dataclasses import dataclass, fields
+from typing import TypeVar
 import numpy.typing as npt
 
 NDArray_N = npt.NDArray
@@ -38,4 +40,19 @@ NDArray_MxM = npt.NDArray
 NDArray_MxN = npt.NDArray
 "(m,n) shaped ndarray"
 
+P = TypeVar("P", bound="Parameters")
 
+@dataclass
+class Parameters:
+    def copy(self: P) -> P:
+        kwargs = {key: deepcopy(getattr(self, key)) for key in self.keys}
+        return self.__class__(**kwargs)
+
+    @property
+    def keys(self) -> list[str]:
+        return [key.name for key in fields(self)]
+
+
+@dataclass
+class Options:
+    pass

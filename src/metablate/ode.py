@@ -8,7 +8,6 @@ from abc import abstractmethod
 import logging
 
 from scipy.integrate import solve_ivp
-from .ablation_model import AblationModel
 
 logger = logging.getLogger(__name__)
 
