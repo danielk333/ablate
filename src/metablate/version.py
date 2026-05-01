@@ -1,3 +1,6 @@
 import importlib.metadata
 
-__version__ = importlib.metadata.version("metablate")
+try:
+    __version__ = importlib.metadata.version("metablate")
+except importlib.metadata.PackageNotFoundError:
+    __version__ = "0.0+local"
