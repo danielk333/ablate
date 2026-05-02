@@ -6,6 +6,59 @@
     pip install ablate
 ```
 
+## Minimal Kero-Szasz example
+
+The example below runs the built-in `AtmPymsis` atmosphere with the
+`KeroSzasz2008` ablation model and recreates a compact sweep over entry
+elevation angle and velocity.
+
+![Kero-Szasz ablation sweep](docs/assets/kero_figure1_example.png)
+
+```bash
+python docs/examples/kero_figure1.py --output docs/assets/kero_figure1_example.png
+```
+
+The core setup is:
+
+```python
+import numpy as np
+import metablate
+
+model = metablate.KeroSzasz2008(
+    atmosphere=metablate.atmosphere.AtmPymsis(),
+    config={
+        "options": {
+            "temperature0": 290,
+            "shape_factor": 1.21,
+            "emissivity": 0.9,
+            "sputtering": False,
+            "Gamma": 1.0,
+            "Lambda": 1.0,
+        },
+        "atmosphere": {"version": 2.1},
+        "integrate": {
+            "minimum_mass_kg": 1e-13,
+            "max_step_size_sec": 5e-2,
+            "max_time_sec": 5.0,
+            "method": "RK45",
+        },
+    },
+)
+
+result = model.run(
+    velocity0=53e3,
+    mass0=1e-8,
+    altitude0=130e3,
+    zenith_ang=45.0,
+    azimuth_ang=0.0,
+    material_data=metablate.material.get("cometary"),
+    time=np.datetime64("2018-06-28T12:45:33", "ns"),
+    lat=69.30,
+    lon=16.04,
+    alt=100e3,
+)
+```
+
 ### matplotlib backends
 
 on arch to get matplotlib to work
