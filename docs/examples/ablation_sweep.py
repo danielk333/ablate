@@ -170,8 +170,8 @@ def make_figure():
         )
         for velocity, linestyle in velocity_linestyles.items()
     ]
-    axes[0].legend(handles=angle_handles, frameon=False, loc="upper left", title="Entry elevation")
-    axes[1].legend(handles=velocity_handles, frameon=False, loc="lower right", title="Velocity")
+    axes[0].legend(handles=angle_handles, frameon=False, loc="lower right", title="Entry elevation")
+    axes[1].legend(handles=velocity_handles, frameon=False, loc="lower left", title="Velocity")
 
     return fig
 
