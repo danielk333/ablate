@@ -77,11 +77,13 @@ def run_case(model, material_data, velocity_km_s, entry_elevation_angle_deg):
     order = np.argsort(altitude_km)
     mass_loss_rate = np.abs(np.gradient(result.mass.values, result.t, edge_order=1))
     mass_loss_rate[~np.isfinite(mass_loss_rate)] = np.nan
+    mass_loss_line_density = mass_loss_rate / result.velocity.values
+    mass_loss_line_density[~np.isfinite(mass_loss_line_density)] = np.nan
 
     return {
         "altitude_km": altitude_km[order],
         "velocity_km_s": result.velocity.values[order] * 1e-3,
-        "mass_loss_rate_kg_s": mass_loss_rate[order],
+        "mass_loss_line_density_kg_m": mass_loss_line_density[order],
         "temperature_k": result.temperature.values[order],
         "mass_kg": result.mass.values[order],
     }
@@ -121,9 +123,9 @@ def make_figure():
         (0, "velocity_km_s", "Velocity [km s$^{-1}$]", "(a) Velocity", False),
         (
             1,
-            "mass_loss_rate_kg_s",
-            r"Absolute mass-loss rate, $|dm/dt|$ [kg s$^{-1}$]",
-            "(b) Mass loss rate",
+            "mass_loss_line_density_kg_m",
+            r"Mass-loss line density, $|dm/dt|/v$ [kg m$^{-1}$]",
+            "(b) Mass-loss line density",
             True,
         ),
         (2, "temperature_k", "Temperature [K]", "(c) Temperature", False),

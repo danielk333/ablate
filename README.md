@@ -6,7 +6,7 @@
     pip install ablate
 ```
 
-## Minimal Kero-Szasz example
+## Minimal micrometeoroid ablation model example
 
 The example below runs the built-in `AtmPymsis` atmosphere with the
 `KeroSzasz2008` ablation model and recreates a compact sweep over entry
@@ -15,7 +15,7 @@ elevation angle and velocity.
 ![Kero-Szasz ablation sweep](docs/assets/kero_figure1_example.png)
 
 ```bash
-python docs/examples/kero_figure1.py --output docs/assets/kero_figure1_example.png
+python docs/examples/ablation_sweep.py --output docs/assets/kero_figure1_example.png
 ```
 
 The core setup is:
