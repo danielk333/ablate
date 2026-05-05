@@ -6,7 +6,7 @@ import scipy.constants as consts
 from tqdm import tqdm
 import multiprocessing as mp
 
-from ..types import NDArray_N
+from metablate.array_types import NDArray_N
 
 
 def ablated_thermal_speed_bronshten_1983(meteoroid_surface_temperature, meteoroid_molecular_mass):
@@ -125,12 +125,121 @@ def do_int_2_quad(a, b, rlam23, cth, sth, quad_abs_tol):
 def plasma_distribution_morphology_array(
     r: NDArray_N,
     theta: NDArray_N,
-    quad_abs_tol: float = 1e-7,
-    upper_limit_delta: float = 1e-6,
-    pbar: bool = True,
-):
+    quad_abs_tol: float = 1e-5,
+    # upper_limit_delta: float = 1e-6,
+    pbar: bool = True):
     # Generate density distribution
     # Solve for a 2D plane
+
+    ### bookmark 1 ###
+
+    ## r and theta as arrays, broadcasting used to achieve same shape of arrays
+    r = np.asarray(r, dtype=float)
+    theta = np.asarray(theta, dtype=float)
+    r, theta = np.broadcast_arrays(r, theta)
+
+    ## cos and sin theta
+    costh = np.cos(theta)
+    sinth = np.sin(theta)
+
+    ## mean free path x and y components
+    Xlam = r * costh
+    Ylam = r * sinth
+
+    ## r as Rlam 
+    Rlam = r.copy()
+    Rlam[Rlam == 0] = np.nan
+    Rlam23 = Rlam ** (2/3)
+
+    ## Func 1 (same as before)
+    Func1 = np.sqrt(2 * np.pi / 3) / Rlam * scs.erf(
+        np.sqrt(3 / 2) * Rlam ** (1 / 3) * np.abs(costh) ** (1 / 3)
+    ) - np.exp(-3 / 2 * Rlam23 * np.abs(costh) ** (2 / 3)) * (
+        (4 - np.pi)
+        * np.abs(costh)
+        / (2 * np.sqrt((1 + (4 - np.pi) ** 2 * Rlam23 * np.abs(costh) ** (2 / 3)) / (2 * np.pi)))
+        + 2 * np.abs(costh) ** (1 / 3) / Rlam23
+    )
+
+    ## Func 2 (same as before)
+    Func2 = np.sqrt(2 * np.pi / 3) / Rlam * scs.erf(np.sqrt(3 * Rlam23 / 2)) - (
+        1 + 2 / Rlam23
+    ) * np.exp(-3 * Rlam23 / 2)
+
+    ## flatten but ravel for faster computation of quad loop
+    orig_shape = costh.shape
+    costh_f = costh.ravel()
+    sinth_f = sinth.ravel()
+    Rlam23_f = Rlam23.ravel()
+
+    low_lim = np.abs(costh_f)
+    up_lim = np.full_like(costh_f, 1.0)
+
+
+    # ## limiting the limits of the integral
+    # bad = low_lim >= up_lim
+    # low_lim[bad] = up_lim[bad]
+
+    ## creating empty arrays with same size and shape as flattened costh
+    Func3_1 = np.empty_like(costh_f)
+    Func3_2 = np.empty_like(costh_f)
+
+    ## older sin(theta) -> (sth) is super small but not zero, and we need it to be not zero when dividing
+    sth_eps = 1e-14
+
+    ## progress bar
+    if pbar:
+        tqdm_bar = tqdm(desc = "Computing electron density", total = costh_f.size)
+
+    ## quad loop for int1 and int2 of equation 5 or third term (Sugar et al)
+    for i in range(costh_f.size):
+        # filter NaNs
+        if not np.isfinite(Rlam23_f[i]) or not np.isfinite(costh_f[i]):
+            Func3_1[i] = 0.0
+            Func3_2[i] = 0.0
+        else:
+            Func3_1[i] = do_int_1_quad(low_lim[i], up_lim[i], Rlam23_f[i], costh_f[i], quad_abs_tol)
+
+            # integral 2 becomes unstable when sintheta ~ theta (we use sth_eps here)
+            if abs(sinth_f[i]) < sth_eps:
+                Func3_2[i] = 0.0
+            else:
+                Func3_2[i] = do_int_2_quad(
+                    low_lim[i], up_lim[i], Rlam23_f[i], costh_f[i], sinth_f[i], quad_abs_tol
+                )
+
+        if pbar:
+            tqdm_bar.update(1)
+
+    if pbar:
+        tqdm_bar.close()
+
+
+    # reshaping func3_1 and func3_2 after flattening
+    Func3_1 = Func3_1.reshape(orig_shape)
+    Func3_2 = Func3_2.reshape(orig_shape)
+
+    # combining terms and returning values
+    t1 = np.abs(costh) * Func1
+    t2 = costh * Func2
+    t3 = np.abs(costh) * Func3_2 + Func3_1
+    t3[np.isnan(t3)] = 0
+
+    ne_morph = np.abs(t1 + t2 + t3)
+
+
+
+    return Xlam, Ylam, Rlam, ne_morph, t1, t2, t3
+
+    
+
+
+
+
+
+
+'''
+    ### bookmark 2 - old code
     [Xlam, Ylam] = np.meshgrid(x_grid, y_grid)
 
     Rlam = np.sqrt(Xlam**2 + Ylam**2)
@@ -323,7 +432,7 @@ def plasma_distribution_morphology_grid(
     #     ne_morph[zero_point, :] = (ne_morph[zero_point - 1, :] + ne_morph[zero_point + 1, :]) / 2
 
     return Xlam, Ylam, Rlam, ne_morph
-
+'''
 
 def plasma_distribution(
     total_atmospheric_number_density,
