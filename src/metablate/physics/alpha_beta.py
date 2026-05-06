@@ -245,7 +245,7 @@ def norm_mass_direct(velocity, beta, shape_change_coefficient, initial_velocity=
 
 
 def height_direct(velocity, atmospheric_scale_height, alpha, beta, initial_velocity=None):
-    """Shorthand for `norm_mass_direct` scaled to physical units"""
+    """Shorthand for `norm_height_direct` scaled to physical units"""
     return atmospheric_scale_height * norm_height_direct(
         velocity, alpha, beta, initial_velocity=initial_velocity
     )

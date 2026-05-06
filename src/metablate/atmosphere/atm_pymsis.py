@@ -39,13 +39,13 @@ class AtmPymsis(Atmosphere):
         lat: npt.ArrayLike,
         lon: npt.ArrayLike,
         alt: npt.ArrayLike,
-        f107: npt.ArrayLike = None,
-        f107s: npt.ArrayLike = None,
-        aps: npt.ArrayLike = None,
+        f107: npt.ArrayLike | None = None,
+        f107s: npt.ArrayLike | None = None,
+        aps: npt.ArrayLike | None = None,
         mass_densities: bool = False,
         version: Union[float, str] = 2.1,
         **kwargs
-    ):
+    ) -> xr.Dataset:
         """TODO: Write docstring
 
         returns density in [m^-3]

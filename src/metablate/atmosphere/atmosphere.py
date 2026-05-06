@@ -5,7 +5,8 @@ from copy import copy
 
 import scipy.constants as constants
 import numpy as np
-import numpy.typing as npt
+import xarray as xr
+from ..types import NDArray_N
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,7 @@ SPECIES = {
 
 # TODO: get a a hold of other atm models to figure out how to generalize interface better
 class Atmosphere:
-    def __init__(self, supported_species):
+    def __init__(self, supported_species: list[Species] | list[str]):
         self.species = {}
         for s in supported_species:
             if isinstance(s, Species):
@@ -71,10 +72,10 @@ class Atmosphere:
     @abstractmethod
     def density(
         self,
-        time: npt.ArrayLike,
-        lat: npt.ArrayLike,
-        lon: npt.ArrayLike,
-        alt: npt.ArrayLike,
+        time: np.datetime64,
+        lat: NDArray_N,
+        lon: NDArray_N,
+        alt: NDArray_N,
         **kwargs
-    ):
+    ) -> xr.Dataset:
         pass

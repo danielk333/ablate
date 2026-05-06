@@ -9,50 +9,34 @@ import logging
 import numpy as np
 import matplotlib.pyplot as plt
 
-import metablate
+import metablate.models.kero_szasz_2008 as ks
+import metablate.material as mat
+from spacecoords import frames
 
 logger = logging.getLogger("metablate")
 logger.setLevel(logging.DEBUG)
 
+lat = 67 + 50 / 60 + 26.6 / 3600
+lon = 20 + 24 / 60 + 40.0 / 3600
+alt = 100e3
+reference_pos_ecef = frames.geodetic_wgs84_to_ecef(lat, lon, alt, degrees=True)
+velocity_dir_ecef = frames.azel_to_ecef(lat, lon, az=0, el=-45, degrees=True)
 
-model = metablate.KeroSzasz2008(
-    atmosphere = metablate.atmosphere.AtmPymsis(),
-    config = {
-        "options": {
-            "temperature0": 290,
-            "shape_factor": 1.21,
-            "emissivity": 0.9,
-            "sputtering": False,
-            "Gamma": None,
-            "Lambda": None,
-        },
-        "atmosphere": {
-            "version": 2.1,
-        },
-        "integrate": {
-            "minimum_mass_kg": 1e-11,
-            "max_step_size_sec": 1e-3,
-            "max_time_sec": 100.0,
-            "method": "RK45",
-        },
-    }
+
+model = ks.KeroSzasz2008(
+    options=ks.KeroSzaszOptions(
+        material=mat.asteroidal,
+    ),
 )
 
-material_data = metablate.material.get("iron")
-print(material_data)
-
 result = model.run(
-    velocity0=60 * 1e3,
-    mass0=1e-6,
-    # mass0=1e-3,
-    altitude0=120e3,
-    zenith_ang=75.7744,
-    azimuth_ang=0.0,
-    material_data=material_data,
-    time=np.datetime64("2018-06-28T12:45:33"),
-    lat=69.5866115,
-    lon=19.221555,
-    alt=100e3,
+    times=np.linspace(0, 10, 100),
+    parameters=ks.KeroSzaszInitialState(
+        epoch=np.datetime64("2018-06-28T12:45:33"),
+        position_ecef=reference_pos_ecef,
+        velocity_ecef=velocity_dir_ecef * 60e3,
+        mass=1e-6,
+    ),
 )
 
 print(result)

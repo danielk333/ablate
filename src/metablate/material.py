@@ -11,29 +11,13 @@ in complete molecular form.
 
 """
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict
 import logging
 from copy import copy
 from scipy import constants
+from .types import Material
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class Material:
-    """Container for material properties"""
-
-    bulk_density: float  # [kg/m3]
-    mean_atomic_mass: float  # [kg]
-    latent_heat_of_fusion_vapourization: float  # [J/kg]
-    specific_heat: float  # [J/(K*kg)]
-    average_atomic_number: float  # [1]
-    surface_binding_energy: float  # [eV]
-    ablated_vapour_mean_molecular_mass: float  # [kg]
-    penetration_correction_parameter_K: float  # [1]
-    clausius_clapeyron_coeff_A: float  # [K]
-    clausius_clapeyron_coeff_B: float  # [K]
-
 
 MATERIALS = {}
 

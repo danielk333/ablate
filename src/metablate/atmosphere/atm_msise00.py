@@ -4,8 +4,10 @@
 
 """
 import scipy.constants
+import xarray as xr
 from .atmosphere import Atmosphere
-import numpy.typing as npt
+from ..types import NDArray_N
+
 
 try:
     import msise00
@@ -21,16 +23,16 @@ class AtmMSISE00(Atmosphere):
 
     def density(
         self,
-        time: npt.ArrayLike,
-        lat: npt.ArrayLike,
-        lon: npt.ArrayLike,
-        alt: npt.ArrayLike,
+        time: NDArray_N,
+        lat: NDArray_N,
+        lon: NDArray_N,
+        alt: NDArray_N,
         f107: float = 80.0,
         f107s: float = 80.0,
         Ap: float = 4.0,
         mass_densities: bool = False,
         **kwargs
-    ):
+    ) -> xr.Dataset:
         """TODO: Write docstring
 
         returns density in [m^-3]

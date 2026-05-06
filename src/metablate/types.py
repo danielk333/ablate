@@ -11,7 +11,7 @@ NDArray_N = npt.NDArray
 "(n,) shaped ndarray"
 
 NDArray_M = npt.NDArray
-"(n,) shaped ndarray"
+"(m,) shaped ndarray"
 
 NDArray_2 = npt.NDArray
 "(2,) shaped ndarray"
@@ -40,19 +40,29 @@ NDArray_MxM = npt.NDArray
 NDArray_MxN = npt.NDArray
 "(m,n) shaped ndarray"
 
-P = TypeVar("P", bound="Parameters")
-
-@dataclass
-class Parameters:
-    def copy(self: P) -> P:
-        kwargs = {key: deepcopy(getattr(self, key)) for key in self.keys}
-        return self.__class__(**kwargs)
-
-    @property
-    def keys(self) -> list[str]:
-        return [key.name for key in fields(self)]
-
+P = TypeVar("P")
+R = TypeVar("R")
+Op = TypeVar("Op", bound="Options")
 
 @dataclass
 class Options:
     pass
+
+@dataclass
+class Results:
+    pass
+
+@dataclass
+class Material:
+    """Container for material properties"""
+
+    bulk_density: float  # [kg/m3]
+    mean_atomic_mass: float  # [kg]
+    latent_heat_of_fusion_vapourization: float  # [J/kg]
+    specific_heat: float  # [J/(K*kg)]
+    average_atomic_number: float  # [1]
+    surface_binding_energy: float  # [eV]
+    ablated_vapour_mean_molecular_mass: float  # [kg]
+    penetration_correction_parameter_K: float  # [1]
+    clausius_clapeyron_coeff_A: float  # [K]
+    clausius_clapeyron_coeff_B: float  # [K]

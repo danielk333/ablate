@@ -104,9 +104,9 @@ def temperature_rate_hill_et_al_2005(
     # -- variables
     kB = constants.value("Boltzmann constant")  # [J/K]
 
-    rho_m = material_data["rho_m"]
-    c = material_data["c"]
-    L = material_data["L"]
+    rho_m = material_data.bulk_density
+    c = material_data.specific_heat
+    L = material_data.latent_heat_of_fusion_vapourization
 
     coef0 = 0.5 * Lambda * atm_total_mass_density * velocity**3
     coef0 -= 4 * kB * emissivity * (temperature**4 - atm_temperature**4)
@@ -172,8 +172,8 @@ def heat_transfer_bronshten_1983(
     kB = constants.value("Boltzmann constant")  # [J/K]
 
     # Meteoroid constituents
-    met_mean_mass = material_data["m2"]
-    met_density = material_data["rho_m"]
+    met_mean_mass = material_data.mean_atomic_mass
+    met_density = material_data.bulk_density
 
     # angle between the normal to the surface and the molecular flow, theta0 is a row vector
     theta0 = np.linspace(0, np.pi / 2, num=res, dtype=np.float64)  # [radians]
@@ -396,10 +396,10 @@ def thermal_ablation_hill_et_al_2005(mass, temperature, material_data, shape_fac
 
     """
 
-    CA = material_data["CA"]
-    CB = material_data["CB"]
-    mu = material_data["mu"]
-    rho_m = material_data["rho_m"]
+    CA = material_data.clausius_clapeyron_coeff_A
+    CB = material_data.clausius_clapeyron_coeff_B
+    mu = material_data.ablated_vapour_mean_molecular_mass
+    rho_m = material_data.bulk_density
 
     # 2007-03-21 Ed suggests that the vapor pressure should be lowered by a factor of 0.8 or 0.7
     # due to the large ram pressure forcing the evaporated atoms and molecules back on to the surface
@@ -460,15 +460,15 @@ def drag_coefficient_bronshten_1983(
     Returns
     -------
     float or numpy.ndarray
-        Drag coefficient
+        Drag coefficient (half of aerodynamic drag coefficient)
 
     """
     # Universal constants
     kB = constants.value("Boltzmann constant")  # [J/K]
 
     # Meteoroid constituents
-    met_mean_mass = material_data["m2"]
-    met_density = material_data["rho_m"]
+    met_mean_mass = material_data.mean_atomic_mass
+    met_density = material_data.bulk_density
 
     # angle between the normal to the surface and the molecular flow, theta0 is a row vector
     theta0 = np.linspace(0, np.pi / 2, num=res, dtype=np.float64)  # [radians]

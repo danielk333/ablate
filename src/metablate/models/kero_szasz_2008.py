@@ -24,207 +24,85 @@ Parameters:
 
 """
 
-from dataclasses import dataclass
 import logging
+from typing import Any
+from dataclasses import dataclass, field
 import numpy as np
 from scipy.integrate import solve_ivp
-from scipy import constants
-from scipy.integrate import solve_ivp
-import xarray
+from scipy.optimize import minimize_scalar
 
+from spacecoords import frames
+from spacecoords.constants import WGS84
 from .. import physics
-from ..atmosphere import AtmPymsis, AtmMSISE00
+from .model import MeteorModel
+from ..atmosphere import Atmosphere, AtmPymsis
+from ..types import (
+    Options,
+    NDArray_3,
+    Results,
+    NDArray_3xN,
+    NDArray_N,
+    NDArray_M,
+    Material,
+)
+from ..material import cometary
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class Options:
+class KeroSzaszOptions(Options):
     integral_resolution: int = 100
-    minimum_mass_kg: float = 1e-11
-    max_step_size_sec: float = 1e-1
-    max_time_sec: float = 100.0
+    minimum_mass: float = 1e-11  # [kg]
+    max_step_size: float = 1e-1  # [s]
+    max_time: float = 100.0  # [s]
     method: str = "RK45"
+    method_kwargs: dict[str, Any] = field(default_factory=dict)
+    sputtering: bool = False
+    atmosphere: Atmosphere = AtmPymsis()
+    atmosphere_kwargs: dict[str, Any] = field(default_factory=dict)
+    effective_atmospheric_temperature: float = 290  # [K]
+    start_altitude: float | None = 200e3  # [m]
+    material: Material = cometary
+    shape_factor: float = 1.21  # [1]
+    emissivity: float = 0.9  # [1]
 
 
 @dataclass
-class Parameters:
-    temperature0: float = 290
-    shape_factor: float = 1.21
-    emissivity: float = 0.9
-    sputtering: bool = False
-    gamma: float | None = None
-    lam: float | None = None
-    f107: float | None = None
-    f107s: float | None = None
-    version: float = 2.1
+class KeroSzaszInitialState:
+    epoch: np.datetime64
+    position_ecef: NDArray_3  # m
+    velocity_ecef: NDArray_3  # m/s
+    mass: float  # kg
+    drag_coefficient: float | None = (
+        None  # [1] (half of the standard aerodynamic drag coefficient)
+    )
+    heat_transfer_coefficient: float | None = None  # [1]
 
 
-def rhs(
-    self,
-    t,
-    y,
-    material_data,
-    Lambda,
-    Gamma,
-    epoch,
-    reference_ecef,
-    v_dir_ecef,
+@dataclass
+class KeroSzaszResults(Results):
+    t: NDArray_N
+    distance: NDArray_N
+    velocity: NDArray_N
+    mass: NDArray_N
+    temperature: NDArray_N
+    position_ecef: NDArray_3xN
+    velocity_ecef: NDArray_3xN
+
+
+class KeroSzasz2008(
+    MeteorModel[KeroSzaszInitialState, KeroSzaszOptions, KeroSzaszResults]
 ):
-    """The right hand side of the differential equation to be integrated, i.e:
-
-    .. math::
-
-        \\frac{\\mathrm{d}v}{\\mathrm{d}t} = \\\\
-        \\\\
-        \\frac{\\mathrm{d}m}{\\mathrm{d}t} = \\\\
-        \\\\
-        \\frac{\\mathrm{d}s}{\\mathrm{d}t} = \\\\
-        \\\\
-        \\frac{\\mathrm{d}T}{\\mathrm{d}t} = 
-
-
-    The numpy vector is structured as follows (numbers indicating index):
-
-        0. dvdt
-        1. dmdt
-        2. dsdt
-        3. dTdt
-
-    """
-    vel, s, temp, mass = y
-
-    # meteoroid height above earth surface
-    traj = reference_ecef - v_dir_ecef * s
-    lat, lon, alt = coordinates.ecef2geodetic(*traj.tolist())
-
-    ecef = coordinates.geodetic2ecef(lat, lon, alt)
-    r = np.linalg.norm(ecef)
-
-    # logger.debug(f'Position: {ecef*1e-3} km')
-    # logger.debug(f'lat = {lat}, lon = {lon}, {alt*1e-3} km')
-
-    # logger.debug(f't0 + {t} s: ')
-    # logger.debug(f'vel = {vel*1e-3} km/s, traj-s = {s*1e-3} km, mass = {mass} kg, temp = {T} K')
-    # logger.debug(f'altitude = {alt*1e-3} km')
-
-    f107 = self.config.get("atmosphere", "f107")
-    if f107 is not None:
-        f107 = float(f107)
-    f107s = self.config.get("atmosphere", "f107s")
-    if f107s is not None:
-        f107s = float(f107s)
-
-    atm = self.atmosphere.density(
-        time=epoch + np.timedelta64(int(t * 1e6), "us"),
-        lat=lat,
-        lon=lon,
-        alt=alt,
-        f107=f107,
-        f107s=f107s,
-        mass_densities=False,
-        version=self.config.getfloat("atmosphere", "version"),
-    )
-
-    rho_tot = atm["Total"].values.squeeze()
-    N_rho_tot = rho_tot / self.atmosphere.mean_mass
-
-    if self.config.getboolean("options", "sputtering"):
-        dmdt_s = physics.sputtering.sputtering(
-            mass=mass,
-            velocity=vel,
-            material_data=material_data,
-            density=atm,
-        )
-    else:
-        dmdt_s = 0.0
-
-    dmdt_a = physics.thermal_ablation.thermal_ablation_hill_et_al_2005(
-        mass=mass,
-        temperature=T,
-        material_data=material_data,
-        shape_factor=self.config.getfloat("options", "shape_factor"),
-    )
-
-    # logger.debug(f'dmdt sputtering: {dmdt_s} kg/s')
-    # logger.debug(f'dmdt ablation  : {dmdt_a} kg/s')
-
-    if Lambda is None:
-        Lambda = physics.thermal_ablation.heat_transfer_bronshten_1983(
-            mass=mass,
-            velocity=vel,
-            temperature=T,
-            material_data=material_data,
-            atm_total_number_density=N_rho_tot,
-            mass_loss_thermal_ablation=dmdt_a,
-            atm_mean_mass=self.atmosphere.mean_mass,
-            res=self.config.getint("options", "integral_resolution"),
-        )
-
-    if Gamma is None:
-        Gamma = physics.thermal_ablation.drag_coefficient_bronshten_1983(
-            mass=mass,
-            velocity=vel,
-            temperature=T,
-            material_data=material_data,
-            atm_total_number_density=N_rho_tot,
-            atm_mean_mass=self.atmosphere.mean_mass,
-            res=self.config.getint("options", "integral_resolution"),
-        )
-
-    # -- Differential equation for the velocity to solve
-    dvdt_d = (
-        -Gamma
-        * self.config.getfloat("options", "shape_factor")
-        * rho_tot
-        * vel**2
-        / (mass ** (1.0 / 3.0) * material_data["rho_m"] ** (2.0 / 3.0))
-    )  # [m/s2] drag equation (because of conservation of linear momentum):
-    # decelearation=Drag_coeff*shape_factor*atm_dens*vel/(mass^1/2 * meteoroid_dens^2/3)
-    dvdt_g = self._G * self._M / (r**2)  # [m/s2] acceleration due to earth gravitaion
-    dvdt = dvdt_d + dvdt_g
-
-    # -- Differential equation for the height to solve
-    dsdt = -vel  # range from the common volume along the meteoroid trajectory
-
-    dTdt = physics.thermal_ablation.temperature_rate_hill_et_al_2005(
-        mass=mass,
-        velocity=vel,
-        temperature=T,
-        material_data=material_data,
-        shape_factor=self.config.getfloat("options", "shape_factor"),
-        atm_total_mass_density=rho_tot,
-        mass_loss_thermal_ablation=-dmdt_a,
-        Lambda=Lambda,
-        atm_temperature=self.config.getfloat("options", "temperature0"),
-        emissivity=self.config.getfloat("options", "emissivity"),
-    )
-
-    dmdt = dmdt_a + dmdt_s  # total mass loss
-
-    ret = np.array([dmdt, dvdt, dsdt, dTdt], dtype=np.float64)
-
-    # logging.debug(
-    #   f"DERIVS: vel = {dvdt*1e-3} km/s^2, traj-s = {dsdt*1e-3}"
-    #   f"km/s, mass = {dmdt} kg/s, temp = {dTdt} K/s"
-    # )
-
-    return ret
+    def __init__(self, options: KeroSzaszOptions = KeroSzaszOptions()):
+        self.options = options
 
     def run(
-        self,
-        velocity0,
-        mass0,
-        altitude0,
-        zenith_ang,
-        azimuth_ang,
-        material_data,
-        time,
-        lat,
-        lon,
-        alt,
-    ):
+        self, times: NDArray_N, parameters: KeroSzaszInitialState
+    ) -> KeroSzaszResults:
         """Runs the ablation model.
+
+        TODO: update this docstring
 
         Parameters
         ----------
@@ -265,71 +143,221 @@ def rhs(
         """
         logger.debug(f"Running {self.__class__} model")
 
-        reference_ecef = coordinates.geodetic2ecef(lat, lon, alt)
-        v_dir = -1.0 * coordinates.azel_to_cart(azimuth_ang, zenith_ang, 1.0)
-        v_dir_ecef = coordinates.enu2ecef(lat, lon, alt, *v_dir.tolist())
+        velocity0 = np.linalg.norm(parameters.velocity_ecef)
+        v_dir = parameters.velocity_ecef / velocity0
 
         def s_to_geo(s):
-            traj = reference_ecef - v_dir_ecef * s
-            geo = coordinates.ecef2geodetic(*traj.tolist())
+            point_ecef = parameters.position_ecef + v_dir * s
+            geo = frames.ecef_to_geodetic_wgs84(
+                point_ecef[0], point_ecef[1], point_ecef[2], degrees=False
+            )
             return geo
 
-        s0 = scipy.optimize.minimize_scalar(lambda s: np.abs(s_to_geo(s)[2] - altitude0)).x
-        t0 = self.config.getfloat("options", "temperature0")
+        init_displacement = minimize_scalar(
+            lambda s: np.abs(s_to_geo(s)[2] - self.options.start_altitude)
+        ).x
         y0 = np.array(
-            [mass0, velocity0, s0, t0],
+            [
+                velocity0,
+                parameters.mass,
+                init_displacement,
+                self.options.effective_atmospheric_temperature,
+            ],
             dtype=np.float64,
         )
 
-        Lambda = self.config.get("options", "Lambda")
-        if Lambda is not None:
-            Lambda = float(Lambda)
-        Gamma = self.config.get("options", "Gamma")
-        if Gamma is not None:
-            Gamma = float(Gamma)
+        def _low_mass(t, y, *args):
+            res = y[0] / self.options.minimum_mass - 1
+            # logger.debug(
+            #   f'Stopping @ {t:<1.4e} s = {res}: {np.log10(y[0]):1.4e} log10(kg) | {y[0]:1.4e} kg'
+            # )
+            return res
 
-        ivp_result = self.integrate(
-            y0,
-            material_data,
-            Lambda,
-            Gamma,
-            time,
-            reference_ecef,
-            v_dir_ecef,
+        _low_mass.terminal = True  # type: ignore
+        _low_mass.direction = -1  # type: ignore
+
+        events = [_low_mass]
+
+        ivp_result = solve_ivp(
+            fun=diff_eq_rhs,
+            t_span=(0, self.options.max_time),
+            y0=y0,
+            args=(
+                parameters.drag_coefficient,
+                parameters.heat_transfer_coefficient,
+                parameters.epoch,
+                parameters.position_ecef,
+                v_dir,
+                self.options,
+            ),
+            method=self.options.method,
+            max_step=self.options.max_step_size,
+            dense_output=False,
+            events=events,
+            **self.options.method_kwargs,
         )
-        t = ivp_result.t
-        _data = {}
-        variables = [
-            "mass",
-            "velocity",
-            "position",
-            "temperature",
-            "ecef_x",
-            "ecef_y",
-            "ecef_z",
-            "altitude",
-        ]
-        for key in variables:
-            _data[key] = (["t"], np.empty(t.shape, dtype=np.float64))
+        logger.debug(f"{self.__class__} IVP integration complete")
 
-        results = xarray.Dataset(
-            _data,
-            coords={"t": t},
-            attrs={key: val for key, val in self.config.items("options")},
+        position_ecef = (
+            parameters.position_ecef[:, None]
+            + v_dir[:, None] * ivp_result.y[2, :][None, :]
         )
 
-        results["mass"][:] = ivp_result.y[0, :]
-        results["velocity"][:] = ivp_result.y[1, :]
-        results["position"][:] = ivp_result.y[2, :]
-        results["temperature"][:] = ivp_result.y[3, :]
+        return KeroSzaszResults(
+            t=ivp_result.t,
+            distance=ivp_result.y[2, :],
+            velocity=ivp_result.y[0, :],
+            mass=ivp_result.y[1, :],
+            temperature=ivp_result.y[3, :],
+            position_ecef=position_ecef,
+            velocity_ecef=v_dir[:, None] * ivp_result.y[0, :][None, :],
+        )
 
-        ecef = ivp_result.y[2, :]
-        ecef = reference_ecef[:, None] - v_dir_ecef[:, None] * ecef[None, :]
-        alts = np.array([s_to_geo(_s)[2] for _s in ivp_result.y[2, :]])
 
-        results["ecef_x"][:] = ecef[0, :]
-        results["ecef_y"][:] = ecef[1, :]
-        results["ecef_z"][:] = ecef[2, :]
-        results["altitude"][:] = alts
+def diff_eq_rhs(
+    t: float,
+    y: NDArray_M,
+    drag_coefficient: float | None,
+    heat_transfer_coefficient: float | None,
+    epoch: np.datetime64,
+    reference_ecef: NDArray_3,
+    v_dir_ecef: NDArray_3,
+    options: KeroSzaszOptions,
+):
+    """The right hand side of the differential equation to be integrated, i.e:
 
-        return results
+    .. math::
+
+        \\frac{\\mathrm{d}v}{\\mathrm{d}t} = \\\\
+        \\\\
+        \\frac{\\mathrm{d}m}{\\mathrm{d}t} = \\\\
+        \\\\
+        \\frac{\\mathrm{d}s}{\\mathrm{d}t} = \\\\
+        \\\\
+        \\frac{\\mathrm{d}T}{\\mathrm{d}t} = 
+
+
+    The numpy vector is structured as follows (numbers indicating index):
+
+        0. dvdt
+        1. dmdt
+        2. dsdt
+        3. dTdt
+
+    """
+    vel, mass, s, temp = y
+
+    # meteoroid height above earth surface
+    point_ecef = reference_ecef - v_dir_ecef * s
+    lat, lon, alt = frames.ecef_to_geodetic_wgs84(
+        point_ecef[0], point_ecef[1], point_ecef[2], degrees=False
+    )
+
+    r = np.linalg.norm(point_ecef)
+
+    # logger.debug(f'Position: {ecef*1e-3} km')
+    # logger.debug(f'lat = {lat}, lon = {lon}, {alt*1e-3} km')
+    # logger.debug(f't0 + {t} s: ')
+    # logger.debug(f'vel = {vel*1e-3} km/s, traj-s = {s*1e-3} km, mass = {mass} kg, temp = {T} K')
+    # logger.debug(f'altitude = {alt*1e-3} km')
+
+    atm = options.atmosphere.density(
+        time=epoch + np.timedelta64(int(t * 1e6), "us"),
+        lat=lat,
+        lon=lon,
+        alt=alt,
+        mass_densities=False,
+        **options.atmosphere_kwargs,
+    )
+
+    rho_tot = atm["Total"].values.squeeze()
+    N_rho_tot = rho_tot / options.atmosphere.mean_mass
+
+    if options.sputtering:
+        dmdt_s = physics.sputtering.sputtering(
+            mass=mass,
+            velocity=vel,
+            material_data=options.material,
+            density=atm,
+        )
+    else:
+        dmdt_s = 0.0
+
+    dmdt_a = physics.thermal_ablation.thermal_ablation_hill_et_al_2005(
+        mass=mass,
+        temperature=temp,
+        material_data=options.material,
+        shape_factor=options.shape_factor,
+    )
+
+    # logger.debug(f'dmdt sputtering: {dmdt_s} kg/s')
+    # logger.debug(f'dmdt ablation  : {dmdt_a} kg/s')
+
+    if heat_transfer_coefficient is None:
+        heat_transfer_coefficient = (
+            physics.thermal_ablation.heat_transfer_bronshten_1983(
+                mass=mass,
+                velocity=vel,
+                temperature=temp,
+                material_data=options.material,
+                atm_total_number_density=N_rho_tot,
+                mass_loss_thermal_ablation=dmdt_a,
+                atm_mean_mass=options.atmosphere.mean_mass,
+                res=options.integral_resolution,
+            )
+        )
+
+    if drag_coefficient is None:
+        drag_coefficient = physics.thermal_ablation.drag_coefficient_bronshten_1983(
+            mass=mass,
+            velocity=vel,
+            temperature=temp,
+            material_data=options.material,
+            atm_total_number_density=N_rho_tot,
+            atm_mean_mass=options.atmosphere.mean_mass,
+            res=options.integral_resolution,
+        )
+
+    # -- Differential equation for the velocity to solve
+    dvdt_d = (
+        -drag_coefficient
+        * options.shape_factor
+        * rho_tot
+        * vel**2
+        / (mass ** (1.0 / 3.0) * options.material.bulk_density ** (2.0 / 3.0))
+    )  # [m/s2] drag equation (because of conservation of linear momentum):
+
+    # TODO: add bending of trajectory due to gravity - easy via angle equations in stulov
+    # decelearation=Drag_coeff*shape_factor*atm_dens*vel/(mass^1/2 * meteoroid_dens^2/3)
+    dvdt_g = WGS84.GM / (r**2)  # [m/s2] acceleration due to earth gravitaion
+    dvdt = dvdt_d + dvdt_g
+
+    # -- Differential equation for the height to solve
+    dsdt = -vel  # range from the common volume along the meteoroid trajectory
+
+    dTdt = physics.thermal_ablation.temperature_rate_hill_et_al_2005(
+        mass=mass,
+        velocity=vel,
+        temperature=temp,
+        material_data=options.material,
+        shape_factor=options.shape_factor,
+        atm_total_mass_density=rho_tot,
+        mass_loss_thermal_ablation=-dmdt_a,
+        Lambda=heat_transfer_coefficient,
+        atm_temperature=options.effective_atmospheric_temperature,
+        emissivity=options.emissivity,
+    )
+
+    dmdt = dmdt_a + dmdt_s  # total mass loss
+
+    ret = np.array([dvdt, dmdt, dsdt, dTdt], dtype=np.float64)
+
+    # logging.debug(
+    #   f"DERIVS: vel = {dvdt*1e-3} km/s^2, traj-s = {dsdt*1e-3}"
+    #   f"km/s, mass = {dmdt} kg/s, temp = {dTdt} K/s"
+    # )
+
+    # TODO: make this return aux variables such as massloss and then wrap it in a iterator and return
+    # only derivs for diff eq solving - that makes it easy to extract the aux variables later
+
+    return ret

@@ -4,7 +4,7 @@ import numpy as np
 import metablate
 
 atm = metablate.atmosphere.AtmPymsis()
-heights = np.linspace(70e3, 120e3, 100)
+heights = np.linspace(40e3, 120e3, 200)
 
 data = atm.density(
     time=np.datetime64("2018-07-28T00:00:00"),
