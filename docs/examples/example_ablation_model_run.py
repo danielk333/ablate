@@ -11,10 +11,10 @@ import matplotlib.pyplot as plt
 
 import metablate.models.kero_szasz_2008 as ks
 import metablate.material as mat
+from metablate import setup_logging
 from spacecoords import frames
 
-logger = logging.getLogger("metablate")
-logger.setLevel(logging.DEBUG)
+setup_logging(level=logging.DEBUG)
 
 lat = 67 + 50 / 60 + 26.6 / 3600
 lon = 20 + 24 / 60 + 40.0 / 3600
@@ -26,6 +26,7 @@ velocity_dir_ecef = frames.azel_to_ecef(lat, lon, az=0, el=-45, degrees=True)
 model = ks.KeroSzasz2008(
     options=ks.KeroSzaszOptions(
         material=mat.asteroidal,
+        sputtering=False,
     ),
 )
 
@@ -38,8 +39,7 @@ result = model.run(
         mass=1e-6,
     ),
 )
-
-print(result)
+print(f"{result.runtime=} s")
 
 fig = plt.figure(figsize=(15, 15))
 fig.suptitle("Meteoroid ablation simulation")
@@ -55,7 +55,7 @@ ax.set_ylabel("Velocity [km/s]")
 ax.set_xlabel("Time [s]")
 
 ax = fig.add_subplot(223)
-ax.plot(result.t, result.position * 1e-3)
+ax.plot(result.t, result.distance * 1e-3)
 ax.set_ylabel("Position on trajectory [km]")
 ax.set_xlabel("Time [s]")
 
@@ -68,11 +68,11 @@ ax.set_xlabel("Time [s]")
 fig = plt.figure(figsize=(15, 15))
 ax = fig.add_subplot(111)
 ax.plot(
-    np.diff(result.mass.values) / np.diff(result.altitude.values),
-    result.altitude.values[:-1] * 1e-3,
+    np.diff(result.mass) / np.diff(result.distance),
+    result.distance[:-1] * 1e-3,
 )
 ax.set_xlabel("Mass loss [kg/m]")
-ax.set_ylabel("Altitude [km]")
+ax.set_ylabel("Position on trajectory [km]")
 
 
 plt.show()

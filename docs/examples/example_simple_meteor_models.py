@@ -12,6 +12,9 @@ init_state_acc = np.array([0, 0, 100e3, 0, 20e3, -30e3, -3e3])
 output_lin = lin_model.run(times, init_state_lin)
 output_acc = lin_model_accel.run(times, init_state_acc)
 
+print(f"{output_lin.runtime=} s")
+print(f"{output_acc.runtime=} s")
+
 fig, axes = plt.subplots(2, 1)
 axes[0].plot(
     times,

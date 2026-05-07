@@ -24,6 +24,7 @@ Parameters:
 
 """
 
+import time
 import logging
 from typing import Any
 from dataclasses import dataclass, field
@@ -54,15 +55,15 @@ logger = logging.getLogger(__name__)
 class KeroSzaszOptions(Options):
     integral_resolution: int = 100
     minimum_mass: float = 1e-11  # [kg]
-    max_step_size: float = 1e-1  # [s]
+    max_step_size: float = 5e-2  # [s]
     max_time: float = 100.0  # [s]
     method: str = "RK45"
     method_kwargs: dict[str, Any] = field(default_factory=dict)
     sputtering: bool = False
     atmosphere: Atmosphere = AtmPymsis()
     atmosphere_kwargs: dict[str, Any] = field(default_factory=dict)
-    effective_atmospheric_temperature: float = 290  # [K]
-    start_altitude: float | None = 200e3  # [m]
+    effective_atmospheric_temperature: float = 280  # [K]
+    start_altitude: float | None = 150e3  # [m]
     material: Material = cometary
     shape_factor: float = 1.21  # [1]
     emissivity: float = 0.9  # [1]
@@ -74,9 +75,8 @@ class KeroSzaszInitialState:
     position_ecef: NDArray_3  # m
     velocity_ecef: NDArray_3  # m/s
     mass: float  # kg
-    drag_coefficient: float | None = (
-        None  # [1] (half of the standard aerodynamic drag coefficient)
-    )
+    # drag_coefficient (Gamma) = half the standard aerodynamic drag coefficient (0.5 * C_d)
+    drag_coefficient: float | None = None  # [1]
     heat_transfer_coefficient: float | None = None  # [1]
 
 
@@ -132,7 +132,7 @@ class KeroSzasz2008(
 
         Notes
         -----
-        This function is based on calc_sput.m which was used to verify the
+        This function is based on `calc_sput.m` which was used to verify the
         sputtering described in Rogers et al.: Mass loss due to sputtering and
         thermal processes in meteoroid ablation,
         Planetary and Space Science 53 p. 1341-1354 (2005).
@@ -141,6 +141,7 @@ class KeroSzasz2008(
         lambda and gamma if they are not constant
 
         """
+        t0 = time.perf_counter()
         logger.debug(f"Running {self.__class__} model")
 
         velocity0 = np.linalg.norm(parameters.velocity_ecef)
@@ -169,7 +170,7 @@ class KeroSzasz2008(
         def _low_mass(t, y, *args):
             res = y[0] / self.options.minimum_mass - 1
             # logger.debug(
-            #   f'Stopping @ {t:<1.4e} s = {res}: {np.log10(y[0]):1.4e} log10(kg) | {y[0]:1.4e} kg'
+            #     f"Stopping @ {t:<1.4e} s = {res}: {np.log10(y[0]):1.4e} log10(kg) | {y[0]:1.4e} kg"
             # )
             return res
 
@@ -192,6 +193,7 @@ class KeroSzasz2008(
             ),
             method=self.options.method,
             max_step=self.options.max_step_size,
+            first_step=self.options.max_step_size,
             dense_output=False,
             events=events,
             **self.options.method_kwargs,
@@ -202,15 +204,17 @@ class KeroSzasz2008(
             parameters.position_ecef[:, None]
             + v_dir[:, None] * ivp_result.y[2, :][None, :]
         )
+        velocity_ecef = v_dir[:, None] * ivp_result.y[0, :][None, :]
 
         return KeroSzaszResults(
+            runtime=time.perf_counter() - t0,
             t=ivp_result.t,
             distance=ivp_result.y[2, :],
             velocity=ivp_result.y[0, :],
             mass=ivp_result.y[1, :],
             temperature=ivp_result.y[3, :],
             position_ecef=position_ecef,
-            velocity_ecef=v_dir[:, None] * ivp_result.y[0, :][None, :],
+            velocity_ecef=velocity_ecef,
         )
 
 
@@ -248,18 +252,11 @@ def diff_eq_rhs(
     vel, mass, s, temp = y
 
     # meteoroid height above earth surface
-    point_ecef = reference_ecef - v_dir_ecef * s
+    point_ecef = reference_ecef + v_dir_ecef * s
     lat, lon, alt = frames.ecef_to_geodetic_wgs84(
-        point_ecef[0], point_ecef[1], point_ecef[2], degrees=False
+        point_ecef[0], point_ecef[1], point_ecef[2], degrees=True
     )
-
     r = np.linalg.norm(point_ecef)
-
-    # logger.debug(f'Position: {ecef*1e-3} km')
-    # logger.debug(f'lat = {lat}, lon = {lon}, {alt*1e-3} km')
-    # logger.debug(f't0 + {t} s: ')
-    # logger.debug(f'vel = {vel*1e-3} km/s, traj-s = {s*1e-3} km, mass = {mass} kg, temp = {T} K')
-    # logger.debug(f'altitude = {alt*1e-3} km')
 
     atm = options.atmosphere.density(
         time=epoch + np.timedelta64(int(t * 1e6), "us"),
@@ -274,7 +271,7 @@ def diff_eq_rhs(
     N_rho_tot = rho_tot / options.atmosphere.mean_mass
 
     if options.sputtering:
-        dmdt_s = physics.sputtering.sputtering(
+        dmdt_s = physics.sputtering.sputtering_kero_szasz_2008(
             mass=mass,
             velocity=vel,
             material_data=options.material,
@@ -289,9 +286,6 @@ def diff_eq_rhs(
         material_data=options.material,
         shape_factor=options.shape_factor,
     )
-
-    # logger.debug(f'dmdt sputtering: {dmdt_s} kg/s')
-    # logger.debug(f'dmdt ablation  : {dmdt_a} kg/s')
 
     if heat_transfer_coefficient is None:
         heat_transfer_coefficient = (
@@ -332,8 +326,8 @@ def diff_eq_rhs(
     dvdt_g = WGS84.GM / (r**2)  # [m/s2] acceleration due to earth gravitaion
     dvdt = dvdt_d + dvdt_g
 
-    # -- Differential equation for the height to solve
-    dsdt = -vel  # range from the common volume along the meteoroid trajectory
+    # -- Differential equation for the displacement to solve
+    dsdt = vel  # range from the common volume along the meteoroid trajectory
 
     dTdt = physics.thermal_ablation.temperature_rate_hill_et_al_2005(
         mass=mass,
@@ -350,12 +344,37 @@ def diff_eq_rhs(
 
     dmdt = dmdt_a + dmdt_s  # total mass loss
 
-    ret = np.array([dvdt, dmdt, dsdt, dTdt], dtype=np.float64)
+    logger.debug(
+        f"""
+            {mass=}
+            {vel=}
+            {temp=}
+            {options.material=}
+            {options.shape_factor=}
+            {rho_tot=}
+            {dmdt_a=}
+            {heat_transfer_coefficient=}
+            {options.effective_atmospheric_temperature=}
+            {options.emissivity=}
+        """
+    )
+    logger.debug(
+        f"DERIVS: vel = {dvdt * 1e-3} km/s^2, traj-s = {dsdt * 1e-3}"
+        f"km/s, mass = {dmdt} kg/s, temp = {dTdt} K/s"
+    )
+    if np.isnan(dTdt):
+        logger.debug(f"dmdt sputtering: {dmdt_s} kg/s")
+        logger.debug(f"dmdt ablation  : {dmdt_a} kg/s")
+        logger.debug(f"Position: {point_ecef * 1e-3} km")
+        logger.debug(f"lat = {lat}, lon = {lon}, {alt * 1e-3} km")
+        logger.debug(f"t0 + {t} s: ")
+        logger.debug(
+            f"vel = {vel * 1e-3} km/s, traj-s = {s * 1e-3} km, mass = {mass} kg, temp = {temp} K"
+        )
+        logger.debug(f"altitude = {alt * 1e-3} km")
+        breakpoint()
 
-    # logging.debug(
-    #   f"DERIVS: vel = {dvdt*1e-3} km/s^2, traj-s = {dsdt*1e-3}"
-    #   f"km/s, mass = {dmdt} kg/s, temp = {dTdt} K/s"
-    # )
+    ret = np.array([dvdt, dmdt, dsdt, dTdt], dtype=np.float64)
 
     # TODO: make this return aux variables such as massloss and then wrap it in a iterator and return
     # only derivs for diff eq solving - that makes it easy to extract the aux variables later

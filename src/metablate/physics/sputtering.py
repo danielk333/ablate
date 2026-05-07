@@ -64,7 +64,6 @@ def sputtering_kero_szasz_2008(mass, velocity, material_data, density):
         of sputtered particles per projectile
      - `U0`: surface binding energy (eV), use the sublimation energy of the material
      - `M1`: projectile mass
-     - `M2`: mean molecular mass per atom of the target
      - `Z1`: projectile atomic number
      - `Z2`: target atomic number
      - `sn`: universal function
@@ -125,11 +124,11 @@ def sputtering_kero_szasz_2008(mass, velocity, material_data, density):
         m = m[use_species, ...]
         v = v[use_species, ...]
 
-    m2 = material_data["m2"]
-    u0 = material_data["u0"]
-    k = material_data["k"]
-    z2 = material_data["z2"]
-    rho_m = material_data["rho_m"]
+    m2 = material_data.mean_atomic_mass
+    u0 = material_data.surface_binding_energy
+    k = material_data.penetration_correction_parameter_K
+    z2 = material_data.average_atomic_number
+    rho_m = material_data.bulk_density
 
     beta = 4 * m1 * m2 / (m1 + m2) ** 2
 

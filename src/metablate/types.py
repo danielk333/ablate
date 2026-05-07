@@ -50,7 +50,7 @@ class Options:
 
 @dataclass
 class Results:
-    pass
+    runtime: float | None
 
 @dataclass
 class Material:
