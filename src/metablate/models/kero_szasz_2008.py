@@ -46,7 +46,7 @@ from ..types import (
     NDArray_M,
     Material,
 )
-from ..material import cometary
+from .. import material
 
 logger = logging.getLogger(__name__)
 
@@ -58,13 +58,13 @@ class KeroSzaszOptions(Options):
     max_step_size: float = 5e-2  # [s]
     max_time: float = 100.0  # [s]
     method: str = "RK45"
-    method_kwargs: dict[str, Any] = field(default_factory=dict)
+    method_kwargs: dict[str, Any] = field(default_factory=lambda: dict())
     sputtering: bool = False
     atmosphere: Atmosphere = AtmPymsis()
-    atmosphere_kwargs: dict[str, Any] = field(default_factory=dict)
+    atmosphere_kwargs: dict[str, Any] = field(default_factory=lambda: dict())
     effective_atmospheric_temperature: float = 280  # [K]
     start_altitude: float | None = 150e3  # [m]
-    material: Material = cometary
+    material: Material = field(default_factory=lambda: material.get("cometary"))
     shape_factor: float = 1.21  # [1]
     emissivity: float = 0.9  # [1]
 

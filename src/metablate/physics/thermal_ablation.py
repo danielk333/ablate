@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 Kn_LIM = 5.0
 
+# TODO: change np.trapezoid to scipy.integrate to control integration errors!
 
 def temperature_rate_hill_et_al_2005(
     mass,
@@ -207,10 +208,10 @@ def heat_transfer_bronshten_1983(
         * (8 - 7 * np.cos(theta0) + 2 * np.cos(theta0) ** 2 - np.cos(theta0) ** 3)
     )
 
-    Q0 = np.trapz(theta0, _G)
+    Q0 = np.trapezoid(theta0, _G)
 
     # integrating q_prim over theta0 from 0 - pi/2; Bronshten p. 69, eq. 10.10 and Bronshten I eq. 11
-    Q_prim = np.trapz(theta0, _Gp)
+    Q_prim = np.trapezoid(theta0, _Gp)
 
     # the energy flux shielding coeff, Bronshten p. 71, same as a_Lambda but with
     # the integrated vectors; Bronshten p. 69 eq. 10.8
@@ -265,9 +266,9 @@ def heat_transfer_bronshten_1983(
     )
 
     # same as Q_star but for evaporated molecules, i.e. using u_e instead of u_s
-    Q_star_e = np.trapz(theta0, _H)
+    Q_star_e = np.trapezoid(theta0, _H)
     # same as Q0 but for evaporated molecues, i.e. using u_e instead of u_s
-    Q0_e = np.trapz(theta0, np.sin(theta0) * np.cos(theta0) * (1 - u_e**2))
+    Q0_e = np.trapezoid(theta0, np.sin(theta0) * np.cos(theta0) * (1 - u_e**2))
 
     # determines how many of the reflected molecules that are thrown back, Bronshten I. eq. 17
     zeta = 1 - 2 * Q_star_e / Q0_e
@@ -499,10 +500,10 @@ def drag_coefficient_bronshten_1983(
         + u_s / 24.0 * (1 + np.cos(theta0)) ** 2 * (4 - 2 * np.cos(theta0) + np.cos(theta0) ** 2)
     )
 
-    P0 = np.trapz(theta0, _F)
+    P0 = np.trapezoid(theta0, _F)
 
     # integrating p_prim over theta0 from 0 - pi/2, Bronshten p. 71
-    P_prim = np.trapz(theta0, _Fp)
+    P_prim = np.trapezoid(theta0, _Fp)
 
     # the momentum flux shielding coeff, Bronshten p. 71 same as a_Gamma but with the integrated vectors
     if isinstance(Kn_inf, np.ndarray):

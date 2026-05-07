@@ -29,8 +29,9 @@ dependencies = [
     "scipy",
     "numpy",
     "matplotlib",
-    "xarray",
     "pymsis",
+    "xarray",
+    "spacecoords",
 ]
 
 [tool.setuptools]
