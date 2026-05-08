@@ -56,7 +56,7 @@ def temperature_rate_hill_et_al_2005(
     temperature : float or numpy.ndarray
         Meteoroid temperature [K]
     material_data : dict
-        Meteoroid material data, see [`material_data`][ablate.functions.material.material_data].
+        Meteoroid material data, see `material` module.
     shape_factor : float or numpy.ndarray
         Shape factor [1]
     atm_total_mass_density : float or numpy.ndarray
@@ -152,7 +152,7 @@ def heat_transfer_bronshten_1983(
     temperature : float or numpy.ndarray
         Meteoroid temperature [K]
     material_data : dict
-        Meteoroid material data, see [`material_data`][ablate.functions.material.material_data].
+        Meteoroid material data, see `material` module.
     atm_total_number_density : float or numpy.ndarray
         Total atmospheric number density [1/m^3]
     mass_loss_thermal_ablation : float or numpy.ndarray
@@ -375,7 +375,7 @@ def thermal_ablation_hill_et_al_2005(mass, temperature, material_data, shape_fac
     temperature : float or numpy.ndarray
         Meteoroid temperature [K]
     material_data : dict
-        Meteoroid material data, see [`material_data`][ablate.functions.material.material_data].
+        Meteoroid material data, see `material` module.
     shape_factor : float or numpy.ndarray
         Shape factor [1]
 
@@ -450,7 +450,7 @@ def drag_coefficient_bronshten_1983(
     temperature : float or numpy.ndarray
         Meteoroid temperature [K]
     material_data : dict
-        Meteoroid material data, see [`material_data`][ablate.functions.material.material_data].
+        Meteoroid material data, see `material` module.
     atm_total_number_density : float or numpy.ndarray
         Total atmospheric number density [1/m^3]
     atm_mean_mass : float or numpy.ndarray
