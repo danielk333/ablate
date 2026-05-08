@@ -29,7 +29,7 @@ def rankine_hugoniot_post_shock_temperature(
 
     [1]: Ames Research Staff, 1953. Equations, tables, and charts for compressible flow (No. NACA-TR-1135). National Advisory Committee for Aeronautics, Washington, D.C.
     """
-    coef_1 = 2 * adiabatic_index * pre_shoch_mach_number**2
+    coef_1 = 2 * adiabatic_index * pre_shoch_mach_number**2 - (adiabatic_index - 1)
     coef_2 = (adiabatic_index - 1) * pre_shoch_mach_number**2 + 2
     coef_3 = (adiabatic_index + 1) ** 2 * pre_shoch_mach_number**2
     return pre_shock_temperature * coef_1 * coef_2 / coef_3
