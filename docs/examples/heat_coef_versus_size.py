@@ -18,19 +18,22 @@ data = model.density(
     lat=np.array([69.0]),
     lon=np.array([12.0]),
     alt=np.array([80e3]),
+    mass_densities=False,
 )
-atm_total_mass_density = data["Total"].values.squeeze()
-atm_total_number_density = atm_total_mass_density / model.mean_mass
+atm_total_mass_density = data["Total"].values.flatten()
+atm_total_number_density = np.zeros_like(atm_total_mass_density)
+for symbol in model.species:
+    s_dens = data[symbol].values.flatten()
+    inds = np.logical_not(np.isnan(s_dens))
+    atm_total_number_density[inds] = atm_total_number_density[inds] + s_dens[inds]
+mean_mass = atm_total_mass_density / atm_total_number_density
 
-print(data)
+material_data = metablate.material.asteroidal
 
-material_data = metablate.material.get("asteroidal")
-
-log_masses = np.linspace(-9, -2, 200)
+log_masses = np.linspace(-12, -6, 200)
 masses = 10.0**log_masses
-velocity = 32.0
-
-temperature = 3700
+velocity = 32.0e3
+temperature = 2700
 
 
 dmdt_th = phys.thermal_ablation.thermal_ablation_hill_et_al_2005(
@@ -41,7 +44,7 @@ dmdt_th = phys.thermal_ablation.thermal_ablation_hill_et_al_2005(
 )
 
 Kn_inf, L = phys.thermal_ablation.Knudsen_number_kero_szasz_2008(
-    masses, material_data["rho_m"], atm_total_number_density
+    masses, material_data.bulk_density, atm_total_number_density
 )
 
 # TODO: debug why lambda calculation does not work properly
@@ -52,15 +55,15 @@ Lambda = phys.thermal_ablation.heat_transfer_bronshten_1983(
     material_data=material_data,
     atm_total_number_density=atm_total_number_density,
     mass_loss_thermal_ablation=-dmdt_th,
-    atm_mean_mass=model.mean_mass,
+    atm_mean_mass=mean_mass,
     res=100,
 )
 
-fig, axes = plt.subplots(3, 1)
+fig, axes = plt.subplots(3, 1, sharex="all", layout="tight")
 axes[0].loglog(masses, Lambda)
 axes[0].set_xlabel("Mass [kg]")
 axes[0].set_ylabel("Heat transfer coef")
-axes[0].set_title(f"{velocity=} km/s")
+axes[0].set_title(f"velocity = {velocity*1e-3} km/s, temperature = {temperature} K")
 
 axes[1].loglog(masses, Kn_inf, c="k")
 axes[1].axhline(0.01, c="r", label="Continuum flow")
@@ -69,7 +72,7 @@ axes[1].set_xlabel("Mass [kg]")
 axes[1].set_ylabel("Knudsen number")
 axes[1].legend()
 
-axes[2].loglog(masses, -dmdt_th/masses)
+axes[2].loglog(masses, -dmdt_th / masses)
 axes[2].set_xlabel("Mass [kg]")
 axes[2].set_ylabel("Fractional mass loss [1/s]")
 

@@ -30,6 +30,7 @@ Kn_LIM = 5.0
 
 # TODO: change np.trapezoid to scipy.integrate to control integration errors!
 
+
 def temperature_rate_hill_et_al_2005(
     mass,
     velocity,
@@ -259,11 +260,9 @@ def heat_transfer_bronshten_1983(
     # nomalized velocity of evaporated molecules, compare to u_s
     u_e = v_s_e / velocity  # [dimensionless]
 
-    _H = np.sin(theta0) * 1.0 / 48.0 * (1 + np.cos(theta0)) ** 3 * (
-        3 - np.cos(theta0)
-    ) - u_e / 48.0 * (1 + np.cos(theta0)) ** 2 * (
-        8 - 7 * np.cos(theta0) + 2 * np.cos(theta0) ** 2 - np.cos(theta0) ** 3
-    )
+    _H = np.sin(theta0) * 1.0 / 48.0 * (1 + np.cos(theta0)) ** 3 * (3 - np.cos(theta0)) - u_e / 48.0 * (
+        1 + np.cos(theta0)
+    ) ** 2 * (8 - 7 * np.cos(theta0) + 2 * np.cos(theta0) ** 2 - np.cos(theta0) ** 3)
 
     # same as Q_star but for evaporated molecules, i.e. using u_e instead of u_s
     Q_star_e = np.trapezoid(theta0, _H)
@@ -287,12 +286,17 @@ def heat_transfer_bronshten_1983(
 
     Lambda = (A_Lambda_r + A_Lambda_e - 1) * a_e  # [dimensionless] heat transfer coeff
 
-    # We don't want Gamma or Lambda to be > 1, searching for those and setting them = 1
+    # Its > 1 due to numerical issues but >1 is unphysical so we set it to 1
+    # < 1 means the shielding is complete and a shock is forming instead (?? verify) so the
+    # assumptions break down
     if isinstance(Lambda, np.ndarray):
-        Lambda[Lambda > 1] = 1.0
+        Lambda[Lambda > 1] = 1
+        Lambda[Lambda < 0] = np.nan
     else:
         if Lambda > 1:
-            Lambda = 1.0
+            Lambda = 1
+        elif Lambda < 0:
+            Lambda = np.nan
 
     return Lambda
 
@@ -509,15 +513,11 @@ def drag_coefficient_bronshten_1983(
     if isinstance(Kn_inf, np.ndarray):
         A_Gamma_r = np.zeros_like(Kn_inf)
         inds = Kn_inf > Kn_LIM
-        A_Gamma_r[inds] = (
-            1 - epsilon_p * np.sqrt(h_star) / Kn_inf[inds] * P_prim / P0
-        )  # [dimensionless]
+        A_Gamma_r[inds] = 1 - epsilon_p * np.sqrt(h_star) / Kn_inf[inds] * P_prim / P0  # [dimensionless]
         Gamma = A_Gamma_r * a_e  # [dimensionless] drag coeff
 
         # TODO: replace this with actual cont. flow dynamics during ablation
-        Gamma[np.logical_not(inds)] = (
-            0.47 * 0.5
-        )  # [dimensionless] drag coeff of sphere in cont. flow
+        Gamma[np.logical_not(inds)] = 0.47 * 0.5  # [dimensionless] drag coeff of sphere in cont. flow
     else:
         if Kn_inf > Kn_LIM:
             A_Gamma_r = 1 - epsilon_p * np.sqrt(h_star) / Kn_inf * P_prim / P0  # [dimensionless]
