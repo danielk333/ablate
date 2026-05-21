@@ -1,6 +1,9 @@
 ## Docs
 public/
 
+# Static analysers
+.dmypy.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -75,3 +75,23 @@ Issues = "https://github.com/danielk333/ablate/issues"
 
 [tool.black]
 line-length = 100
+
+[tool.mypy]
+disallow_untyped_defs = true
+follow_untyped_imports = true
+warn_unused_ignores = true
+packages = ["metablate"]
+
+[tool.ruff]
+line-length = 110
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.ruff.lint]
+ignore = ["E203","D203","E251","E501","E226"]
+
+[tool.pytest]
+addopts = ["-v", "--cov"]
+testpaths = ["tests"]
+
