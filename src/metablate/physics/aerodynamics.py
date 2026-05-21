@@ -29,10 +29,14 @@ def rankine_hugoniot_post_shock_temperature(
 
     [1]: Ames Research Staff, 1953. Equations, tables, and charts for compressible flow (No. NACA-TR-1135). National Advisory Committee for Aeronautics, Washington, D.C.
     """
-    coef_1 = 2 * adiabatic_index * pre_shoch_mach_number**2 - (adiabatic_index - 1)
-    coef_2 = (adiabatic_index - 1) * pre_shoch_mach_number**2 + 2
-    coef_3 = (adiabatic_index + 1) ** 2 * pre_shoch_mach_number**2
-    return pre_shock_temperature * coef_1 * coef_2 / coef_3
+    coef_1_numerator = 2 * adiabatic_index * pre_shoch_mach_number**2 - (
+        adiabatic_index - 1
+    )
+    coef_2_numerator = (adiabatic_index - 1) * pre_shoch_mach_number**2 + 2
+    coef_denomenator = (adiabatic_index + 1) ** 2 * pre_shoch_mach_number**2
+    return (
+        pre_shock_temperature * coef_1_numerator * coef_2_numerator / coef_denomenator
+    )
 
 
 def rankine_hugoniot_post_shock_mach_number(
@@ -43,7 +47,11 @@ def rankine_hugoniot_post_shock_mach_number(
 
     [1]: Ames Research Staff, 1953. Equations, tables, and charts for compressible flow (No. NACA-TR-1135). National Advisory Committee for Aeronautics, Washington, D.C.
     """
-    pass
+    coef_numerator = (adiabatic_index - 1) * pre_shoch_mach_number**2 + 2
+    coef_denomenator = 2 * adiabatic_index * pre_shoch_mach_number**2 - (
+        adiabatic_index - 1
+    )
+    return coef_numerator / coef_denomenator
 
 
 def atmospheric_mean_free_path(number_density, collisional_cross_section):
