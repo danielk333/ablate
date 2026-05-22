@@ -20,7 +20,7 @@ lat = 67 + 50 / 60 + 26.6 / 3600
 lon = 20 + 24 / 60 + 40.0 / 3600
 alt = 100e3
 reference_pos_ecef = frames.geodetic_wgs84_to_ecef(lat, lon, alt, degrees=True)
-velocity_dir_ecef = frames.azel_to_ecef(lat, lon, az=0, el=-45, degrees=True)
+velocity_dir_ecef = frames.azel_to_ecef(lat, lon, az=10, el=-45, degrees=True)
 
 
 model = ks.KeroSzasz2008(

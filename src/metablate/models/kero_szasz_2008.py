@@ -161,10 +161,7 @@ class KeroSzasz2008(MeteorModel[KeroSzaszInitialState, KeroSzaszOptions, KeroSza
         )
 
         def _low_mass(t: float, y: NDArray_N, *args: tuple[Any]) -> float:
-            res = y[0] / self.options.minimum_mass - 1
-            # logger.debug(
-            #     f"Stopping @ {t:<1.4e} s = {res}: {np.log10(y[0]):1.4e} log10(kg) | {y[0]:1.4e} kg"
-            # )
+            res = y[1]/self.options.minimum_mass - 1
             return res
 
         _low_mass.terminal = True  # type: ignore
@@ -219,17 +216,6 @@ def diff_eq_rhs(
     options: KeroSzaszOptions,
 ) -> NDArray_N:
     """The right hand side of the differential equation to be integrated, i.e:
-
-    .. math::
-
-        \\frac{\\mathrm{d}v}{\\mathrm{d}t} = \\\\
-        \\\\
-        \\frac{\\mathrm{d}m}{\\mathrm{d}t} = \\\\
-        \\\\
-        \\frac{\\mathrm{d}s}{\\mathrm{d}t} = \\\\
-        \\\\
-        \\frac{\\mathrm{d}T}{\\mathrm{d}t} = 
-
 
     The numpy vector is structured as follows (numbers indicating index):
 
