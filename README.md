@@ -18,44 +18,36 @@ elevation angle and velocity.
 python docs/examples/ablation_sweep.py --output docs/assets/kero_figure1_example.png
 ```
 
-The core setup is:
+The example setup is:
 
 ```python
 import numpy as np
-import metablate
+import metablate.models.kero_szasz_2008 as ks
+from spacecoords import frames
 
-model = metablate.KeroSzasz2008(
-    atmosphere=metablate.atmosphere.AtmPymsis(),
-    config={
-        "options": {
-            "temperature0": 290,
-            "shape_factor": 1.21,
-            "emissivity": 0.9,
-            "sputtering": False,
-            "Gamma": 1.0,
-            "Lambda": 1.0,
-        },
-        "atmosphere": {"version": 2.1},
-        "integrate": {
-            "minimum_mass_kg": 1e-13,
-            "max_step_size_sec": 5e-2,
-            "max_time_sec": 5.0,
-            "method": "RK45",
-        },
-    },
+lat = 67.0
+lon = 20.0
+alt = 100e3
+reference_pos_ecef = frames.geodetic_wgs84_to_ecef(lat, lon, alt, degrees=True)
+velocity_dir_ecef = frames.azel_to_ecef(lat, lon, az=10, el=-45, degrees=True)
+
+model = ks.KeroSzasz2008(
+    options=ks.KeroSzaszOptions(
+        material=mat.cometary,
+        sputtering=False,
+        minimum_mass=1e-11,
+        max_step_size=1e-3,
+        start_altitude=150e3,
+    ),
 )
 
 result = model.run(
-    velocity0=53e3,
-    mass0=1e-8,
-    altitude0=130e3,
-    zenith_ang=45.0,
-    azimuth_ang=0.0,
-    material_data=metablate.material.get("cometary"),
-    time=np.datetime64("2018-06-28T12:45:33", "ns"),
-    lat=69.30,
-    lon=16.04,
-    alt=100e3,
+    parameters=ks.KeroSzaszInitialState(
+        epoch=np.datetime64("2018-06-28T12:45:33"),
+        position_ecef=reference_pos_ecef,
+        velocity_ecef=velocity_dir_ecef * 60e3,
+        mass=1e-6,
+    ),
 )
 ```
 

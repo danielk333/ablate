@@ -14,86 +14,93 @@ import warnings
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import numpy as np
+from tqdm import tqdm
 
+from spacecoords import frames
 import metablate
+import metablate.models.kero_szasz_2008 as ks
 
 
 TIME = np.datetime64("2018-06-28T12:45:33", "ns")
 LAT = 69.30
 LON = 16.04
 REFERENCE_ALTITUDE_M = 100e3
-START_ALTITUDE_M = 130e3
+START_ALTITUDE_M = 170e3
 AZIMUTH_DEG = 0.0
 MASS_KG = 1e-8
 VELOCITIES_KM_S = np.array([32.0, 53.0, 72.0])
 ENTRY_ELEVATION_ANGLES_DEG = np.array([70.0, 45.0, 20.0])
 
 
-def build_model():
-    return metablate.KeroSzasz2008(
-        atmosphere=metablate.atmosphere.AtmPymsis(),
-        config={
-            "options": {
-                "temperature0": 290,
-                "shape_factor": 1.21,
-                "emissivity": 0.9,
-                "sputtering": False,
-                "Gamma": 1.0,
-                "Lambda": 1.0,
-                "integral_resolution": 40,
-            },
-            "atmosphere": {
-                "version": 2.1,
-            },
-            "integrate": {
-                "minimum_mass_kg": MASS_KG * 1e-5,
-                "max_step_size_sec": 5e-2,
-                "max_time_sec": 5.0,
-                "method": "RK45",
-            },
-        },
+def run_case(model, velocity_km_s, entry_elevation_angle_deg):
+    reference_pos_ecef = frames.geodetic_wgs84_to_ecef(
+        LAT,
+        LON,
+        REFERENCE_ALTITUDE_M,
+        degrees=True,
     )
+    velocity_ecef = -frames.azel_to_ecef(
+        LAT,
+        LON,
+        az=AZIMUTH_DEG,
+        el=entry_elevation_angle_deg,
+        degrees=True,
+    )
+    velocity_ecef *= velocity_km_s * 1e3
 
-
-def run_case(model, material_data, velocity_km_s, entry_elevation_angle_deg):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
         result = model.run(
-            velocity0=velocity_km_s * 1e3,
-            mass0=MASS_KG,
-            altitude0=START_ALTITUDE_M,
-            # The model parameter is named zenith_ang, but this implementation
-            # passes it to the coordinate helper as elevation above the horizon.
-            zenith_ang=entry_elevation_angle_deg,
-            azimuth_ang=AZIMUTH_DEG,
-            material_data=material_data,
-            time=TIME,
-            lat=LAT,
-            lon=LON,
-            alt=REFERENCE_ALTITUDE_M,
+            parameters=ks.KeroSzaszInitialState(
+                epoch=TIME,
+                position_ecef=reference_pos_ecef,
+                velocity_ecef=velocity_ecef,
+                mass=MASS_KG,
+                drag_coefficient=1,
+                heat_transfer_coefficient=1,
+            ),
         )
 
-    altitude_km = result.altitude.values * 1e-3
+    llh = frames.ecef_to_geodetic_wgs84(
+        result.position_ecef[0, :],
+        result.position_ecef[1, :],
+        result.position_ecef[2, :],
+    )
+    altitude_km = llh[2, :] * 1e-3
     order = np.argsort(altitude_km)
-    mass_loss_rate = np.abs(np.gradient(result.mass.values, result.t, edge_order=1))
+    mass_loss_rate = np.abs(np.gradient(result.mass, result.t, edge_order=1))
     mass_loss_rate[~np.isfinite(mass_loss_rate)] = np.nan
-    mass_loss_line_density = mass_loss_rate / result.velocity.values
+    mass_loss_line_density = mass_loss_rate / result.velocity
     mass_loss_line_density[~np.isfinite(mass_loss_line_density)] = np.nan
 
     return {
         "altitude_km": altitude_km[order],
-        "velocity_km_s": result.velocity.values[order] * 1e-3,
+        "velocity_km_s": result.velocity[order] * 1e-3,
         "mass_loss_line_density_kg_m": mass_loss_line_density[order],
-        "temperature_k": result.temperature.values[order],
-        "mass_kg": result.mass.values[order],
+        "temperature_k": result.temperature[order],
+        "mass_kg": result.mass[order],
     }
 
 
 def make_figure():
-    model = build_model()
-    material_data = metablate.material.get("cometary")
+    model = ks.KeroSzasz2008(
+        options=ks.KeroSzaszOptions(
+            material=metablate.material.cometary,
+            sputtering=False,
+            minimum_mass=1e-11,
+            max_step_size=5e-3,
+            max_time=5.0,
+            integral_resolution=40,
+            effective_atmospheric_temperature=280,
+            start_altitude=START_ALTITUDE_M,
+        ),
+    )
     results = []
 
+    pbar = tqdm(
+        total=len(ENTRY_ELEVATION_ANGLES_DEG) * len(VELOCITIES_KM_S),
+        desc="Iterating ablation model",
+    )
     for entry_elevation_angle_deg in ENTRY_ELEVATION_ANGLES_DEG:
         for velocity_km_s in VELOCITIES_KM_S:
             results.append(
@@ -102,17 +109,17 @@ def make_figure():
                     "velocity_km_s": velocity_km_s,
                     "data": run_case(
                         model,
-                        material_data,
                         velocity_km_s,
                         entry_elevation_angle_deg,
                     ),
                 }
             )
+            pbar.update(1)
+    pbar.close()
 
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
     angle_colors = {
-        angle: colors[index % len(colors)]
-        for index, angle in enumerate(ENTRY_ELEVATION_ANGLES_DEG)
+        angle: colors[index % len(colors)] for index, angle in enumerate(ENTRY_ELEVATION_ANGLES_DEG)
     }
     velocity_linestyles = {32.0: "-", 53.0: "--", 72.0: ":"}
 
@@ -149,9 +156,10 @@ def make_figure():
             ax.set_xscale("log")
         ax.set_xlabel(xlabel)
         ax.set_title(title)
-        ax.set_ylim(70, 130)
+        ax.set_ylim(70, START_ALTITUDE_M * 1e-3)
         ax.grid(True, which="both", alpha=0.25)
 
+    axes[1].set_xlim(1e-22, None)  # Go above floating point limit of diff
     axes[0].set_ylabel("Altitude [km]")
     axes[2].set_ylabel("Altitude [km]")
 
