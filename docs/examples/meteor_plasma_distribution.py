@@ -3,7 +3,6 @@ import pathlib
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
-import scipy.constants as consts
 
 import metablate.atmosphere as atm
 import metablate.models.dimant_oppenheim_2017 as do

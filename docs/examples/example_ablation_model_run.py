@@ -48,7 +48,7 @@ llh = frames.ecef_to_geodetic_wgs84(
     result.position_ecef[2, :],
 )
 
-fig = plt.figure(figsize=(15, 15))
+fig = plt.figure(figsize=(15, 15), layout="tight")
 fig.suptitle("Meteoroid ablation simulation")
 
 ax = fig.add_subplot(231)
