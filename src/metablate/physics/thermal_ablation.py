@@ -22,6 +22,7 @@ print(f'Thermal ablation {dmdt_th} kg/s')
 
 import logging
 from scipy import constants
+from scipy.optimize import minimize_scalar
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -361,6 +362,23 @@ def nomalized_evaporated_velocity_bronshten_1983(velocity, temperature, atm_mean
     u_s = v_s / velocity  # [dimensionless]
 
     return u_s
+
+
+def solve_temperature_from_thermal_ablation(
+    massloss, mass, material_data, shape_factor, minimize_kwargs=None
+):
+    """Calculates the temperature for meteoroids due to thermal ablation mass loss [^1].
+
+    [^1]: Hill et al.: High geocentric velocity meteor ablation, A&A 444 p. 615-624 (2005)
+    """
+    if minimize_kwargs is None:
+        minimize_kwargs = {}
+    res = minimize_scalar(
+        lambda t: np.abs(thermal_ablation_hill_et_al_2005(mass, t, material_data, shape_factor) - massloss),
+        bounds=[0, 1e4],
+        **minimize_kwargs,
+    )
+    return res.x
 
 
 def thermal_ablation_hill_et_al_2005(mass, temperature, material_data, shape_factor):
