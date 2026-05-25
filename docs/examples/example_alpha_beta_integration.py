@@ -5,10 +5,12 @@ Alpha-beta model
 
 import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d.art3d import Line3DCollection
+import matplotlib as mpl
 
 import metablate.models.alpha_beta_2026 as ab
 from metablate import physics
-
+from spacecoords import frames
 
 model = ab.AlphaBeta2026(
     options=ab.AlphaBetaOptions(
@@ -22,7 +24,7 @@ p = ab.AlphaBetaInitialState(
     beta=10.0,
     initial_height=150e3,
     entry_velocity=30e3,
-    entry_angle=np.radians(45.0),
+    entry_angle=np.radians(70.0),
     shape_change_coefficient=2 / 3,
 )
 result = model.run(p)
@@ -87,5 +89,47 @@ axes[0, 2].set_xlabel("Relative massloss [1/s]")
 axes[1, 2].plot(result.t, result.distance * 1e-3)
 axes[1, 2].set_ylabel("Distance [km]")
 axes[1, 2].set_xlabel("Time [s]")
+
+# We can also easily turn this into a ECEF trajectory with the "distance" parameter
+
+lat = 67 + 50 / 60 + 26.6 / 3600
+lon = 20 + 24 / 60 + 40.0 / 3600
+origin_ecef = frames.geodetic_wgs84_to_ecef(
+    lat,
+    lon,
+    0,
+    degrees=True,
+)
+reference_pos_ecef = frames.geodetic_wgs84_to_ecef(
+    lat,
+    lon,
+    p.initial_height,
+    degrees=True,
+)
+velocity_dir_ecef = frames.azel_to_ecef(
+    lat,
+    lon,
+    az=10,
+    el=-np.degrees(p.entry_angle),
+    degrees=True,
+)
+
+position_ecef = reference_pos_ecef[:, None] + velocity_dir_ecef[:, None] * result.distance[None, :]
+position = frames.ecef_to_enu(lat, lon, position_ecef - origin_ecef[:, None], degrees=True)
+
+segments = np.stack([position.T[:-1], position.T[1:]], axis=1) * 1e-3
+c = -result.massloss
+norm = mpl.colors.Normalize(vmin=c.min(), vmax=c.max())
+cmap = plt.get_cmap("jet")
+colors = cmap(norm(c[:-1]))
+lc = Line3DCollection(segments, colors=colors, linewidth=2)
+
+fig = plt.figure(figsize=(12, 12))
+ax = fig.add_subplot(111, projection="3d")
+ax.add_collection3d(lc)
+ax.plot([0], [0], [0], "or")
+
+mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
+plt.colorbar(mappable, ax=ax, label="Relative massloss [1/s]")
 
 plt.show()
