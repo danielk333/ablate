@@ -34,10 +34,6 @@ velocity_dir_ecef = frames.azel_to_ecef(lat, lon, az=10, el=-45, degrees=True)
 model = ks.KeroSzasz2008(
     options=ks.KeroSzaszOptions(
         material=mat.cometary,
-        sputtering=False,
-        minimum_mass=1e-11,
-        max_step_size=1e-3,
-        start_altitude=150e3,
     ),
 )
 
