@@ -332,7 +332,7 @@ def norm_velocity_direct(mass, beta, shape_change_coefficient, initial_mass=None
 
 
 def velocity_estimate(height, initial_velocity, alpha, beta, atmospheric_scale_height=None):
-    """Shorthand for `norm_mass_direct` scaled to physical units"""
+    """Shorthand for `norm_velocity_estimate` scaled to physical units"""
     return initial_velocity * norm_velocity_estimate(
         height, alpha, beta, atmospheric_scale_height=atmospheric_scale_height
     )

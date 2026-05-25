@@ -72,13 +72,16 @@ def diff_eq_rhs(
     alpha: float,
     beta: float,
     gamma: float,
+    entry_velocity: float,
+    atmospheric_scale_height: float,
 ) -> NDArray_N | NDArray_2xN:
     s, v = params
     delta = scs.expi(beta) - scs.expi(beta * v**2)
+    coef = entry_velocity / atmospheric_scale_height
     return np.array(
         [
             v,
-            -(v**2) * np.sin(gamma) * np.exp(-beta * v**2) * delta * 0.5,
+            -(v**2) * coef * np.sin(gamma) * np.exp(-beta * v**2) * delta * 0.5,
         ]
     )
 
@@ -97,9 +100,8 @@ class AlphaBeta2026(MeteorModel[AlphaBetaInitialState, AlphaBetaOptions, AlphaBe
                 "Only values in [0, 2/3] make physical sense for the `shape_change_coefficient`"
                 f", got '{parameters.shape_change_coefficient}'"
             )
-        v0 = physics.alpha_beta.velocity_estimate(
+        v0_norm = physics.alpha_beta.norm_velocity_estimate(
             parameters.initial_height,
-            parameters.entry_velocity,
             parameters.alpha,
             parameters.beta,
             atmospheric_scale_height=self.options.atmospheric_scale_height,
@@ -110,8 +112,7 @@ class AlphaBeta2026(MeteorModel[AlphaBetaInitialState, AlphaBetaOptions, AlphaBe
             parameters.shape_change_coefficient,
         )
         s0 = 0
-        ds0 = v0 / parameters.entry_velocity
-        y0 = np.array([s0, ds0])
+        y0 = np.array([s0, v0_norm])
 
         def _low_velocity(t: float, y: NDArray_N, *args: tuple[Any]) -> float:
             res = y[1] / v_final_norm - 1
@@ -130,6 +131,8 @@ class AlphaBeta2026(MeteorModel[AlphaBetaInitialState, AlphaBetaOptions, AlphaBe
                 parameters.alpha,
                 parameters.beta,
                 parameters.entry_angle,
+                parameters.entry_velocity,
+                self.options.atmospheric_scale_height,
             ),
             method=self.options.method,
             max_step=self.options.max_step_size,
@@ -140,6 +143,7 @@ class AlphaBeta2026(MeteorModel[AlphaBetaInitialState, AlphaBetaOptions, AlphaBe
         )
         logger.debug(f"{self.__class__} IVP integration complete")
 
+        s_vals = ivp_result.y[0, :] * parameters.entry_velocity
         v_norm = ivp_result.y[1, :]
         diffs = diff_eq_rhs(
             0,
@@ -147,12 +151,14 @@ class AlphaBeta2026(MeteorModel[AlphaBetaInitialState, AlphaBetaOptions, AlphaBe
             parameters.alpha,
             parameters.beta,
             parameters.entry_angle,
+            parameters.entry_velocity,
+            self.options.atmospheric_scale_height,
         )
 
         return AlphaBetaResults(
             runtime=time.perf_counter() - t0,
             t=ivp_result.t,
-            distance=ivp_result.y[0, :] * self.options.atmospheric_scale_height,
+            distance=s_vals,
             velocity=v_norm * parameters.entry_velocity,
             height=physics.alpha_beta.height_direct(
                 v_norm,
