@@ -2,10 +2,12 @@
 This module contains convenient type information so that typing can be precise
 but not too verbose in the code itself.
 """
-from copy import deepcopy
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 from typing import TypeVar
 import numpy.typing as npt
+
+NDArray = npt.NDArray
+"Any ndarray"
 
 NDArray_N = npt.NDArray
 "(n,) shaped ndarray"

@@ -6,49 +6,46 @@ import scipy.constants as consts
 from tqdm import tqdm
 import multiprocessing as mp
 
-from ..types import NDArray_N
+from ..types import NDArray_N, NDArray_M, NDArray_MxN, NDArray
 
 
-def ablated_thermal_speed_bronshten_1983(meteoroid_surface_temperature, meteoroid_molecular_mass):
-    return np.sqrt(
-        3 * consts.R * meteoroid_surface_temperature / (meteoroid_molecular_mass * consts.N_A)
-    )
+def ablated_thermal_speed_bronshten_1983(
+    meteoroid_surface_temperature: NDArray | float,
+    meteoroid_molecular_mass: NDArray | float,
+) -> NDArray | float:
+    return np.sqrt(3 * consts.R * meteoroid_surface_temperature / (meteoroid_molecular_mass * consts.N_A))
 
 
-def plasma_frequency(electron_density):
+def plasma_frequency(electron_density: NDArray | float) -> NDArray | float:
     return np.sqrt(electron_density * consts.e**2 / (consts.epsilon_0 * consts.m_e)) / (2 * np.pi)
 
 
-def critical_plasma_density(critical_plasma_frequency):
-    return (
-        (critical_plasma_frequency * 2 * np.pi) ** 2 * consts.epsilon_0 * consts.m_e / (consts.e**2)
-    )
+def critical_plasma_density(critical_plasma_frequency: NDArray | float) -> NDArray | float:
+    return (critical_plasma_frequency * 2 * np.pi) ** 2 * consts.epsilon_0 * consts.m_e / (consts.e**2)
 
 
 def mean_free_path(
-    ablated_thermal_speed,
-    total_atmospheric_number_density,
-    collisional_cross_section,
-    meteoroid_velocity,
-):
+    ablated_thermal_speed: NDArray | float,
+    total_atmospheric_number_density: NDArray | float,
+    collisional_cross_section: NDArray | float,
+    meteoroid_velocity: NDArray | float,
+) -> NDArray | float:
     return ablated_thermal_speed / (
         total_atmospheric_number_density * collisional_cross_section * meteoroid_velocity
     )
 
 
-def collisional_cross_section_bronshten_1983(relative_velocity):
+def collisional_cross_section_bronshten_1983(relative_velocity: NDArray | float) -> NDArray | float:
     vrel = relative_velocity * 1e-3  # requires km/s
     return 5.61e-19 * vrel ** (-0.8)
 
 
-def ionization_probability_Na_vondrak_2008(relative_velocity):
+def ionization_probability_Na_vondrak_2008(relative_velocity: NDArray | float) -> NDArray | float:
     vrel = relative_velocity * 1e-3  # requires km/s
     return 0.933 * (vrel - 8.86) ** 2 * vrel ** (-1.94)
 
 
-def _worker(
-    inds, tind, Func3_1, Func3_2, low_lim, up_lim, Rlam23, costh, sinth, pbar, quad_abs_tol
-):
+def _worker(inds, tind, Func3_1, Func3_2, low_lim, up_lim, Rlam23, costh, sinth, pbar, quad_abs_tol):
     if pbar:
         tqdm_bar = tqdm(
             desc=f"computing electron density process {tind}",
@@ -122,89 +119,14 @@ def do_int_2_quad(a, b, rlam23, cth, sth, quad_abs_tol):
     return int2[0]
 
 
-def plasma_distribution_morphology_array(
-    r: NDArray_N,
-    theta: NDArray_N,
+def plasma_distribution_morphology_grid(
+    x_grid: NDArray_N,
+    y_grid: NDArray_M,
     quad_abs_tol: float = 1e-7,
     upper_limit_delta: float = 1e-6,
+    threads: int | None = None,
     pbar: bool = True,
-):
-    # Generate density distribution
-    # Solve for a 2D plane
-    [Xlam, Ylam] = np.meshgrid(x_grid, y_grid)
-
-    Rlam = np.sqrt(Xlam**2 + Ylam**2)
-    Rlam[Rlam == 0] = np.nan
-
-    costh = Xlam / Rlam
-    sinth = Ylam / Rlam
-    Rlam23 = Rlam ** (2 / 3)
-
-    Func1 = np.sqrt(2 * np.pi / 3) / Rlam * scs.erf(
-        np.sqrt(3 / 2) * Rlam ** (1 / 3) * np.abs(costh) ** (1 / 3)
-    ) - np.exp(-3 / 2 * Rlam23 * np.abs(costh) ** (2 / 3)) * (
-        (4 - np.pi)
-        * np.abs(costh)
-        / (2 * np.sqrt((1 + (4 - np.pi) ** 2 * Rlam23 * np.abs(costh) ** (2 / 3)) / (2 * np.pi)))
-        + 2 * np.abs(costh) ** (1 / 3) / Rlam23
-    )
-
-    Func2 = np.sqrt(2 * np.pi / 3) / Rlam * scs.erf(np.sqrt(3 * Rlam23 / 2)) - (
-        1 + 2 / Rlam23
-    ) * np.exp(-3 * Rlam23 / 2)
-
-
-    low_lim = np.abs(costh)  # Lower limit of integration |cosθ|
-    up_lim = np.full_like(
-        costh, 1 - upper_limit_delta
-    )  # Upper limit of integration 1 (avoid singularity at exactly 1)
-
-    # todo: hack to make sure integration limits are sane
-    low_lim[low_lim > up_lim] = up_lim[low_lim > up_lim] - upper_limit_delta
-
-    if pbar:
-        tqdm_bar = tqdm(desc="computing electron density", total=len(costh))
-    Func3_1 = np.empty_like(costh)
-    Func3_2 = np.empty_like(costh)
-    for ind in range(len(costh)):
-        Func3_1[ind] = do_int_1_quad(
-            low_lim[ind],
-            up_lim[ind],
-            Rlam23[ind],
-            costh[ind],
-            quad_abs_tol,
-        )
-        Func3_2[ind] = do_int_2_quad(
-            low_lim[ind],
-            up_lim[ind],
-            Rlam23[ind],
-            costh[ind],
-            sinth[ind],
-            quad_abs_tol,
-        )
-        if pbar:
-            tqdm_bar.update(1)
-    if pbar:
-        tqdm_bar.close()
-
-    t1 = np.abs(costh) * Func1
-    t2 = costh * Func2
-    t3 = np.abs(costh) * Func3_2 + Func3_1
-    t3[np.isnan(t3)] = 0
-
-    ne_morph = np.abs(t1 + t2 + t3)
-
-    return Xlam, Ylam, Rlam, ne_morph
-
-
-def plasma_distribution_morphology_grid(
-    x_grid,
-    y_grid,
-    quad_abs_tol=1e-7,
-    upper_limit_delta=1e-6,
-    threads=None,
-    pbar=True,
-):
+) -> tuple[NDArray_MxN, NDArray_MxN, NDArray_MxN, NDArray_MxN]:
     """The plasma distribution morphology component of the Dimant and Oppenheim model, that is
     scaled by mean free path and independent of meteor parameters.
 
@@ -230,9 +152,9 @@ def plasma_distribution_morphology_grid(
         + 2 * np.abs(costh) ** (1 / 3) / Rlam23
     )
 
-    Func2 = np.sqrt(2 * np.pi / 3) / Rlam * scs.erf(np.sqrt(3 * Rlam23 / 2)) - (
-        1 + 2 / Rlam23
-    ) * np.exp(-3 * Rlam23 / 2)
+    Func2 = np.sqrt(2 * np.pi / 3) / Rlam * scs.erf(np.sqrt(3 * Rlam23 / 2)) - (1 + 2 / Rlam23) * np.exp(
+        -3 * Rlam23 / 2
+    )
 
     orig_shape = costh.shape
     new_shape = (costh.size,)

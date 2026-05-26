@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import metablate.models.alpha_beta_2026 as ab
+import metablate.models.dimant_oppenheim_2017 as do
 from metablate import physics
 from metablate.material import asteroidal as material
 
@@ -43,7 +44,7 @@ temperatures = np.empty_like(result.massloss)
 for ind in range(len(temperatures)):
     T = physics.thermal_ablation.solve_temperature_from_thermal_ablation(
         result.massloss[ind] * mass,
-        mass,
+        result.relative_mass[ind] * mass,
         material,
         shape_factor=1.0,  # assume sphere?
     )
@@ -51,7 +52,10 @@ for ind in range(len(temperatures)):
 
 Q = -result.massloss * mass / material.mean_atomic_mass
 
-V_T = np.sqrt(temperatures / material.mean_atomic_mass)
+V_T = do.ablated_thermal_speed_bronshten_1983(
+    meteoroid_surface_temperature=temperatures,
+    meteoroid_molecular_mass=material.mean_atomic_mass,
+)
 n_0 = Q / (4 * np.pi * radius**2 * V_T) * np.sqrt(np.pi / 2)
 
 fig, axes = plt.subplots(1, 3)

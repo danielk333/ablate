@@ -108,8 +108,6 @@ cb.set_label("Electron density [m^-3]")
 ax.set_xlabel("x [lambda_T]")
 ax.set_ylabel("y [lambda_T]")
 
-fig.savefig("/home/danielk/git/danielk-presentations/media/2026/irf-seminar/do_model.png", dpi=300)
-
 fig, ax = plt.subplots()
 cmap = "jet"
 im = ax.pcolormesh(x, y, f_p, cmap=cmap, norm=LogNorm())

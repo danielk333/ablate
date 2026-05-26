@@ -87,6 +87,7 @@ class KeroSzaszResults(Results):
     distance: NDArray_N
     velocity: NDArray_N
     mass: NDArray_N
+    massloss: NDArray_N
     temperature: NDArray_N
     position_ecef: NDArray_3xN
     velocity_ecef: NDArray_3xN
@@ -193,12 +194,43 @@ class KeroSzasz2008(MeteorModel[KeroSzaszInitialState, KeroSzaszOptions, KeroSza
         position_ecef = parameters.position_ecef[:, None] + v_dir[:, None] * ivp_result.y[2, :][None, :]
         velocity_ecef = v_dir[:, None] * ivp_result.y[0, :][None, :]
 
+        dmdt_a = physics.thermal_ablation.thermal_ablation_hill_et_al_2005(
+            mass=ivp_result.y[1, :],
+            temperature=ivp_result.y[3, :],
+            material_data=self.options.material,
+            shape_factor=self.options.shape_factor,
+        )
+        if self.options.sputtering:
+            dmdt_s = 0.0
+            ## TODO: fix this to also compute sputtering and maybe return them as two different
+            # outputs
+
+            # s_to_geo(s: float) -> NDArray_N:
+            # atm = options.atmosphere.density(
+            #     time=epoch + np.timedelta64(int(ivp_result.t * 1e6), "us"),
+            #     lat=lat,
+            #     lon=lon,
+            #     alt=alt,
+            #     mass_densities=False,
+            #     **options.atmosphere_kwargs,
+            # )
+            # dmdt_s = physics.sputtering.sputtering_kero_szasz_2008(
+            #     mass=ivp_result.y[1, :],
+            #     velocity=ivp_result.y[0, :],
+            #     material_data=self.options.material,
+            #     density=atm,
+            # )
+        else:
+            dmdt_s = 0.0
+        dmdt = dmdt_a + dmdt_s
+
         return KeroSzaszResults(
             runtime=time.perf_counter() - t0,
             t=ivp_result.t,
             distance=ivp_result.y[2, :],
             velocity=ivp_result.y[0, :],
             mass=ivp_result.y[1, :],
+            massloss=dmdt,
             temperature=ivp_result.y[3, :],
             position_ecef=position_ecef,
             velocity_ecef=velocity_ecef,

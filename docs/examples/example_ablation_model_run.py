@@ -78,10 +78,7 @@ ax.set_ylabel("Latitude [deg]")
 ax.set_xlabel("Longitude [deg]")
 
 ax = fig.add_subplot(236)
-ax.plot(
-    np.diff(result.mass) / np.diff(llh[2, :]),
-    llh[2, :-1] * 1e-3,
-)
+ax.plot(-result.massloss, llh[2, :] * 1e-3)
 ax.set_xlabel("Mass loss [kg/m]")
 ax.set_ylabel("Altitude [km]")
 
