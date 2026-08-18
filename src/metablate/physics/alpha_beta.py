@@ -1,7 +1,7 @@
 import numpy as np
+import scipy.interpolate as sci
 import scipy.optimize as sco
 import scipy.special as scs
-import scipy.interpolate as sci
 
 
 def alpha_direct(
@@ -388,9 +388,7 @@ def norm_velocity_estimate(
         Yvalues = np.array([Yvalues])
 
     def func_exact(v, y):
-        return np.abs(
-            np.log(alpha) + beta - np.log((scs.expi(beta) - scs.expi(beta * v**2)) * 0.5) - y
-        )
+        return np.abs(np.log(alpha) + beta - np.log((scs.expi(beta) - scs.expi(beta * v**2)) * 0.5) - y)
 
     # If beta is larger than 500, the expi estimation algorithms start having trouble
     # as they use float64, we need scs.expi(beta) to work to compute the difference value
@@ -429,9 +427,7 @@ def final_mass_direct(
     )
 
 
-def density_to_height_exponential_atm(
-    atm_total_mass_density, atmospheric_scale_height, sea_level_rho
-):
+def density_to_height_exponential_atm(atm_total_mass_density, atmospheric_scale_height, sea_level_rho):
     """Calculate height at a given atmospheric mass density given an exponential atmosphere."""
     return -np.log(atm_total_mass_density / sea_level_rho) * atmospheric_scale_height
 
@@ -609,80 +605,6 @@ def solve_alpha_beta_versionQ4(
 
     res = sco.minimize(Q4, start, args=(Vvalues, Yvalues), bounds=bounds, **minimize_kwargs)
     return res.x
-
-
-def logposterior_alpha_beta(
-    alpha,
-    beta,
-    heights,
-    heights_std,
-    velocities,
-    velocities_std,
-    initial_velocity=None,
-    atmospheric_scale_height=None,
-    inverse_kwargs={},
-):
-    vvalues = velocities
-    vstd = velocities_std
-    if initial_velocity is not None:
-        vvalues = vvalues / initial_velocity
-        vstd = vstd / initial_velocity
-
-    yvalues = heights
-    ystd = heights_std
-    if atmospheric_scale_height is not None:
-        yvalues = yvalues / atmospheric_scale_height
-        ystd = ystd / atmospheric_scale_height
-    raise NotImplementedError()
-    # return -0.5 * np.sum(((vvalues - velocities) / vstd) ** 2)
-
-
-def solve_alpha_beta_posterior(
-    velocities,
-    velocities_std,
-    heights,
-    atmospheric_scale_height=None,
-    start=None,
-    bounds=((0.01, 1000000.0), (0.0001, 200.0), (0, None)),
-    minimize_kwargs={},
-    inverse_kwargs={},
-):
-    """Solve for alpha and beta using minimization of the posterior [^1].
-
-    [^1]: Kastinen et al (202x) in preparation
-    """
-    Yvalues = heights
-    if atmospheric_scale_height is not None:
-        Yvalues = Yvalues / atmospheric_scale_height
-
-    b0 = 1.0
-    a0 = np.exp(Yvalues[-1]) / (2.0 * b0)
-    v0 = velocities[0]
-    if start is None:
-        start = [a0, b0, v0]
-    else:
-        if start[1] is None:
-            start[1] = b0
-        if start[0] is None:
-            start[0] = np.exp(Yvalues[-1]) / (2.0 * start[1])
-        if start[2] is None:
-            start[2] = v0
-
-    def wrap_func(x):
-        return -logposterior_alpha_beta(
-            x[0],
-            x[1],
-            Yvalues,
-            velocities,
-            velocities_std,
-            initial_velocity=x[2],
-            atmospheric_scale_height=None,
-            inverse_kwargs=inverse_kwargs,
-        )
-
-    res = sco.minimize(wrap_func, start, bounds=bounds, **minimize_kwargs)
-    out = res.x
-    return out
 
 
 def velocity_smoother_dfn(velocity, iters=2):

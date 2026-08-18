@@ -1,4 +1,5 @@
 """Model described in: to be published"""
+
 from __future__ import annotations
 
 import logging
@@ -7,6 +8,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+import scipy.interpolate as sci
+import scipy.optimize as sco
 import scipy.special as scs
 from scipy.integrate import solve_ivp
 
@@ -178,3 +181,126 @@ class AlphaBeta2026(MeteorModel[AlphaBetaInitialState, AlphaBetaOptions, AlphaBe
                 parameters.shape_change_coefficient,
             ),
         )
+
+
+def logposterior_alpha_beta(
+    alpha,
+    beta,
+    heights,
+    heights_std,
+    velocities,
+    velocities_std,
+    t_eval,
+    initial_height,
+    entry_velocity,
+    entry_angle,
+    shape_change_coefficient,
+    model,
+):
+    p = AlphaBetaInitialState(
+        epoch=None,
+        alpha=alpha,
+        beta=beta,
+        initial_height=initial_height,
+        entry_velocity=entry_velocity,
+        entry_angle=entry_angle,
+        shape_change_coefficient=shape_change_coefficient,
+    )
+    result = model.run(p)
+    model_h = sci.interp1d(result.t, result.height, kind="linear", fill_value=np.nan, bounds_error=False)
+    model_v = sci.interp1d(result.t, result.velocity, kind="linear", fill_value=np.nan, bounds_error=False)
+    resids_sq = np.nansum(((heights - model_h(t_eval)) / heights_std) ** 2)
+    resids_sq += np.nansum(((velocities - model_v(t_eval)) / velocities_std) ** 2)
+
+    # import matplotlib.pyplot as plt
+    # fig, axes = plt.subplots(2)
+    # axes[0].plot(t_eval, model_h(t_eval))
+    # axes[0].plot(t_eval, heights)
+    # axes[1].plot(t_eval, model_v(t_eval))
+    # axes[1].plot(t_eval, velocities)
+    # fig.suptitle(f"{resids_sq}")
+    # plt.show()
+
+    return -0.5 * resids_sq
+
+
+def solve_alpha_beta_posterior(
+    t,
+    heights,
+    heights_std,
+    velocities,
+    velocities_std,
+    entry_angle,
+    shape_change_coefficient,
+    atmospheric_scale_height,
+    entry_velocity=None,
+    options=AlphaBetaOptions(
+        max_step_size=1e-2,
+    ),
+    start=None,
+    bounds=((0.01, 1000000.0), (0.0001, 200.0), (0.0, None)),
+    minimize_kwargs={},
+):
+    """Solve for alpha and beta (and optionally velocity) using minimization of the posterior [^1].
+
+    [^1]: Kastinen et al (2026) in preparation
+    """
+    Yvalues = heights / atmospheric_scale_height
+
+    b0 = 1.0
+    a0 = np.exp(Yvalues[-1]) / (2.0 * b0)
+    v0 = velocities[0]
+    if start is None:
+        start = [a0, b0, v0]
+    else:
+        if start[1] is None:
+            start[1] = b0
+        if start[0] is None:
+            start[0] = np.exp(Yvalues[-1]) / (2.0 * start[1])
+        if start[2] is None:
+            start[2] = v0
+
+    model = AlphaBeta2026(
+        options=options,
+    )
+    if entry_velocity is not None:
+        start = start[:2]
+        bounds = (bounds[0], bounds[1])
+
+        def wrap_func(x):
+            return -logposterior_alpha_beta(
+                x[0],
+                x[1],
+                heights,
+                heights_std,
+                velocities,
+                velocities_std,
+                t - t[0],
+                heights[0],
+                entry_velocity,
+                entry_angle,
+                shape_change_coefficient,
+                model,
+            )
+    else:
+
+        def wrap_func(x):
+            return -logposterior_alpha_beta(
+                x[0],
+                x[1],
+                heights,
+                heights_std,
+                velocities,
+                velocities_std,
+                t - t[0],
+                heights[0],
+                x[2],
+                entry_angle,
+                shape_change_coefficient,
+                model,
+            )
+
+    res = sco.minimize(wrap_func, start, bounds=bounds, **minimize_kwargs)
+    out = res.x
+    print(res)
+    return out
