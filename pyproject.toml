@@ -65,6 +65,7 @@ develop = [
     "mkdocs-section-index",
 ]
 tests = ["pytest", "pytest-cov"]
+visualization = ["pyvista"]
 
 
 [project.urls]
@@ -92,6 +93,8 @@ line-length = 110
 ignore = ["E203","D203","E251","E501","E226"]
 
 [tool.pytest]
-addopts = ["-v", "--cov"]
+addopts = ["-v", "--cov=metablate"]
 testpaths = ["tests"]
-
+markers = [
+    "slow: tests expected to take longer than simple unit checks",
+]

@@ -579,6 +579,7 @@ def Knudsen_number_kero_szasz_2008(
     met_mass: NDArray | float,
     met_density: NDArray | float,
     atm_total_number_density: NDArray | float,
+    collisional_cross_section: float = np.pi * (3.62e-10) ** 2,
 ) -> NDArray | float:
     """Calculate the Knudsen number and spherical body radius [^1][^2].
 
@@ -607,7 +608,8 @@ def Knudsen_number_kero_szasz_2008(
 
     # Atmospheric mean free path, source: Westman et al.
     # Physics Handbook p. 186 This is the one used!
-    mfp_inf = 1.0 / (np.pi * (3.62e-10) ** 2 * atm_total_number_density)  # [m]
+    # Note: the default value of the collisional_cross_section
+    mfp_inf = 1.0 / (collisional_cross_section * atm_total_number_density)  # [m]
 
     # The Knudsen number
     # Calculating the radius of the meteoroid at different altutude to get L
