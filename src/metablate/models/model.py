@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Generic
-from ..types import P, Op, R
+
+from ..types import Op, P, R
+
 
 class MeteorModel(ABC, Generic[P, Op, R]):
 

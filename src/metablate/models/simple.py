@@ -1,8 +1,11 @@
 import time
 from dataclasses import dataclass
+
 import numpy as np
+
+from ..types import NDArray_3xN, NDArray_M, NDArray_N, Options, Results
 from .model import MeteorModel
-from ..types import Options, NDArray_M, Results, NDArray_3xN, NDArray_N
+
 
 @dataclass
 class LinearConstantOptions(Options):

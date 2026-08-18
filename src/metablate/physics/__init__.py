@@ -4,3 +4,4 @@ from . import sputtering
 from . import thermal_ablation
 from . import ballistic
 from . import aerodynamics
+from . import plasma_production

@@ -1,48 +1,14 @@
+from __future__ import annotations
+
 import ctypes
-import numpy as np
-import scipy.special as scs
-import scipy.integrate as sci
-import scipy.constants as consts
-from tqdm import tqdm
 import multiprocessing as mp
 
-from ..types import NDArray_N, NDArray_M, NDArray_MxN, NDArray
+import numpy as np
+import scipy.integrate as sci
+import scipy.special as scs
+from tqdm import tqdm
 
-
-def ablated_thermal_speed_bronshten_1983(
-    meteoroid_surface_temperature: NDArray | float,
-    meteoroid_molecular_mass: NDArray | float,
-) -> NDArray | float:
-    return np.sqrt(3 * consts.R * meteoroid_surface_temperature / (meteoroid_molecular_mass * consts.N_A))
-
-
-def plasma_frequency(electron_density: NDArray | float) -> NDArray | float:
-    return np.sqrt(electron_density * consts.e**2 / (consts.epsilon_0 * consts.m_e)) / (2 * np.pi)
-
-
-def critical_plasma_density(critical_plasma_frequency: NDArray | float) -> NDArray | float:
-    return (critical_plasma_frequency * 2 * np.pi) ** 2 * consts.epsilon_0 * consts.m_e / (consts.e**2)
-
-
-def mean_free_path(
-    ablated_thermal_speed: NDArray | float,
-    total_atmospheric_number_density: NDArray | float,
-    collisional_cross_section: NDArray | float,
-    meteoroid_velocity: NDArray | float,
-) -> NDArray | float:
-    return ablated_thermal_speed / (
-        total_atmospheric_number_density * collisional_cross_section * meteoroid_velocity
-    )
-
-
-def collisional_cross_section_bronshten_1983(relative_velocity: NDArray | float) -> NDArray | float:
-    vrel = relative_velocity * 1e-3  # requires km/s
-    return 5.61e-19 * vrel ** (-0.8)
-
-
-def ionization_probability_Na_vondrak_2008(relative_velocity: NDArray | float) -> NDArray | float:
-    vrel = relative_velocity * 1e-3  # requires km/s
-    return 0.933 * (vrel - 8.86) ** 2 * vrel ** (-1.94)
+from ..types import NDArray_M, NDArray_MxN, NDArray_N
 
 
 def _worker(inds, tind, Func3_1, Func3_2, low_lim, up_lim, Rlam23, costh, sinth, pbar, quad_abs_tol):
@@ -130,7 +96,9 @@ def plasma_distribution_morphology_grid(
     """The plasma distribution morphology component of the Dimant and Oppenheim model, that is
     scaled by mean free path and independent of meteor parameters.
 
-    grid is in units of mean free path
+    Note
+    ----
+        Grid is in units of mean free path
     """
     # Generate density distribution
     # Solve for a 2D plane
@@ -267,11 +235,6 @@ def plasma_distribution(
     Code available at https://zenodo.org/records/4723667
     Paper available at https://doi.org/10.1029/2021JA029525
     Ported to Python by Daniel Kastinen 2025
-
-    ablated_thermal_speed = 951  #thermal speed of ablated particles, m/s
-    # Set meteoroid and atmospheric characteristics
-    # atmospheric_species_mass = 4.7e-26  #atmospheric species mass (N2), kg
-    # ablated_species_mass = 3.8e-26  #ablated species mass (Na), kg
     """
 
     # mean free path

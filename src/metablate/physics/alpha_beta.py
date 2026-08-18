@@ -374,6 +374,7 @@ def norm_velocity_estimate(
     minimize_kwargs={
         "method": "Nelder-Mead",
         "bounds": [(0, 1)],
+        "options": {"xatol": 1e-12, "fatol": 1e-12, "maxiter": 1000},
     },
 ):
     """Root-solver estimation of velocity as a function of height from the analytic
@@ -500,7 +501,6 @@ def atmosphere_density(height, atmospheric_scale_height, sea_level_rho):
 
 
 def Q5(x, velocities, yvals, fill_value=10.0):
-    """ """
     if len(x.shape) == 1:
         x.shape = (x.size, 1)
     size = x.shape[1]
@@ -564,7 +564,6 @@ def solve_alpha_beta_velocity_versionQ5(
 
 
 def Q4(x, vvals, yvals):
-    """ """
     res = 0.0
     for i in range(len(vvals)):
         r0 = 2 * x[0, ...] * np.exp(-yvals[i])
@@ -630,11 +629,12 @@ def logposterior_alpha_beta(
         vstd = vstd / initial_velocity
 
     yvalues = heights
+    ystd = heights_std
     if atmospheric_scale_height is not None:
         yvalues = yvalues / atmospheric_scale_height
         ystd = ystd / atmospheric_scale_height
-
-    return -0.5 * np.sum(((Vvalues - vn) / Vstd) ** 2)
+    raise NotImplementedError()
+    # return -0.5 * np.sum(((vvalues - velocities) / vstd) ** 2)
 
 
 def solve_alpha_beta_posterior(

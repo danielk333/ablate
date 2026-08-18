@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 """Model implemented in:
 
 Kero, J., Szasz, C., Pellinen-Wannberg, A., Wannberg, G., Westman, A., and Meisel, D. D. (2008).
@@ -24,29 +22,31 @@ Parameters:
 
 """
 
-import time
+from __future__ import annotations
+
 import logging
-from typing import Any
+import time
 from dataclasses import dataclass, field
+from typing import Any
+
 import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.optimize import minimize_scalar
-
 from spacecoords import frames
 from spacecoords.constants import WGS84
-from .. import physics
-from .model import MeteorModel
+
+from .. import material, physics
 from ..atmosphere import Atmosphere, AtmPymsis
 from ..types import (
-    Options,
-    NDArray_3,
-    Results,
-    NDArray_3xN,
-    NDArray_N,
-    NDArray_M,
     Material,
+    NDArray_3,
+    NDArray_3xN,
+    NDArray_M,
+    NDArray_N,
+    Options,
+    Results,
 )
-from .. import material
+from .model import MeteorModel
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +162,7 @@ class KeroSzasz2008(MeteorModel[KeroSzaszInitialState, KeroSzaszOptions, KeroSza
         )
 
         def _low_mass(t: float, y: NDArray_N, *args: tuple[Any]) -> float:
-            res = y[1]/self.options.minimum_mass - 1
+            res = y[1] / self.options.minimum_mass - 1
             return res
 
         _low_mass.terminal = True  # type: ignore

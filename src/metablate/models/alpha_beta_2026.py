@@ -1,24 +1,24 @@
-#!/usr/bin/env python
-
 """Model described in: to be published"""
+from __future__ import annotations
 
-import time
 import logging
-from typing import Any
+import time
 from dataclasses import dataclass, field
+from typing import Any
+
 import numpy as np
-from scipy.integrate import solve_ivp
 import scipy.special as scs
+from scipy.integrate import solve_ivp
 
 from .. import physics
-from .model import MeteorModel
 from ..atmosphere import Atmosphere
 from ..types import (
-    Options,
-    Results,
     NDArray_2xN,
     NDArray_N,
+    Options,
+    Results,
 )
+from .model import MeteorModel
 
 logger = logging.getLogger(__name__)
 

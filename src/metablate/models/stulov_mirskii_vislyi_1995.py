@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 """Model described in:
 
 Stulov, V. P., V. N. Mirskii, and A. I. Vislyi.
@@ -13,27 +11,30 @@ Gritsevich, M. I.
 Doklady Physics 53, no. 2 (2008): 97–102. https://doi.org/10.1134/S1028335808020110.
 """
 
-import time
+from __future__ import annotations
+
 import logging
-from typing import Any
+import time
 from dataclasses import dataclass, field
+from typing import Any
+
+import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.optimize import minimize_scalar
-import numpy as np
-
 from spacecoords import frames, spherical
 from spacecoords.constants import WGS84, R_earth
-from .model import MeteorModel
+
+from .. import material
 from ..atmosphere import Atmosphere, AtmPymsis
 from ..types import (
-    Options,
+    Material,
     NDArray_3,
-    Results,
     NDArray_3xN,
     NDArray_N,
-    Material,
+    Options,
+    Results,
 )
-from .. import material
+from .model import MeteorModel
 
 logger = logging.getLogger(__name__)
 
@@ -200,7 +201,7 @@ def diff_eq_rhs(
     )
 
     rho_atm = atm["Total"].values.squeeze()
-    
+
     if mass_norm > 0:
         area = initial_cross_sectional_area * (mass_norm**shape_change_coefficient)
     else:

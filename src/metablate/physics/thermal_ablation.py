@@ -20,30 +20,35 @@ print(f'Thermal ablation {dmdt_th} kg/s')
 ```
 """
 
+from __future__ import annotations
+
 import logging
-from scipy import constants
-from scipy.optimize import minimize_scalar
+from typing import Any
+
 import numpy as np
+from scipy import constants
+from scipy.integrate import trapezoid
+from scipy.optimize import minimize_scalar
+
+from ..types import Material, NDArray
 
 logger = logging.getLogger(__name__)
 
 Kn_LIM = 5.0
 
-# TODO: change np.trapezoid to scipy.integrate to control integration errors!
-
 
 def temperature_rate_hill_et_al_2005(
-    mass,
-    velocity,
-    temperature,
-    material_data,
-    shape_factor,
-    atm_total_mass_density,
-    mass_loss_thermal_ablation,
-    Lambda,
-    atm_temperature=280,
-    emissivity=0.9,
-):
+    mass: NDArray | float,
+    velocity: NDArray | float,
+    temperature: NDArray | float,
+    material_data: NDArray | float,
+    shape_factor: NDArray | float,
+    atm_total_mass_density: NDArray | float,
+    mass_loss_thermal_ablation: NDArray | float,
+    Lambda: NDArray | float,
+    atm_temperature: float = 280.0,
+    emissivity: float = 0.9,
+) -> NDArray | float:
     """Calculates the rate of change of temperature of the meteoroid.
     A homogeneous metoroid experiencing an isotropic heat flux is assumed as
     well as the meteoroid undergoing isothermal heating. (isothermal heating:
@@ -122,15 +127,15 @@ def temperature_rate_hill_et_al_2005(
 
 
 def heat_transfer_bronshten_1983(
-    mass,
-    velocity,
-    temperature,
-    material_data,
-    atm_total_number_density,
-    mass_loss_thermal_ablation,
-    atm_mean_mass,
-    res=100,
-):
+    mass: float,
+    velocity: float,
+    temperature: float,
+    material_data: Material,
+    atm_total_number_density: float,
+    mass_loss_thermal_ablation: float,
+    atm_mean_mass: float,
+    res: int = 100,
+) -> float:
     """Calculates the heat transfer coefficient Lambda. Information taken from [^1] [^2] [^3] [^4] [^5].
 
     Changes pre-python port: See [matlab-version](https://gitlab.irf.se/kero/ablation_matlab)
@@ -210,10 +215,10 @@ def heat_transfer_bronshten_1983(
         * (8 - 7 * np.cos(theta0) + 2 * np.cos(theta0) ** 2 - np.cos(theta0) ** 3)
     )
 
-    Q0 = np.trapezoid(theta0, _G)
+    Q0 = trapezoid(theta0, _G)
 
     # integrating q_prim over theta0 from 0 - pi/2; Bronshten p. 69, eq. 10.10 and Bronshten I eq. 11
-    Q_prim = np.trapezoid(theta0, _Gp)
+    Q_prim = trapezoid(theta0, _Gp)
 
     # the energy flux shielding coeff, Bronshten p. 71, same as a_Lambda but with
     # the integrated vectors; Bronshten p. 69 eq. 10.8
@@ -266,9 +271,9 @@ def heat_transfer_bronshten_1983(
     ) ** 2 * (8 - 7 * np.cos(theta0) + 2 * np.cos(theta0) ** 2 - np.cos(theta0) ** 3)
 
     # same as Q_star but for evaporated molecules, i.e. using u_e instead of u_s
-    Q_star_e = np.trapezoid(theta0, _H)
+    Q_star_e = trapezoid(theta0, _H)
     # same as Q0 but for evaporated molecues, i.e. using u_e instead of u_s
-    Q0_e = np.trapezoid(theta0, np.sin(theta0) * np.cos(theta0) * (1 - u_e**2))
+    Q0_e = trapezoid(theta0, np.sin(theta0) * np.cos(theta0) * (1 - u_e**2))
 
     # determines how many of the reflected molecules that are thrown back, Bronshten I. eq. 17
     zeta = 1 - 2 * Q_star_e / Q0_e
@@ -302,7 +307,10 @@ def heat_transfer_bronshten_1983(
     return Lambda
 
 
-def thermal_accommodation_bronshten_1983(atm_mean_mass, met_mean_mass):
+def thermal_accommodation_bronshten_1983(
+    atm_mean_mass: NDArray | float,
+    met_mean_mass: NDArray | float,
+) -> NDArray | float:
     """Calculate thermal accommodation coefficient [^1].
 
     [^1]: Bronshten p. 40 eq. 7.11
@@ -330,7 +338,11 @@ def thermal_accommodation_bronshten_1983(atm_mean_mass, met_mean_mass):
     return a_e
 
 
-def nomalized_evaporated_velocity_bronshten_1983(velocity, temperature, atm_mean_mass):
+def nomalized_evaporated_velocity_bronshten_1983(
+    velocity: NDArray | float,
+    temperature: NDArray | float,
+    atm_mean_mass: NDArray | float,
+) -> NDArray | float:
     """Calculate the nomalized reflected and evaporated velocity [^1].
 
     [^1]: Bronshten p. 69
@@ -365,8 +377,12 @@ def nomalized_evaporated_velocity_bronshten_1983(velocity, temperature, atm_mean
 
 
 def solve_temperature_from_thermal_ablation(
-    massloss, mass, material_data, shape_factor, minimize_kwargs=None
-):
+    massloss: float,
+    mass: float,
+    material_data: Material,
+    shape_factor: float,
+    minimize_kwargs: dict[Any, Any] | None = None,
+) -> NDArray | float:
     """Calculates the temperature for meteoroids due to thermal ablation mass loss [^1].
 
     [^1]: Hill et al.: High geocentric velocity meteor ablation, A&A 444 p. 615-624 (2005)
@@ -381,7 +397,12 @@ def solve_temperature_from_thermal_ablation(
     return res.x
 
 
-def thermal_ablation_hill_et_al_2005(mass, temperature, material_data, shape_factor):
+def thermal_ablation_hill_et_al_2005(
+    mass: NDArray | float,
+    temperature: NDArray | float,
+    material_data: Material,
+    shape_factor: NDArray | float,
+) -> NDArray | float:
     """Calculates the mass loss for meteoroids due to thermal ablation [^1][^2].
 
     Changes pre-python port: See [matlab-version](https://gitlab.irf.se/kero/ablation_matlab)
@@ -440,14 +461,14 @@ def thermal_ablation_hill_et_al_2005(mass, temperature, material_data, shape_fac
 
 
 def drag_coefficient_bronshten_1983(
-    mass,
-    velocity,
-    temperature,
-    material_data,
-    atm_total_number_density,
-    atm_mean_mass,
-    res=100,
-):
+    mass: float,
+    velocity: float,
+    temperature: float,
+    material_data: Material,
+    atm_total_number_density: float,
+    atm_mean_mass: float,
+    res: int = 100,
+) -> float:
     """Calculates the drag coefficient Gamma[^1] [^2] [^3] [^4] [^5].
 
     Changes pre-python port: See [matlab-version](https://gitlab.irf.se/kero/ablation_matlab)
@@ -522,10 +543,10 @@ def drag_coefficient_bronshten_1983(
         + u_s / 24.0 * (1 + np.cos(theta0)) ** 2 * (4 - 2 * np.cos(theta0) + np.cos(theta0) ** 2)
     )
 
-    P0 = np.trapezoid(theta0, _F)
+    P0 = trapezoid(theta0, _F)
 
     # integrating p_prim over theta0 from 0 - pi/2, Bronshten p. 71
-    P_prim = np.trapezoid(theta0, _Fp)
+    P_prim = trapezoid(theta0, _Fp)
 
     # the momentum flux shielding coeff, Bronshten p. 71 same as a_Gamma but with the integrated vectors
     if isinstance(Kn_inf, np.ndarray):
@@ -554,8 +575,19 @@ def drag_coefficient_bronshten_1983(
     return Gamma
 
 
-def Knudsen_number_kero_szasz_2008(met_mass, met_density, atm_total_number_density):
-    """Calculate the Knudsen number.
+def Knudsen_number_kero_szasz_2008(
+    met_mass: NDArray | float,
+    met_density: NDArray | float,
+    atm_total_number_density: NDArray | float,
+) -> NDArray | float:
+    """Calculate the Knudsen number and spherical body radius [^1][^2].
+
+    [^1]: Campbell-Brown, M. D. & Koschny, D. (2004), *Model of the
+        ablation of faint meteors*, Section 2.1.
+        https://doi.org/10.1051/0004-6361:20041001-1
+    [^2]: Sugar, G., Oppenheim, M. M., Dimant, Y. S. & Close, S. (2018),
+        *Formation of Plasma Around a Small Meteoroid: Simulation and Theory*,
+        Table 1. https://doi.org/10.1002/2018JA025265
 
     Parameters
     ----------
@@ -589,47 +621,33 @@ def Knudsen_number_kero_szasz_2008(met_mass, met_density, atm_total_number_densi
     return Kn_inf, L
 
 
-def ionization_probability_Jones_1997(velocity, meteoroid_bulk_density):
-    """Calculate ionization probability according to [^1].
+def ablated_thermal_speed_bronshten_1983(
+    meteoroid_surface_temperature: NDArray | float,
+    meteoroid_molecular_mass: NDArray | float,
+) -> NDArray | float:
+    """Return the RMS speed of molecules evaporated from a meteoroid.
 
-    [^1]: William Jones; Theoretical and observational determinations
-    of the ionization coefficient of meteors; MNRAS 288, p. 995-1003 (1997)
+    The RMS thermal speed is `\\sqrt{3}` times the Maxwellian velocity
+    parameter `v_e = \\sqrt{3 k_B T_w/m}`.
 
+    [^1]: Bronshten, V. A. (1983), Physics of Meteoric Phenomena
     """
-    raise NotImplementedError()
-    # v_km = v / 1000.0
-    """
-    # Table 1 from Jones:
-    # %   : procentage composition by weight
-    # p   : proportion by atom number
-    # v0  : minimum velocity at which ionization can take place 
-    # (below this velocity, the ionization energy is greater than 
-    # the total energy of the colliding atoms in the centre-of-mass frame)
-    # c   : empirically derived coeff
-    # mu  : ratio of atom mass to a nitrogen molecule
-    #                 % p v0 c mu element
-    ion_param       = [
-        [45, 0.617, 16.7, 4.66E-6, 0.57],  # O
-        [15, 0.059, 9.4, 34.5E-6, 2.0],  # Fe
-        [9, 0.082, 11.1, 9.29E-6, 0.86],  # Mg
-        [31, 0.242, 11.0, 18.5E-6, 1.0],  # Si
-    ]
-             
-    # beta0 = c .* (v - v0).^2 .* v.^0.8 ./ (1 + c .* (v - v0).^2 .* v.^0.8); primary ionization probability, eq. 33 in Jones
-    # v is needed in km/s!
+    return np.sqrt(
+        3 * constants.R * meteoroid_surface_temperature / (meteoroid_molecular_mass * constants.N_A)
+    )
 
-    if rho_m == 7800:
-        # Then we calculate the ionization probability for pure Fe
-        beta0 = ion_param(2,4) .* (v_km - ion_param(2,3)).^2 .* v_km.^0.8 ./ (1 + ion_param(2,4) .* (v_km - ion_param(2,3)).^2 .* v_km.^0.8);
-        beta0(find(v_km<ion_param(2,3))) = 0;
-    else
-        # Otherwise we use Jones' cometary composition (for porous, cometary as well as asteroidal densities)
-        # It is faster not to use repmat.m but to generate the necessary matrices with more simple tools!
-        c               = [ion_param(1,4)*ones(length(v),1) ion_param(2,4)*ones(length(v),1) ion_param(3,4)*ones(length(v),1) ion_param(4,4)*ones(length(v),1)];
-        v0              = [ion_param(1,3)*ones(length(v),1) ion_param(2,3)*ones(length(v),1) ion_param(3,3)*ones(length(v),1) ion_param(4,3)*ones(length(v),1)];
-        p               = [ion_param(1,2)*ones(length(v),1) ion_param(2,2)*ones(length(v),1) ion_param(3,2)*ones(length(v),1) ion_param(4,2)*ones(length(v),1)];
-        v_km            = [v_km v_km v_km v_km]; 
-        beta0_1         = c .* (v_km - v0).^2 .* v_km.^0.8 ./ (1 + c .* (v_km - v0).^2 .* v_km.^0.8);
-        beta0_1(find(v_km<v0)) = 0;
-        beta0           = sum(beta0_1 .* p , 2);
+
+def ablated_thermal_speed_sugar_2018(
+    meteoroid_surface_temperature: NDArray | float,
+    meteoroid_molecular_mass: NDArray | float,
+) -> NDArray | float:
+    """Return the Maxwellian velocity parameter of ablated neutral particles.
+
+    This is `V_T = \\sqrt{k_B T/m}`, the scale parameter in the speed
+    distribution in Equation 6 of [^1].  Unlike the Bronshten (1983) RMS
+    evaporated speed, it does not contain a factor of three.
+
+    [^1]: Sugar, G., Oppenheim, M. M., Dimant, Y. S. & Close, S. (2018),
+        Formation of Plasma Around a Small Meteoroid: Simulation and Theory
     """
+    return np.sqrt(constants.R * meteoroid_surface_temperature / (meteoroid_molecular_mass * constants.N_A))
