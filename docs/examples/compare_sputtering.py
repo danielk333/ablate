@@ -2,13 +2,13 @@
 Compute sputtering and thermal ablation
 ========================================
 
-Docstring for this example
+Compare the massloss from sputtering to that of thermal ablation
 """
 
 import numpy as np
 
-import metablate.physics as phys
 import metablate
+import metablate.physics as phys
 
 # data for 2 different meteoroids
 model = metablate.atmosphere.AtmPymsis()
@@ -22,9 +22,9 @@ data = model.density(
 
 print(data)
 
-material_data = metablate.material.get("asteroidal")
+material_data = metablate.material.get("asteroidal", as_dict=False)
 
-dmdt = phys.sputtering.sputtering_kero_szasz_2008(
+dmdt_sput = phys.sputtering.sputtering_kero_szasz_2008(
     mass=np.array([0.5, 0.2]),
     velocity=np.array([40e3, 40e3]),
     material_data=material_data,
@@ -43,4 +43,4 @@ print("thermal dm/dt:")
 print(dmdt_th)
 
 print("sputtering dm/dt:")
-print(dmdt)
+print(dmdt_sput)

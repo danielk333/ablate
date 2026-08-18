@@ -1,9 +1,11 @@
-#!/usr/bin/env python
-
+"""
+Mutation++ example usage
+========================
+"""
+import matplotlib.pyplot as plt
 import mutationpp as mpp
 import numpy as np
 from cycler import cycler
-import matplotlib.pyplot as plt
 
 colors = ["r", "g", "b", "k"]
 linestyles = ["-", "--", ":", "-.", "-"]

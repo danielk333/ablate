@@ -1,5 +1,9 @@
-import numpy as np
+"""
+Using alpha-beta with large beta
+================================
+"""
 import matplotlib.pyplot as plt
+import numpy as np
 
 from metablate.physics import alpha_beta
 
@@ -27,6 +31,8 @@ ax = axes[0, 0]
 ax.loglog(beta, h, label="Exact formula")
 ax.loglog(beta, h_approx, label="Approximate formula")
 ax.legend()
+ax.set_xlabel("Beta")
+ax.set_ylabel("Normalized height")
 
 ax = axes[1, 0]
 ax.plot(beta, h - h_approx)
@@ -35,10 +41,11 @@ ax = axes[0, 1]
 ax.loglog(beta, v, label="Exact formula")
 ax.loglog(beta, v_approx, label="Approximate formula")
 ax.legend()
+ax.set_xlabel("Beta")
+ax.set_ylabel("Normalized velocity")
 
 ax = axes[1, 1]
 ax.plot(beta, v - v_approx)
 
 
 plt.show()
-# 

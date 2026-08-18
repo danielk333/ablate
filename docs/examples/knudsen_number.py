@@ -1,15 +1,13 @@
 """
 Estimate Knudsen number
-=============================================
-
-Docstring for this example
+=======================
 """
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
-import metablate.physics as phys
 import metablate
+import metablate.physics as phys
 
 alts = np.array([100e3, 80e3, 60e3])
 

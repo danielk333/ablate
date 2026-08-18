@@ -3,14 +3,14 @@ Alpha-beta model
 ================
 """
 
-import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d.art3d import Line3DCollection
 import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+from mpl_toolkits.mplot3d.art3d import Line3DCollection
+from spacecoords import frames
 
 import metablate.models.alpha_beta_2026 as ab
 from metablate import physics
-from spacecoords import frames
 
 model = ab.AlphaBeta2026(
     options=ab.AlphaBetaOptions(

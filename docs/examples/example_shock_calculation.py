@@ -1,8 +1,12 @@
-import numpy as np
+"""
+Example simple shock calculation
+================================
+"""
 import matplotlib.pyplot as plt
+import numpy as np
 
-from metablate.physics import aerodynamics
 from metablate.atmosphere import AtmPymsis
+from metablate.physics import aerodynamics
 
 model = AtmPymsis()
 

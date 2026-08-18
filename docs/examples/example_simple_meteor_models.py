@@ -1,5 +1,10 @@
-import numpy as np
+"""
+Simple meteor motion models
+===========================
+"""
 import matplotlib.pyplot as plt
+import numpy as np
+
 from metablate.models import simple
 
 opts = simple.LinearConstantOptions(

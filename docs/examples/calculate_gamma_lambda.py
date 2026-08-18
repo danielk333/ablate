@@ -7,16 +7,17 @@ Docstring for this example
 
 import numpy as np
 
-import metablate.physics as phys
 import metablate
+import metablate.physics as phys
 
 # data for 2 different meteoroids
 model = metablate.atmosphere.AtmPymsis()
+alts = np.array([90e3, 120e3])
 data = model.density(
     time=np.datetime64("2018-07-28"),
     lat=np.array([69.0, 69.0]),
     lon=np.array([12.0, 12.0]),
-    alt=np.array([90e3, 120e3]),
+    alt=alts,
 )
 
 print(data)
@@ -24,7 +25,7 @@ mass = 0.5e-6
 velocity = 32e3
 temperature = 3700
 
-material_data = metablate.material.get("asteroidal")
+material_data = metablate.material.get("asteroidal", as_dict=False)
 
 dmdt_th = phys.thermal_ablation.thermal_ablation_hill_et_al_2005(
     mass=mass,
@@ -62,10 +63,10 @@ Lambda = phys.thermal_ablation.heat_transfer_bronshten_1983(
 )
 
 print("Alt:")
-print([100e3, 120e3])
+print(alts)
 
-print("Gamma:")
+print("drag_coefficient_bronshten_1983:")
 print(Gamma)
 
-print("Lambda:")
+print("heat_transfer_bronshten_1983:")
 print(Lambda)

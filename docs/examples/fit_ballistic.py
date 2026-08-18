@@ -4,13 +4,14 @@ Ballistic model usage
 
 """
 
-from pathlib import Path
-import numpy as np
-import matplotlib.pyplot as plt
 import json
+from pathlib import Path
 
-from metablate.physics import ballistic
+import matplotlib.pyplot as plt
+import numpy as np
+
 import metablate
+from metablate.physics import ballistic
 
 HERE = Path(__file__).parent.absolute()
 data_file = HERE / "data" / "20140104-025436.json"

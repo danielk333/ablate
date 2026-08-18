@@ -4,13 +4,14 @@ Fireball ablation
 """
 
 import logging
-import numpy as np
-import matplotlib.pyplot as plt
 
-import metablate.models.stulov_mirskii_vislyi_1995 as smv
-import metablate.material as mat
-from metablate import setup_logging
+import matplotlib.pyplot as plt
+import numpy as np
 from spacecoords import frames
+
+import metablate.material as mat
+import metablate.models.stulov_mirskii_vislyi_1995 as smv
+from metablate import setup_logging
 
 setup_logging(level=logging.DEBUG)
 
@@ -66,7 +67,7 @@ for vel_el in ref_point_vel_el:
 
     axes[0].plot(result.t, np.log10(result.mass))
     axes[1].plot(result.t, result.velocity * 1e-3)
-    axes[2].plot(result.t, llh[2, :] * 1e-3)
+    axes[2].plot(result.t, llh[2, :] * 1e-3, label=f"{vel_el:.1f} deg radiant elevation")
     axes[3].plot(result.t, np.degrees(result.trajectory_elevation))
     axes[4].plot(llh[0, :], llh[1, :])
     axes[5].plot(
@@ -82,6 +83,7 @@ axes[1].set_xlabel("Time [s]")
 
 axes[2].set_ylabel("Altitude [km]")
 axes[2].set_xlabel("Time [s]")
+axes[2].legend()
 
 axes[3].set_ylabel("Trajectory elevation [deg]")
 axes[3].set_xlabel("Time [s]")

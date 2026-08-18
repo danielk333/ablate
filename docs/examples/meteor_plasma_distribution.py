@@ -1,11 +1,20 @@
+"""
+Compute Dimant-Oppenheim plasma distribution
+============================================
+"""
+
 import argparse
 import pathlib
-import numpy as np
+import warnings
+
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.colors import LogNorm
+from scipy.integrate import IntegrationWarning
 
 import metablate.atmosphere as atm
 import metablate.models.dimant_oppenheim_2017 as do
+from metablate import physics
 
 plt.style.use("dark_background")
 
@@ -21,17 +30,17 @@ args = parser.parse_args()
 
 met_vel = 40e3
 met_mu = 3.8e-26
-ablated_thermal_vel = do.ablated_thermal_speed_bronshten_1983(
+ablated_thermal_vel = physics.thermal_ablation.ablated_thermal_speed_sugar_2018(
     meteoroid_surface_temperature=2000, meteoroid_molecular_mass=met_mu
 )
 met_r = 5e-5
 ma = 4.7e-26
 n0 = 10**13 / met_r**2
 rel_vel = met_vel - ablated_thermal_vel
-sigma = do.collisional_cross_section_bronshten_1983(rel_vel)
-beta = do.ionization_probability_Na_vondrak_2008(rel_vel)
+sigma = physics.plasma_production.collisional_cross_section_bronshten_1983(rel_vel)
+beta = physics.plasma_production.ionization_probability_Na_vondrak_2008(rel_vel)
 radar_freqs = np.array([50e6, 220e6, 500e6, 930e6, 1300e6])
-radar_critical_dens = do.critical_plasma_density(radar_freqs)
+radar_critical_dens = physics.plasma_production.critical_plasma_density(radar_freqs)
 
 for f, ne in zip(radar_freqs, radar_critical_dens):
     print(f"{f=:.2e} -> {ne=:.2e}")
@@ -48,7 +57,7 @@ atm_data = model.density(
 index = dict(lat=0, lon=0, alt=0, time=0)
 na = atm_data["Total"][index].values / ma
 
-lam = do.mean_free_path(
+lam = physics.plasma_production.mean_free_path_dimant_oppenheim_2017(
     ablated_thermal_vel,
     na,
     sigma,
@@ -64,18 +73,24 @@ if args.cache is not None:
         rlam = _dat["r"]
         do_f_dist = _dat["f"]
     else:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=RuntimeWarning)
+            warnings.simplefilter("ignore", category=IntegrationWarning)
+            xlam, ylam, rlam, do_f_dist = do.plasma_distribution_morphology_grid(
+                x_grid=(np.arange(201) - 60) * args.scale,
+                y_grid=(np.arange(201) - 100) * args.scale,
+                threads=8,
+            )
+        np.savez(cache, x=xlam, y=ylam, r=rlam, f=do_f_dist)
+else:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        warnings.simplefilter("ignore", category=IntegrationWarning)
         xlam, ylam, rlam, do_f_dist = do.plasma_distribution_morphology_grid(
             x_grid=(np.arange(201) - 60) * args.scale,
             y_grid=(np.arange(201) - 100) * args.scale,
             threads=8,
         )
-        np.savez(cache, x=xlam, y=ylam, r=rlam, f=do_f_dist)
-else:
-    xlam, ylam, rlam, do_f_dist = do.plasma_distribution_morphology_grid(
-        x_grid=(np.arange(201) - 60) * args.scale,
-        y_grid=(np.arange(201) - 100) * args.scale,
-        threads=8,
-    )
 
 x = xlam * lam
 y = ylam * lam
@@ -92,7 +107,7 @@ ne_dist = do.plasma_distribution(
     base_plasma_distribution_function=do_f_dist,
     R_lambda=rlam,
 )
-f_p = do.plasma_frequency(ne_dist)
+f_p = physics.plasma_production.plasma_frequency(ne_dist)
 
 
 def plasma_freq_to_area(dx, dy, f_p, f_p_limit):

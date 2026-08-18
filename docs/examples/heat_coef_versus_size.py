@@ -1,15 +1,16 @@
 """
-Estimate drag coefficients and heat transfer
-=============================================
+Estimate heat transfer coefficient vs size
+==========================================
 
-Docstring for this example
+Computes the heat transfer coefficient as a function of size for a specific case as well as the Knudsen
+number for comparison
 """
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
-import metablate.physics as phys
 import metablate
+import metablate.physics as phys
 
 # data for 2 different meteoroids
 model = metablate.atmosphere.AtmPymsis()

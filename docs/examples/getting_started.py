@@ -1,6 +1,8 @@
 import numpy as np
-import metablate.models.kero_szasz_2008 as ks
 from spacecoords import frames
+
+import metablate.material as mat
+import metablate.models.kero_szasz_2008 as ks
 
 lat = 67.0
 lon = 20.0

@@ -62,7 +62,7 @@ y = np.linspace(-0.1 * scale, 0.1 * scale, num=args.resolution)
 
 Q = -result.massloss / material.mean_atomic_mass
 
-V_T = do.ablated_thermal_speed_bronshten_1983(
+V_T = do.ablated_thermal_speed_sugar_2018(
     meteoroid_surface_temperature=result.temperature,
     meteoroid_molecular_mass=material.mean_atomic_mass,
 )

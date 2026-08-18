@@ -1,3 +1,10 @@
+"""
+Rescale heights to/from isothermal atmosphere
+==============================================
+
+Some models use an assumption of an isothermal atmosphere, to curcumvent this we can rescale the
+heights to correspond to an arbitrary atmosphere.
+"""
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -21,7 +28,7 @@ atm_density_exp = metablate.physics.alpha_beta.atmosphere_density(
 print(data)
 
 exp_scaled_heights = metablate.physics.alpha_beta.density_to_height_exponential_atm(
-    atm_total_mass_density=atm_density, 
+    atm_total_mass_density=atm_density,
     atmospheric_scale_height=7610.0,
     sea_level_rho=1.225,
 )

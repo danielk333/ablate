@@ -1,15 +1,17 @@
 """
-Estimate drag coefficients and heat transfer
-=============================================
+Estimate drag coefficients vs size
+===================================
 
-Docstring for this example
+Computes the drag coefficients as a function of size for a specific case as well as the Knudsen
+number for comparison
+
 """
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
-import metablate.physics as phys
 import metablate
+import metablate.physics as phys
 
 # data for 2 different meteoroids
 model = metablate.atmosphere.AtmPymsis()
@@ -24,7 +26,7 @@ atm_total_number_density = atm_total_mass_density / model.mean_mass
 
 print(data)
 
-material_data = metablate.material.get("asteroidal")
+material_data = metablate.material.get("asteroidal", as_dict=False)
 
 log_masses = np.linspace(-9, 4, 200)
 masses = 10.0**log_masses
@@ -33,7 +35,7 @@ velocity = 32.0
 temperature = 3700
 
 Kn_inf, L = phys.thermal_ablation.Knudsen_number_kero_szasz_2008(
-    masses, material_data["rho_m"], atm_total_number_density
+    masses, material_data.bulk_density, atm_total_number_density
 )
 
 Gamma = phys.thermal_ablation.drag_coefficient_bronshten_1983(

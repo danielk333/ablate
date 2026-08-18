@@ -1,8 +1,18 @@
-import numpy as np
+"""
+Compute ablated neutrals source density
+========================================
+
+Uses the alpha-beta model to compute a massloss and convert that massloss into a source neutral
+density of ablated particles
+
+TODO: make sure it makes sense to use the alpha beta model in this way as it does not contain
+temperature - what equation for temperature is consistent with the assumptions made in the
+alpha-beta model derivation?
+"""
 import matplotlib.pyplot as plt
+import numpy as np
 
 import metablate.models.alpha_beta_2026 as ab
-import metablate.models.dimant_oppenheim_2017 as do
 from metablate import physics
 from metablate.material import asteroidal as material
 
@@ -52,7 +62,7 @@ for ind in range(len(temperatures)):
 
 Q = -result.massloss * mass / material.mean_atomic_mass
 
-V_T = do.ablated_thermal_speed_bronshten_1983(
+V_T = physics.thermal_ablation.ablated_thermal_speed_sugar_2018(
     meteoroid_surface_temperature=temperatures,
     meteoroid_molecular_mass=material.mean_atomic_mass,
 )

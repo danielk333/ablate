@@ -12,14 +12,13 @@ import argparse
 import warnings
 
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
 import numpy as np
+from matplotlib.lines import Line2D
+from spacecoords import frames
 from tqdm import tqdm
 
-from spacecoords import frames
 import metablate
 import metablate.models.kero_szasz_2008 as ks
-
 
 TIME = np.datetime64("2018-06-28T12:45:33", "ns")
 LAT = 69.30

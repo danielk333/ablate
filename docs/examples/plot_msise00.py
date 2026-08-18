@@ -1,14 +1,12 @@
 """
 Plot the msise00 model
 =========================
-
-Docstring for this example
 """
 
-import metablate.atmosphere as atm
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
+import metablate.atmosphere as atm
 
 model = atm.AtmMSISE00()
 

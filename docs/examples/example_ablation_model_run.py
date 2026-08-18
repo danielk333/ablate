@@ -6,13 +6,14 @@ Docstring for this example
 """
 
 import logging
-import numpy as np
-import matplotlib.pyplot as plt
 
-import metablate.models.kero_szasz_2008 as ks
-import metablate.material as mat
-from metablate import setup_logging
+import matplotlib.pyplot as plt
+import numpy as np
 from spacecoords import frames
+
+import metablate.material as mat
+import metablate.models.kero_szasz_2008 as ks
+from metablate import setup_logging
 
 setup_logging(level=logging.DEBUG)
 
