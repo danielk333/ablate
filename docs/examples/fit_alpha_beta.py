@@ -86,12 +86,16 @@ dens_mid = atm.density(
 dens_tot_mid = dens_mid["Total"].values.squeeze()
 proxy_surface_density = dens_tot_mid * np.exp(mid_alt / h0)
 
-# fig, ax = plt.subplots()
-# ax.semilogx(atm_density, alt)
-# ax.semilogx(proxy_surface_density * np.exp(-alt / h0), alt)
-# fig, ax = plt.subplots()
-# ax.plot(proxy_surface_density * np.exp(-alt / h0) / atm_density * 100 - 100, alt)
-# plt.show()
+fig, axes = plt.subplots(2, 1)
+axes[0].semilogx(atm_density, alt * 1e-3, label="MSIS")
+axes[0].semilogx(proxy_surface_density * np.exp(-alt / h0), alt * 1e-3, label="Locally scaled isothermal")
+axes[0].set_ylabel("Altitude [km]")
+axes[0].set_xlabel("Atmospheric density [kg/m^3]")
+axes[0].legend()
+
+axes[1].plot(proxy_surface_density * np.exp(-alt / h0) / atm_density * 100 - 100, alt * 1e-3)
+axes[1].set_ylabel("Altitude [km]")
+axes[1].set_xlabel("Relative error [%]")
 
 alpha_Q4, beta_Q4 = alpha_beta.solve_alpha_beta_versionQ4(
     data["vel"],
@@ -106,53 +110,6 @@ alpha_Q5, beta_Q5, vel_Q5 = alpha_beta.solve_alpha_beta_velocity_versionQ5(
     bounds=((1e-2, 1e8), (1.0, 1e3), (0, None)),
     atmospheric_scale_height=h0,
 )
-
-# from metablate.models.alpha_beta_2026 import AlphaBetaInitialState, AlphaBeta2026, AlphaBetaOptions
-# import scipy.interpolate as sci
-# model = AlphaBeta2026(
-#     options=AlphaBetaOptions(
-#         max_step_size=1e-2,
-#         atmospheric_scale_height=h0,
-#     ),
-# )
-# p = AlphaBetaInitialState(
-#     epoch=None,
-#     alpha=alpha_Q5,
-#     beta=beta_Q5,
-#     initial_height=data["alt"][0],
-#     entry_velocity=vel_Q5,
-#     entry_angle=meta["slope"],
-#     shape_change_coefficient=2 / 3,
-# )
-# result = model.run(p)
-# model_h = sci.interp1d(result.t, result.height, kind="linear", fill_value=np.nan, bounds_error=False)
-# model_v = sci.interp1d(result.t, result.velocity, kind="linear", fill_value=np.nan, bounds_error=False)
-# norm_v = np.arange(np.nanmin(data["vel"]) / vel_Q5, 1, 0.00005)
-# heights_Q5 = alpha_beta.height_direct(
-#     norm_v,
-#     h0,
-#     alpha_Q5,
-#     beta_Q5,
-# )
-# fig, ax = plt.subplots()
-# ax.plot(data["vel"] * 1e-3, data["alt"] * 1e-3, ".b")
-# ax.plot(
-#     norm_v * vel_Q5 * 1e-3,
-#     heights_Q5 * 1e-3,
-#     "-r",
-# )
-# ax.plot(
-#     result.velocity * 1e-3,
-#     result.height * 1e-3,
-#     "-g",
-# )
-# print(data["t"])
-# t_eval = data["t"] - data["t"][0]
-# ax.plot(model_v(t_eval) * 1e-3, model_h(t_eval) * 1e-3, "xc")
-# ax.set_xlabel("Velocity [km/s]")
-# ax.set_ylabel("Height [km]")
-# plt.show()
-# exit()
 
 pbar = tqdm(desc="Optimization")
 res = solve_alpha_beta_posterior(
@@ -169,7 +126,7 @@ res = solve_alpha_beta_posterior(
         atmospheric_scale_height=h0,
         target_normalized_velocity=np.min(data["vel"]) / (np.max(data["vel"]) * 1.2),
     ),
-    bounds=((1e-2, 1e8), (1.0, 1e3), (0, None)),
+    bounds=((1e-2, 1e8), (0.5, 1e3), (0, None)),
     minimize_kwargs={
         "method": "Nelder-Mead",
         "callback": lambda intermediate_result: pbar.update(1),
