@@ -1,7 +1,13 @@
+from __future__ import annotations
+
+import warnings
+
 import numpy as np
 import scipy.interpolate as sci
 import scipy.optimize as sco
 import scipy.special as scs
+
+from ..types import NDArray
 
 
 def alpha_direct(
@@ -178,6 +184,14 @@ def ballistic_coefficient_from_alpha(
     return sea_level_rho * atmospheric_scale_height / (2 * alpha * np.sin(el))
 
 
+def mass_to_radius(mass, bulk_density):
+    return np.cbrt(mass / bulk_density * 3 / (4 * np.pi))
+
+
+def radius_to_mass(radius, bulk_density):
+    return 4 * bulk_density * np.pi * radius**3 / 3
+
+
 def shape_factor_direct(initial_cross_section, initial_mass, bulk_density):
     """
     Shape factor $ A_e $ is defined as the ratio between the body cross-sectional
@@ -323,12 +337,23 @@ def velocity_direct(mass, beta, initial_velocity, shape_change_coefficient, init
     )
 
 
-def norm_velocity_direct(mass, beta, shape_change_coefficient, initial_mass=None):
+def norm_velocity_direct(
+    mass: NDArray | float,
+    beta: float,
+    shape_change_coefficient: float,
+    initial_mass: float | None = None,
+) -> NDArray | float:
     """Inverse of `norm_mass_direct`"""
-    m = mass
+    m = mass if isinstance(mass, np.ndarray) else np.array([mass])
     if initial_mass is not None:
         m = m / initial_mass
-    return np.sqrt(np.abs(1 + np.log(m) * (1 - shape_change_coefficient) / beta))
+    low_lim = np.exp(-beta / (1 - shape_change_coefficient))
+    inds = m >= low_lim
+    if np.any(np.logical_not(inds)):
+        warnings.warn(f"Input masses below theoretical limit\n{m[np.logical_not(inds)]} < {low_lim}")
+    vel = np.full_like(m, np.nan)
+    vel[inds] = np.sqrt(1 + np.log(m[inds]) * (1 - shape_change_coefficient) / beta)
+    return vel
 
 
 def velocity_estimate(height, initial_velocity, alpha, beta, atmospheric_scale_height=None):
@@ -520,7 +545,7 @@ def solve_alpha_beta_velocity_versionQ5(
     heights,
     atmospheric_scale_height=None,
     start=None,
-    bounds=((1e-2, 1e6), (1e-4, 1e3), (0, None)),
+    bounds=((1e-2, 1e6), (5e-1, 1e3), (0, None)),
     minimize_kwargs={},
 ):
     """Solve for alpha and beta using minimization of the least squares of the
@@ -538,8 +563,14 @@ def solve_alpha_beta_velocity_versionQ5(
 
     b0 = 1.0
     a0 = np.exp(Yvalues[-1]) / (2.0 * b0)
+    if np.log(a0) > 8: 
+        # If initial estimate is that ln(a)>8, its probably not a fireball
+        # but a smaller meteoroid and we need to start on the correct side of the
+        # a-hump of Q5
+        a0 /= 10
     # /1000 is a hack to make velocities small so minimisation doesnt use stupid steps
-    v0 = np.nanmean(velocities[:10]) / 1000
+    # and add a litle bit to velocity as we usually always have some deceleration before observation
+    v0 = np.nanmean(velocities[:10]) * 1.01 / 1000
     if start is None:
         start = [a0, b0, v0]
     else:
@@ -574,7 +605,7 @@ def solve_alpha_beta_versionQ4(
     initial_velocity=None,
     atmospheric_scale_height=None,
     start=None,
-    bounds=((1e-3, 1e4), (1e-5, 1e3)),
+    bounds=((1e-3, 1e4), (1.0, 1e3)),
     minimize_kwargs={},
 ):
     """Solve for alpha and beta using minimization of the least squares of the
@@ -595,6 +626,11 @@ def solve_alpha_beta_versionQ4(
     # TODO: automatic better initial guess for beta
     b0 = 1.0
     a0 = np.exp(Yvalues[-1]) / (2.0 * b0)
+    if np.log(a0) > 8: 
+        # If initial estimate is that ln(a)>8, its probably not a fireball
+        # but a smaller meteoroid and we need to start on the correct side of the
+        # a-hump of Q4
+        a0 /= 10
     if start is None:
         start = [a0, b0]
     else:

@@ -7,7 +7,7 @@ from metablate.physics import alpha_beta
 def test_alpha_ballistic_coefficient_roundtrip():
     alpha = 12.0
     sea_level_rho = 1.225
-    scale_height = 7160.0
+    scale_height = 7610.0
     elevation = np.deg2rad(35.0)
 
     ballistic = alpha_beta.ballistic_coefficient_from_alpha(
@@ -56,7 +56,7 @@ def test_initial_mass_direct_inverts_alpha_direct_for_shape_factor():
     alpha = alpha_beta.alpha_direct(
         aerodynamic_cd=1.0,
         sea_level_rho=1.225,
-        atmospheric_scale_height=7160.0,
+        atmospheric_scale_height=7610.0,
         initial_cross_section=cross_section,
         initial_mass=mass,
         radiant_local_elevation=np.deg2rad(45.0),
@@ -65,7 +65,7 @@ def test_initial_mass_direct_inverts_alpha_direct_for_shape_factor():
         alpha,
         aerodynamic_cd=1.0,
         sea_level_rho=1.225,
-        atmospheric_scale_height=7160.0,
+        atmospheric_scale_height=7610.0,
         radiant_local_elevation=np.deg2rad(45.0),
         bulk_density=density,
         shape_factor=shape_factor,

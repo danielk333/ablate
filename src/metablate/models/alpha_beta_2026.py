@@ -32,6 +32,7 @@ class AlphaBetaOptions(Options):
     max_step_size: float = 5e-3  # [s]
     first_step: float | None = None  # [s]
     max_time: float = 100.0  # [s]
+    target_normalized_velocity: float | None = None  # [1]
     method: str = "RK45"
     method_kwargs: dict[str, Any] = field(default_factory=lambda: dict())
     atmosphere: Atmosphere | None = None
@@ -93,7 +94,11 @@ class AlphaBeta2026(MeteorModel[AlphaBetaInitialState, AlphaBetaOptions, AlphaBe
     def __init__(self, options: AlphaBetaOptions = AlphaBetaOptions()):
         self.options = options
         if options.atmosphere is not None:
-            raise NotImplementedError("still have not fixed rescaling")
+            raise NotImplementedError(
+                "TODO: derive the phase-space criterion again from scratch and"
+                "modify the differential equations to allow for arbitrary"
+                "atmospheres"
+            )
 
     def run(self, parameters: AlphaBetaInitialState) -> AlphaBetaResults:
         """Ablation model"""
@@ -109,11 +114,22 @@ class AlphaBeta2026(MeteorModel[AlphaBetaInitialState, AlphaBetaOptions, AlphaBe
             parameters.beta,
             atmospheric_scale_height=self.options.atmospheric_scale_height,
         )
+        # NOTE: the mass is bounded by below by beta - it can never reach 0
+        # rather it reachers exp(-beta/(1-mu)) so if beta is small
+        # the equation can fail
+        mass_low_lim = np.exp(-parameters.beta / (1 - parameters.shape_change_coefficient))
+        if self.options.minimum_relative_mass < mass_low_lim:
+            m_stop = mass_low_lim
+        else:
+            m_stop = self.options.minimum_relative_mass
         v_final_norm = physics.alpha_beta.norm_velocity_direct(
-            self.options.minimum_relative_mass,
+            m_stop,
             parameters.beta,
             parameters.shape_change_coefficient,
         )
+        if self.options.target_normalized_velocity is not None:
+            v_final_norm = max(self.options.target_normalized_velocity, v_final_norm)
+
         s0 = 0
         y0 = np.array([s0, v0_norm])
 
@@ -213,14 +229,16 @@ def logposterior_alpha_beta(
     resids_sq += np.nansum(((velocities - model_v(t_eval)) / velocities_std) ** 2)
 
     # import matplotlib.pyplot as plt
-    # fig, axes = plt.subplots(2)
+    # fig, axes = plt.subplots(3, 1)
     # axes[0].plot(t_eval, model_h(t_eval))
     # axes[0].plot(t_eval, heights)
     # axes[1].plot(t_eval, model_v(t_eval))
     # axes[1].plot(t_eval, velocities)
+    # axes[2].plot(t_eval, ((heights - model_h(t_eval)) / heights_std) ** 2)
+    # axes[2].plot(t_eval, ((velocities - model_v(t_eval)) / velocities_std) ** 2)
     # fig.suptitle(f"{resids_sq}")
     # plt.show()
-
+    #
     return -0.5 * resids_sq
 
 
@@ -232,23 +250,24 @@ def solve_alpha_beta_posterior(
     velocities_std,
     entry_angle,
     shape_change_coefficient,
-    atmospheric_scale_height,
     entry_velocity=None,
-    options=AlphaBetaOptions(
-        max_step_size=1e-2,
-    ),
+    options=None,
     start=None,
-    bounds=((0.01, 1000000.0), (0.0001, 200.0), (0.0, None)),
+    bounds=((0.01, 1e8), (0.5e-1, 200.0), (0.0, None)),
     minimize_kwargs={},
 ):
     """Solve for alpha and beta (and optionally velocity) using minimization of the posterior [^1].
 
     [^1]: Kastinen et al (2026) in preparation
     """
-    Yvalues = heights / atmospheric_scale_height
+    if options is None:
+        options = AlphaBetaOptions()
+    Yvalues = heights / options.atmospheric_scale_height
 
     b0 = 1.0
     a0 = np.exp(Yvalues[-1]) / (2.0 * b0)
+    if np.log(a0) > 8:
+        a0 /= 10
     v0 = velocities[0]
     if start is None:
         start = [a0, b0, v0]
@@ -301,6 +320,4 @@ def solve_alpha_beta_posterior(
             )
 
     res = sco.minimize(wrap_func, start, bounds=bounds, **minimize_kwargs)
-    out = res.x
-    print(res)
-    return out
+    return res
