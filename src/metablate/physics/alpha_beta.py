@@ -353,6 +353,7 @@ def norm_velocity_direct(
         warnings.warn(f"Input masses below theoretical limit\n{m[np.logical_not(inds)]} < {low_lim}")
     vel = np.full_like(m, np.nan)
     vel[inds] = np.sqrt(1 + np.log(m[inds]) * (1 - shape_change_coefficient) / beta)
+    vel = vel if isinstance(mass, np.ndarray) else vel[0]
     return vel
 
 
