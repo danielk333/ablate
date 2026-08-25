@@ -236,7 +236,8 @@ class KeroSzasz2008(MeteorModel[KeroSzaszInitialState, KeroSzaszOptions, KeroSza
             velocity_ecef=velocity_ecef,
         )
 
-
+# TODO: investigate using numba njit on this function
+# there might also be a faster way to call MSIS? like an initial cache and than using an interpolator
 def diff_eq_rhs(
     t: float,
     y: NDArray_M,
