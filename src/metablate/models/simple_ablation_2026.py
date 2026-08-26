@@ -10,16 +10,13 @@ from typing import Any
 import numpy as np
 import scipy.interpolate as sci
 import scipy.optimize as sco
-import scipy.special as scs
 from scipy import constants
 from scipy.integrate import solve_ivp
 
-from .. import physics
 from ..atmosphere import Atmosphere, AtmPymsis
 from ..types import (
     NDArray_2xN,
     NDArray_N,
-    NDArray_2,
     Options,
     Results,
 )
@@ -59,6 +56,7 @@ def ballistic_parameter_to_area_to_mass(
 @dataclass
 class SimpleAblationOptions(Options):
     minimum_relative_mass: float = 1e-4  # [1]
+    minimum_altitude: float = 0 # [m]
     max_step_size: float = 5e-3  # [s]
     first_step: float | None = None  # [s]
     max_time: float = 100.0  # [s]
@@ -190,10 +188,16 @@ class SimpleAblation2026(
             res = y[3] / self.options.minimum_relative_mass - 1
             return res
 
+        def _low_alt(t: float, y: NDArray_N, *args: tuple[Any]) -> float:
+            res = y[1] / self.options.minimum_altitude - 1
+            return res
+
         _low_mass.terminal = True  # type: ignore
         _low_mass.direction = -1  # type: ignore
+        _low_alt.terminal = True  # type: ignore
+        _low_alt.direction = -1  # type: ignore
 
-        events = [_low_mass]
+        events = [_low_mass, _low_alt]
 
         ivp_result = solve_ivp(
             fun=diff_eq_rhs,

@@ -5,13 +5,13 @@ Simple meteor motion models
 import matplotlib.pyplot as plt
 import numpy as np
 
-from metablate.models import simple
+from metablate.models import simple_motion
 
-opts = simple.LinearConstantOptions(
+opts = simple_motion.LinearConstantOptions(
     evaluation_times=np.linspace(0, 1, num=100),
 )
-lin_model = simple.LinearConstantVelocity(opts)
-lin_model_accel = simple.LinearConstantAcceleration(opts)
+lin_model = simple_motion.LinearConstantVelocity(opts)
+lin_model_accel = simple_motion.LinearConstantAcceleration(opts)
 
 init_state_lin = np.array([0, 0, 100e3, 0, 20e3, -30e3])
 init_state_acc = np.array([0, 0, 100e3, 0, 20e3, -30e3, -3e3])
