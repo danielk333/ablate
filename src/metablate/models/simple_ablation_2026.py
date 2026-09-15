@@ -88,6 +88,7 @@ class SimpleAblationResults(Results):
     height: NDArray_N
     trajectory_elevation: NDArray_N
     relative_mass: NDArray_N
+    relative_massloss: NDArray_N
 
 
 def diff_eq_rhs(
@@ -227,6 +228,26 @@ class SimpleAblation2026(
         else:
             gamma = ivp_result.y[4, :]
 
+        # TODO: this is wasting a lot of computations, we could just vectorize this and run it for
+        # the massloss but im lazy for now
+        relative_massloss = np.asarray(
+            [
+                diff_eq_rhs(
+                    t,
+                    state,
+                    parameters.ballistic_parameter,
+                    parameters.massloss_parameter,
+                    parameters.shape_change_coefficient,
+                    parameters.latitude,
+                    parameters.longitude,
+                    parameters.epoch,
+                    parameters.entry_angle,
+                    self.options,
+                )[3]
+                for t, state in zip(ivp_result.t, ivp_result.y.T)
+            ]
+        )
+
         return SimpleAblationResults(
             runtime=time.perf_counter() - t0,
             t=ivp_result.t,
@@ -235,6 +256,7 @@ class SimpleAblation2026(
             velocity=ivp_result.y[2, :],
             trajectory_elevation=gamma,
             relative_mass=ivp_result.y[3, :],
+            relative_massloss=relative_massloss,
         )
 
 
