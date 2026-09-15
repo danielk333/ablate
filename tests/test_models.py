@@ -3,7 +3,7 @@ import pytest
 from scipy import constants
 
 from metablate import material
-from metablate.models.simple import (
+from metablate.models.simple_motion import (
     LinearConstantAcceleration,
     LinearConstantOptions,
     LinearConstantVelocity,
