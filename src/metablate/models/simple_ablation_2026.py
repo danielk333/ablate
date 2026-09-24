@@ -56,7 +56,7 @@ def ballistic_parameter_to_area_to_mass(
 @dataclass
 class SimpleAblationOptions(Options):
     minimum_relative_mass: float = 1e-4  # [1]
-    minimum_altitude: float = 0 # [m]
+    minimum_altitude: float = 0  # [m]
     max_step_size: float = 5e-3  # [s]
     first_step: float | None = None  # [s]
     max_time: float = 100.0  # [s]
@@ -104,10 +104,10 @@ def diff_eq_rhs(
     options: SimpleAblationOptions,
 ) -> NDArray_N | NDArray_2xN:
     if options.linear_trajectory:
-        s, h, v, m = params
+        _, h, v, m = params
         gamma = initial_gamma
     else:
-        s, h, v, m, gamma = params
+        _, h, v, m, gamma = params
     grav = constants.G * WGS84_M_EARTH / (EARTH_RADIUS + h) ** 2
 
     # TODO: should try to do this in innertial frame some time, to include velocity of Atmosphere
@@ -143,7 +143,7 @@ def diff_eq_rhs(
                 -ballistic_parameter * m ** (shape_change_coefficient - 1) * rho_tot * v**2
                 + grav * np.sin(gamma),
                 -massloss_parameter * m**shape_change_coefficient * rho_tot * v**3,
-                (grav / v - v / EARTH_RADIUS) * np.cos(gamma),
+                (grav / v - v / (EARTH_RADIUS + h)) * np.cos(gamma),
             ]
         )
     return ret
