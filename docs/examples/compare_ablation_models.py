@@ -214,20 +214,27 @@ for label, result in results.items():
     axes[0, 2].plot(result["velocity"] * 1e-3, result["height"] * 1e-3, label=label)
     axes[1, 2].plot(result["relative_massloss"], result["height"] * 1e-3, label=label)
 
+axes[0, 0].legend()
 axes[0, 0].set_yscale("log")
 axes[0, 0].set_ylabel("Relative mass")
+axes[0, 0].set_xlabel("Time [s]")
+
 axes[0, 1].set_ylabel("Velocity [km/s]")
+axes[0, 1].set_xlabel("Time [s]")
+
 axes[1, 0].set_ylabel("Altitude [km]")
+axes[1, 0].set_xlabel("Time [s]")
+
+axes[1, 1].set_xscale("log")
 axes[1, 1].set_ylabel("Altitude [km]")
 axes[1, 1].set_xlabel("Relative mass")
+
 axes[0, 2].set_xlabel("Velocity [km/s]")
 axes[0, 2].set_ylabel("Altitude [km]")
+
 axes[1, 2].set_ylabel("Altitude [km]")
 axes[1, 2].set_xlabel("Relative massloss")
-axes[1, 1].set_xscale("log")
-for ax in axes.flatten():
-    ax.set_xlabel("Time [s]")
-axes[0, 0].legend()
+
 fig.suptitle("Ablation models with common material and entry inputs")
 
 plt.show()
