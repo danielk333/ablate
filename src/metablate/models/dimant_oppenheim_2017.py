@@ -11,7 +11,9 @@ from tqdm import tqdm
 from ..types import NDArray_M, NDArray_MxN, NDArray_N
 
 
-def _worker(inds, tind, Func3_1, Func3_2, low_lim, up_lim, Rlam23, costh, sinth, pbar, quad_abs_tol):
+def _worker(
+    inds, tind, Func3_1, Func3_2, low_lim, up_lim, Rlam23, costh, sinth, pbar, quad_abs_tol
+):
     if pbar:
         tqdm_bar = tqdm(
             desc=f"computing electron density process {tind}",
@@ -44,7 +46,7 @@ def _do_integral_1(ksi, rlam23, cth):
     return (
         np.sqrt(1 + 2 * rlam23 * ksi ** (2 / 3) / np.pi)
         * np.exp(-3 * rlam23 * ksi ** (2 / 3) / 2)
-        * np.sqrt((ksi**2 - cth**2) / (1 - ksi**2))
+        * np.sqrt(np.maximum(ksi**2 - cth**2, 0) / (1 - ksi**2))
     )
 
 
@@ -55,12 +57,16 @@ def _do_integral_2(ksi, rlam23, cth, sth):
     return (
         np.sqrt(1 + 2 * rlam23 * ksi ** (2 / 3) / np.pi)
         * np.exp(-3 * rlam23 * ksi ** (2 / 3) / 2)
-        * np.arcsin(np.sqrt(1 - ksi**2) * np.abs(cth) / (ksi * np.abs(sth)))
+        * np.arcsin(np.clip(np.sqrt(1 - ksi**2) * np.abs(cth) / (ksi * np.abs(sth)), 0, 1))
     )
 
 
 def do_int_1_quad(a, b, rlam23, cth, quad_abs_tol):
     """Numerically evaluate integral 1 in `_do_integral_1`"""
+    if not np.isfinite(a):
+        return np.nan
+    if a == b:
+        return 0.0
     int1 = sci.quad(
         _do_integral_1,
         a,
@@ -74,6 +80,10 @@ def do_int_1_quad(a, b, rlam23, cth, quad_abs_tol):
 
 def do_int_2_quad(a, b, rlam23, cth, sth, quad_abs_tol):
     """Numerically evaluate integral 2 in `_do_integral_2`"""
+    if not np.isfinite(a):
+        return np.nan
+    if a == b or cth == 0:
+        return 0.0
     int2 = sci.quad(
         _do_integral_2,
         a,
@@ -89,7 +99,7 @@ def plasma_distribution_morphology_grid(
     x_grid: NDArray_N,
     y_grid: NDArray_M,
     quad_abs_tol: float = 1e-7,
-    upper_limit_delta: float = 1e-6,
+    upper_limit_delta: float = 0.0,
     threads: int | None = None,
     pbar: bool = True,
 ) -> tuple[NDArray_MxN, NDArray_MxN, NDArray_MxN, NDArray_MxN]:
@@ -99,6 +109,10 @@ def plasma_distribution_morphology_grid(
     Note
     ----
         Grid is in units of mean free path
+
+        The default includes the integrable endpoint at xi=1. A positive
+        upper_limit_delta truncates that endpoint for legacy calculations.
+        The density is undefined at the meteoroid center (R=0).
     """
     # Generate density distribution
     # Solve for a 2D plane
@@ -114,15 +128,16 @@ def plasma_distribution_morphology_grid(
     Func1 = np.sqrt(2 * np.pi / 3) / Rlam * scs.erf(
         np.sqrt(3 / 2) * Rlam ** (1 / 3) * np.abs(costh) ** (1 / 3)
     ) - np.exp(-3 / 2 * Rlam23 * np.abs(costh) ** (2 / 3)) * (
-        (4 - np.pi)
-        * np.abs(costh)
-        / (2 * np.sqrt((1 + (4 - np.pi) ** 2 * Rlam23 * np.abs(costh) ** (2 / 3)) / (2 * np.pi)))
+        (4 - np.pi) * np.abs(costh)
+        # Dimant & Oppenheim (2017), Eq. 46: only the second term
+        # inside the square root is divided by 2*pi.
+        / (2 * np.sqrt(1 + (4 - np.pi) ** 2 * Rlam23 * np.abs(costh) ** (2 / 3) / (2 * np.pi)))
         + 2 * np.abs(costh) ** (1 / 3) / Rlam23
     )
 
-    Func2 = np.sqrt(2 * np.pi / 3) / Rlam * scs.erf(np.sqrt(3 * Rlam23 / 2)) - (1 + 2 / Rlam23) * np.exp(
-        -3 * Rlam23 / 2
-    )
+    Func2 = np.sqrt(2 * np.pi / 3) / Rlam * scs.erf(np.sqrt(3 * Rlam23 / 2)) - (
+        1 + 2 / Rlam23
+    ) * np.exp(-3 * Rlam23 / 2)
 
     orig_shape = costh.shape
     new_shape = (costh.size,)
@@ -130,12 +145,12 @@ def plasma_distribution_morphology_grid(
     sinth = sinth.reshape(new_shape)
     Rlam23 = Rlam23.reshape(new_shape)
     low_lim = np.abs(costh)  # Lower limit of integration |cosθ|
-    up_lim = np.full_like(
-        costh, 1 - upper_limit_delta
-    )  # Upper limit of integration 1 (avoid singularity at exactly 1)
-
-    # todo: hack to make sure integration limits are sane
-    low_lim[low_lim > up_lim] = up_lim[low_lim > up_lim] - upper_limit_delta
+    if not 0 <= upper_limit_delta < 1:
+        raise ValueError("upper_limit_delta must be in [0, 1)")
+    # Never move the lower bound below |cos(theta)|: that makes the
+    # integrands undefined near the symmetry axis. On the axis both
+    # integrals have zero width and vanish analytically.
+    up_lim = np.maximum(np.full_like(costh, 1 - upper_limit_delta), low_lim)
 
     # TODO: skip problematic points in the calc
     if threads is None:
@@ -191,7 +206,8 @@ def plasma_distribution_morphology_grid(
 
         for t in th:
             t.join()
-        print("\n" * threads)
+            if t.exitcode != 0:
+                raise RuntimeError(f"Density worker exited with code {t.exitcode}")
         Func3_1 = np.ndarray(costh.shape, dtype=np.float64, buffer=f31.get_obj())
         Func3_2 = np.ndarray(costh.shape, dtype=np.float64, buffer=f32.get_obj())
     Func3_1 = Func3_1.reshape(orig_shape)
@@ -203,7 +219,6 @@ def plasma_distribution_morphology_grid(
     t1 = np.abs(costh) * Func1
     t2 = costh * Func2
     t3 = np.abs(costh) * Func3_2 + Func3_1
-    t3[np.isnan(t3)] = 0
 
     ne_morph = np.abs(t1 + t2 + t3)
 
