@@ -23,3 +23,22 @@ colors. The reference images retain attribution to the article's authors.
 physical-density scaling against fixed, independently calculated values
 of Eqs. 45-48 at all nine Figure 3 angles. It neither downloads the paper
 nor uses image pixels as numerical reference data.
+
+## Before and after the fix
+
+`conda run -n base python docs/examples/compare_dimant_before_after.py` loads
+the unchanged density module from upstream commit `c31ef4e` through Git and
+compares it with the module in the current checkout. It writes PNG plots and
+HDF5 data to `dimant_oppenheim_before_after/`, including source hashes and
+commit provenance. It requires Git history containing that upstream commit
+and h5py. Numerical warnings from the original implementation are recorded;
+its invalid-integral handling is preserved without modification.
+
+The bundled `figure3_before_after.png` shows all nine Figure 3 angles with
+identical axes before and after. The original forward-axis curve has an
+artificial near-field dip; the corrected curve is smooth and matches the
+paper comparison. `figure4_before_after.png` uses identical density color
+limits for both spatial maps. Both figures include the relative change,
+defined as `100 * (after - before) / after`; the map's color limits are
+minus to plus 100 percent. These maps use `ne/n_star` directly, without
+the optional Figure 4 display multiplier used in the article comparison.
