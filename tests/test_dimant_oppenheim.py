@@ -26,9 +26,9 @@ def test_sugar_thermal_speed_matches_simulation_parameter():
     temperature = 2500.0
     molecular_mass = 22.98976928 * constants.u
 
-    assert thermal_ablation.ablated_thermal_speed_sugar_2018(
-        temperature, molecular_mass
-    ) == pytest.approx(951.0, abs=1.0)
+    assert thermal_ablation.ablated_thermal_speed_sugar_2018(temperature, molecular_mass) == pytest.approx(
+        951.0, abs=1.0
+    )
 
 
 def test_bronshten_evaporated_speed_matches_table_1():
