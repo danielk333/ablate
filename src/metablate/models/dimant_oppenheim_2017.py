@@ -61,6 +61,10 @@ def _do_integral_2(ksi, rlam23, cth, sth):
 
 def do_int_1_quad(a, b, rlam23, cth, quad_abs_tol):
     """Numerically evaluate integral 1 in `_do_integral_1`"""
+    if not np.isfinite(a):
+        return np.nan
+    if a == b:
+        return 0.0
     int1 = sci.quad(
         _do_integral_1,
         a,
@@ -74,6 +78,10 @@ def do_int_1_quad(a, b, rlam23, cth, quad_abs_tol):
 
 def do_int_2_quad(a, b, rlam23, cth, sth, quad_abs_tol):
     """Numerically evaluate integral 2 in `_do_integral_2`"""
+    if not np.isfinite(a):
+        return np.nan
+    if a == b or cth == 0:
+        return 0.0
     int2 = sci.quad(
         _do_integral_2,
         a,
@@ -89,7 +97,7 @@ def plasma_distribution_morphology_grid(
     x_grid: NDArray_N,
     y_grid: NDArray_M,
     quad_abs_tol: float = 1e-7,
-    upper_limit_delta: float = 1e-6,
+    upper_limit_delta: float = 0.0,
     threads: int | None = None,
     pbar: bool = True,
 ) -> tuple[NDArray_MxN, NDArray_MxN, NDArray_MxN, NDArray_MxN]:
@@ -99,6 +107,10 @@ def plasma_distribution_morphology_grid(
     Note
     ----
         Grid is in units of mean free path
+
+        The default includes the integrable endpoint at xi=1. A positive
+        upper_limit_delta truncates that endpoint for legacy calculations.
+        The density is undefined at the meteoroid center (R=0).
     """
     # Generate density distribution
     # Solve for a 2D plane
@@ -116,7 +128,9 @@ def plasma_distribution_morphology_grid(
     ) - np.exp(-3 / 2 * Rlam23 * np.abs(costh) ** (2 / 3)) * (
         (4 - np.pi)
         * np.abs(costh)
-        / (2 * np.sqrt((1 + (4 - np.pi) ** 2 * Rlam23 * np.abs(costh) ** (2 / 3)) / (2 * np.pi)))
+        # Dimant & Oppenheim (2017), Eq. 46: only the second term
+        # inside the square root is divided by 2*pi.
+        / (2 * np.sqrt(1 + (4 - np.pi) ** 2 * Rlam23 * np.abs(costh) ** (2 / 3) / (2 * np.pi)))
         + 2 * np.abs(costh) ** (1 / 3) / Rlam23
     )
 
@@ -130,12 +144,10 @@ def plasma_distribution_morphology_grid(
     sinth = sinth.reshape(new_shape)
     Rlam23 = Rlam23.reshape(new_shape)
     low_lim = np.abs(costh)  # Lower limit of integration |cosθ|
-    up_lim = np.full_like(
-        costh, 1 - upper_limit_delta
-    )  # Upper limit of integration 1 (avoid singularity at exactly 1)
-
-    # todo: hack to make sure integration limits are sane
-    low_lim[low_lim > up_lim] = up_lim[low_lim > up_lim] - upper_limit_delta
+    # Never move the lower bound below |cos(theta)|: that makes the
+    # integrands undefined near the symmetry axis. On the axis both
+    # integrals have zero width and vanish analytically.
+    up_lim = np.maximum(np.full_like(costh, 1 - upper_limit_delta), low_lim)
 
     # TODO: skip problematic points in the calc
     if threads is None:
