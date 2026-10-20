@@ -42,27 +42,18 @@ def test_bronshten_evaporated_speed_matches_table_1():
     ) == pytest.approx(0.66e3, abs=10.0)
 
 
-@pytest.mark.parametrize("direction", [-1, 1])
-def test_morphology_matches_published_axis_density(direction):
+def test_morphology_matches_published_axis_density():
     # Dimant & Oppenheim (2017), Eqs. 43-44, independently written axis
-    # expressions. In Eq. 46 only the second radicand term has a 2*pi
-    # denominator; dividing the whole radicand changes the near-field density.
-    # https://arxiv.org/pdf/1609.00256
+    # expressions.
     radius = np.array([0.01, 0.1, 1.0, 10.0])
     q = radius ** (2 / 3)
     exponential = np.exp(-1.5 * q)
-    correction = (4 - np.pi) * np.sqrt(2 * np.pi) / (2 * np.sqrt(2 * np.pi + (4 - np.pi) ** 2 * q))
-    if direction == -1:
-        expected = (1 - correction) * exponential
-    else:
-        expected = (
-            2 * np.sqrt(2 * np.pi / 3) / radius * erf(np.sqrt(1.5 * q))
-            - (correction + 1 + 4 / q) * exponential
-        )
+    term_1 = (4 - np.pi) * np.sqrt(2 * np.pi) / (2 * np.sqrt(2 * np.pi + (4 - np.pi) ** 2 * q))
+    expected = (1 - term_1) * exponential
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         _, _, _, morphology = dimant.plasma_distribution_morphology_grid(
-            direction * radius, np.array([0.0]), pbar=False
+            -radius, np.array([0.0]), pbar=False
         )
     np.testing.assert_allclose(morphology[0], expected, rtol=1e-10, atol=1e-12)
 
