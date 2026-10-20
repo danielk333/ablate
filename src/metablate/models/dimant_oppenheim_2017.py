@@ -128,8 +128,6 @@ def plasma_distribution_morphology_grid(
     ) - np.exp(-3 / 2 * Rlam23 * np.abs(costh) ** (2 / 3)) * (
         (4 - np.pi)
         * np.abs(costh)
-        # Dimant & Oppenheim (2017), Eq. 46: only the second term
-        # inside the square root is divided by 2*pi.
         / (2 * np.sqrt(1 + (4 - np.pi) ** 2 * Rlam23 * np.abs(costh) ** (2 / 3) / (2 * np.pi)))
         + 2 * np.abs(costh) ** (1 / 3) / Rlam23
     )
@@ -143,13 +141,12 @@ def plasma_distribution_morphology_grid(
     costh = costh.reshape(new_shape)
     sinth = sinth.reshape(new_shape)
     Rlam23 = Rlam23.reshape(new_shape)
-    low_lim = np.abs(costh)  # Lower limit of integration |cosθ|
+    low_lim = np.abs(costh)
     # Never move the lower bound below |cos(theta)|: that makes the
     # integrands undefined near the symmetry axis. On the axis both
     # integrals have zero width and vanish analytically.
     up_lim = np.maximum(np.full_like(costh, 1 - upper_limit_delta), low_lim)
 
-    # TODO: skip problematic points in the calc
     if threads is None:
         if pbar:
             tqdm_bar = tqdm(desc="computing electron density", total=len(costh))
@@ -218,11 +215,6 @@ def plasma_distribution_morphology_grid(
     t3[np.isnan(t3)] = 0
 
     ne_morph = np.abs(t1 + t2 + t3)
-
-    # todo: this is to fix some numerical shenanigans, can probably be solved better
-    # zero_point = np.argmin(np.abs(y_grid))
-    # if y_grid[zero_point] < 1e-3:
-    #     ne_morph[zero_point, :] = (ne_morph[zero_point - 1, :] + ne_morph[zero_point + 1, :]) / 2
 
     return Xlam, Ylam, Rlam, ne_morph
 
