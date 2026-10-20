@@ -112,111 +112,13 @@ def plasma_distribution_morphology_grid(
         upper_limit_delta truncates that endpoint for legacy calculations.
         The density is undefined at the meteoroid center (R=0).
     """
-    # Generate density distribution
-    # Solve for a 2D plane
-    [Xlam, Ylam] = np.meshgrid(x_grid, y_grid)
-
-    Rlam = np.sqrt(Xlam**2 + Ylam**2)
-    Rlam[Rlam == 0] = np.nan
-
-    costh = Xlam / Rlam
-    sinth = Ylam / Rlam
-    Rlam23 = Rlam ** (2 / 3)
-
-    Func1 = np.sqrt(2 * np.pi / 3) / Rlam * scs.erf(
-        np.sqrt(3 / 2) * Rlam ** (1 / 3) * np.abs(costh) ** (1 / 3)
-    ) - np.exp(-3 / 2 * Rlam23 * np.abs(costh) ** (2 / 3)) * (
-        (4 - np.pi)
-        * np.abs(costh)
-        / (2 * np.sqrt(1 + (4 - np.pi) ** 2 * Rlam23 * np.abs(costh) ** (2 / 3) / (2 * np.pi)))
-        + 2 * np.abs(costh) ** (1 / 3) / Rlam23
+    Xlam, Ylam = np.meshgrid(x_grid, y_grid)
+    result = _plasma_distribution_morphology(
+        Xlam, Ylam, quad_abs_tol, upper_limit_delta, threads, pbar
     )
-
-    Func2 = np.sqrt(2 * np.pi / 3) / Rlam * scs.erf(np.sqrt(3 * Rlam23 / 2)) - (1 + 2 / Rlam23) * np.exp(
-        -3 * Rlam23 / 2
-    )
-
-    orig_shape = costh.shape
-    new_shape = (costh.size,)
-    costh = costh.reshape(new_shape)
-    sinth = sinth.reshape(new_shape)
-    Rlam23 = Rlam23.reshape(new_shape)
-    low_lim = np.abs(costh)
-    # Never move the lower bound below |cos(theta)|: that makes the
-    # integrands undefined near the symmetry axis. On the axis both
-    # integrals have zero width and vanish analytically.
-    up_lim = np.maximum(np.full_like(costh, 1 - upper_limit_delta), low_lim)
-
-    if threads is None:
-        if pbar:
-            tqdm_bar = tqdm(desc="computing electron density", total=len(costh))
-        Func3_1 = np.empty_like(costh)
-        Func3_2 = np.empty_like(costh)
-        for ind in range(len(costh)):
-            Func3_1[ind] = do_int_1_quad(
-                low_lim[ind],
-                up_lim[ind],
-                Rlam23[ind],
-                costh[ind],
-                quad_abs_tol,
-            )
-            Func3_2[ind] = do_int_2_quad(
-                low_lim[ind],
-                up_lim[ind],
-                Rlam23[ind],
-                costh[ind],
-                sinth[ind],
-                quad_abs_tol,
-            )
-            if pbar:
-                tqdm_bar.update(1)
-        if pbar:
-            tqdm_bar.close()
-    else:
-        th = []
-        chunks = np.array_split(np.arange(len(costh)), threads)
-
-        f31 = mp.Array(ctypes.c_double, costh.size)
-        f32 = mp.Array(ctypes.c_double, costh.size)
-        for tind, chunk in enumerate(chunks):
-            t = mp.Process(
-                target=_worker,
-                args=(
-                    chunk,
-                    tind,
-                    f31,
-                    f32,
-                    low_lim,
-                    up_lim,
-                    Rlam23,
-                    costh,
-                    sinth,
-                    pbar,
-                    quad_abs_tol,
-                ),
-            )
-            th.append(t)
-            t.start()
-
-        for t in th:
-            t.join()
+    if threads is not None:
         print("\n" * threads)
-        Func3_1 = np.ndarray(costh.shape, dtype=np.float64, buffer=f31.get_obj())
-        Func3_2 = np.ndarray(costh.shape, dtype=np.float64, buffer=f32.get_obj())
-    Func3_1 = Func3_1.reshape(orig_shape)
-    Func3_2 = Func3_2.reshape(orig_shape)
-
-    costh = costh.reshape(orig_shape)
-    sinth = sinth.reshape(orig_shape)
-
-    t1 = np.abs(costh) * Func1
-    t2 = costh * Func2
-    t3 = np.abs(costh) * Func3_2 + Func3_1
-    t3[np.isnan(t3)] = 0
-
-    ne_morph = np.abs(t1 + t2 + t3)
-
-    return Xlam, Ylam, Rlam, ne_morph
+    return result
 
 
 def plasma_distribution_morphology_array(
@@ -254,6 +156,13 @@ def plasma_distribution_morphology_array(
     Xlam = r * np.cos(theta)
     Ylam = r * np.sin(theta)
 
+    return _plasma_distribution_morphology(
+        Xlam, Ylam, quad_abs_tol, upper_limit_delta, threads, pbar
+    )
+
+
+def _plasma_distribution_morphology(Xlam, Ylam, quad_abs_tol, upper_limit_delta, threads, pbar):
+    """Evaluate morphology at Cartesian points without constructing a grid."""
     Rlam = np.sqrt(Xlam**2 + Ylam**2)
     Rlam = np.where(Rlam == 0, np.nan, Rlam)
 
