@@ -1,12 +1,17 @@
+from __future__ import annotations
+
 import ctypes
-import numpy as np
-import scipy.special as scs
-import scipy.integrate as sci
-import scipy.constants as consts
-from tqdm import tqdm
 import multiprocessing as mp
 
-from metablate.array_types import NDArray_N
+import numpy as np
+import scipy.constants as consts
+import scipy.integrate as sci
+import scipy.special as scs
+from numpy.typing import ArrayLike, NDArray
+from scipy.optimize import brentq
+from tqdm import tqdm
+
+from ..types import NDArray_M, NDArray_MxN, NDArray_N
 
 
 def ablated_thermal_speed_bronshten_1983(meteoroid_surface_temperature, meteoroid_molecular_mass):
@@ -98,6 +103,10 @@ def _do_integral_2(ksi, rlam23, cth, sth):
 
 def do_int_1_quad(a, b, rlam23, cth, quad_abs_tol):
     """Numerically evaluate integral 1 in `_do_integral_1`"""
+    if not np.isfinite(a):
+        return np.nan
+    if a == b:
+        return 0.0
     int1 = sci.quad(
         _do_integral_1,
         a,
@@ -111,6 +120,10 @@ def do_int_1_quad(a, b, rlam23, cth, quad_abs_tol):
 
 def do_int_2_quad(a, b, rlam23, cth, sth, quad_abs_tol):
     """Numerically evaluate integral 2 in `_do_integral_2`"""
+    if not np.isfinite(a):
+        return np.nan
+    if a == b or cth == 0:
+        return 0.0
     int2 = sci.quad(
         _do_integral_2,
         a,
@@ -122,316 +135,124 @@ def do_int_2_quad(a, b, rlam23, cth, sth, quad_abs_tol):
     return int2[0]
 
 
-def plasma_distribution_morphology_array(
-    r: NDArray_N,
-    theta: NDArray_N,
-    quad_abs_tol: float = 1e-5,
-    # upper_limit_delta: float = 1e-6,
-    pbar: bool = True):
-
-    # Generate density distribution
-    # Solve for a 2D plane
-
-    ### bookmark 1 ###
-
-    ## r and theta as arrays, broadcasting used to achieve same shape of arrays
-    r = np.asarray(r, dtype=float)
-    theta = np.asarray(theta, dtype=float)
-    r, theta = np.broadcast_arrays(r, theta)
-
-    ## cos and sin theta
-    costh = np.cos(theta)
-    sinth = np.sin(theta)
-
-    ## mean free path x and y components
-    Xlam = r * costh
-    Ylam = r * sinth
-
-    ## r as Rlam 
-    Rlam = r.copy()
-    Rlam[Rlam == 0] = np.nan
-    Rlam23 = Rlam ** (2/3)
-
-    ## Func 1 (same as before)
-    Func1 = np.sqrt(2 * np.pi / 3) / Rlam * scs.erf(
-        np.sqrt(3 / 2) * Rlam ** (1 / 3) * np.abs(costh) ** (1 / 3)
-    ) - np.exp(-3 / 2 * Rlam23 * np.abs(costh) ** (2 / 3)) * (
-        (4 - np.pi)
-        * np.abs(costh)
-        / (2 * np.sqrt((1 + (4 - np.pi) ** 2 * Rlam23 * np.abs(costh) ** (2 / 3)) / (2 * np.pi)))
-        + 2 * np.abs(costh) ** (1 / 3) / Rlam23
-    )
-
-    ## Func 2 (same as before)
-    Func2 = np.sqrt(2 * np.pi / 3) / Rlam * scs.erf(np.sqrt(3 * Rlam23 / 2)) - (
-        1 + 2 / Rlam23
-    ) * np.exp(-3 * Rlam23 / 2)
-
-    ## flatten but ravel for faster computation of quad loop
-    orig_shape = costh.shape
-    costh_f = costh.ravel()
-    sinth_f = sinth.ravel()
-    Rlam23_f = Rlam23.ravel()
-
-    low_lim = np.abs(costh_f)
-    up_lim = np.full_like(costh_f, 1.0)
-
-
-    # ## limiting the limits of the integral
-    # bad = low_lim >= up_lim
-    # low_lim[bad] = up_lim[bad]
-
-    ## creating empty arrays with same size and shape as flattened costh
-    Func3_1 = np.empty_like(costh_f)
-    Func3_2 = np.empty_like(costh_f)
-
-    ## older sin(theta) -> (sth) is super small but not zero, and we need it to be not zero when dividing
-    sth_eps = 1e-14
-
-    ## progress bar
-    if pbar:
-        tqdm_bar = tqdm(desc = "Computing electron density", total = costh_f.size)
-
-    ## quad loop for int1 and int2 of equation 5 or third term (Sugar et al)
-    for i in range(costh_f.size):
-        # filter NaNs
-        if not np.isfinite(Rlam23_f[i]) or not np.isfinite(costh_f[i]):
-            Func3_1[i] = 0.0
-            Func3_2[i] = 0.0
-        else:
-            Func3_1[i] = do_int_1_quad(low_lim[i], up_lim[i], Rlam23_f[i], costh_f[i], quad_abs_tol)
-
-            # integral 2 becomes unstable when sintheta ~ theta (we use sth_eps here)
-            if abs(sinth_f[i]) < sth_eps:
-                Func3_2[i] = 0.0
-            else:
-                Func3_2[i] = do_int_2_quad(
-                    low_lim[i], up_lim[i], Rlam23_f[i], costh_f[i], sinth_f[i], quad_abs_tol
-                )
-
-        if pbar:
-            tqdm_bar.update(1)
-
-    if pbar:
-        tqdm_bar.close()
-
-
-    # reshaping func3_1 and func3_2 after flattening
-    Func3_1 = Func3_1.reshape(orig_shape)
-    Func3_2 = Func3_2.reshape(orig_shape)
-
-    # combining terms and returning values
-    t1 = np.abs(costh) * Func1
-    t2 = costh * Func2
-    t3 = np.abs(costh) * Func3_2 + Func3_1
-    t3[np.isnan(t3)] = 0
-
-    ne_morph = np.abs(t1 + t2 + t3)
-
-
-
-    return Xlam, Ylam, Rlam, ne_morph, t1, t2, t3, quad_abs_tol
-
-
-# Sample values to test
-theta_sample = 1  # radians
-r_sample = np.array([0.001, 0.01, 0.1, 1.0, 5.0, 10.0]) #Rlam
-theta_grid = np.full_like(r_sample, theta_sample)
-
-_, _, Rlam, ne_morph, *_ = plasma_distribution_morphology_array(
-    r_sample,
-    theta_grid,
-    pbar=False,
-    quad_abs_tol=1e-5
-)
-
-print("Sample Rlam and ne_morph values:")
-for r_val, ne_val in zip(Rlam, ne_morph):
-    print("Rlam:", r_val, "ne_morph:", ne_val)
-
-### Solve r from ne_morph and theta ###
-
-# """
-# This is a solver that uses root finder to find r, 
-# such that theta and ne_morph are known. 
-# Note that we are not directly finding the root of ne_morph. 
-# Instead, we are finding the difference between the ne_morph with
-# trial r and user input ne_morph. If the difference is 0,
-# trial r gives the target ne_morph.
-
-# Returns:
-# - best_r: r found by the root finder (based on user input theta and ne_morph)
-# - best_ne_morph: ne_morph evaluated at best_r
-# - error: best_ne_morph - input_ne_morph
-
-# DISCLAIMER: r here is actually Rlam - in mean-free-path units.
-# """
-
-
-from scipy.optimize import root_scalar # solves one-dimensional equations
-
-
-def solve_r(
-        theta,
-        input_ne_morph,
-        r_min = 0.001, # to be specified later
-        r_max = 10.0, # to be specified later
-        quad_abs_tol = 1e-5,
-        xtol = 1e-6 # root finder tolerance
-): 
-    
-    def ne_morph_at_r(
-            r # solver provides trial r
-    ):
-        _, _, Rlam, ne_morph, *_ = plasma_distribution_morphology_array( 
-            np.array([r]),
-            np.array([theta]), 
-            pbar = True, 
-            quad_abs_tol=quad_abs_tol
-    )
-        
-        return float(ne_morph[0])
-
-    def objective(r):
-        return ne_morph_at_r(r) - input_ne_morph
-    
-    f_min = objective(r_min) # ne_morph difference
-    f_max = objective(r_max)
-
-    if f_min == 0:
-        best_r = r_min
-    elif f_max == 0:
-        best_r = r_max
-    elif f_min * f_max > 0: # checking bounds
-        raise ValueError(
-            "Root is not bracketed. Values at r_min and r_max do not have opposite signs. Try changing r_min and/or r_max."
-        )
-    else:
-        result = root_scalar( # actual root finder function from scipy
-            objective,
-            bracket = [r_min, r_max],
-            method = "brentq",
-            xtol = xtol
-        )
-
-        if not result.converged:
-            raise RuntimeError("Root finder did not converge.")
-        
-        best_r = result.root
-
-    best_ne_morph = ne_morph_at_r(best_r)
-    error = best_ne_morph - input_ne_morph
-
-    return best_r, best_ne_morph, error
-
-
-theta = float(input("Theta? [rad]"))
-input_ne_morph = float(input("Target ne_morph?"))
-
-best_r, best_ne_morph, error = solve_r(
-    theta = theta,
-    input_ne_morph = input_ne_morph,
-    r_min = 0.001, # to be specified later
-    r_max = 10.0, # to be specified later
-    quad_abs_tol = 1e-5
-)
-
-print("best r (in mean-free-path units, Rlam):", best_r)
-print("best ne_morph:", best_ne_morph)
-print("percent error:", error)
-
-
-
-
-
-
-'''
-    ### bookmark 2 - old code
-    [Xlam, Ylam] = np.meshgrid(x_grid, y_grid)
-
-    Rlam = np.sqrt(Xlam**2 + Ylam**2)
-    Rlam[Rlam == 0] = np.nan
-
-    costh = Xlam / Rlam
-    sinth = Ylam / Rlam
-    Rlam23 = Rlam ** (2 / 3)
-
-    Func1 = np.sqrt(2 * np.pi / 3) / Rlam * scs.erf(
-        np.sqrt(3 / 2) * Rlam ** (1 / 3) * np.abs(costh) ** (1 / 3)
-    ) - np.exp(-3 / 2 * Rlam23 * np.abs(costh) ** (2 / 3)) * (
-        (4 - np.pi)
-        * np.abs(costh)
-        / (2 * np.sqrt((1 + (4 - np.pi) ** 2 * Rlam23 * np.abs(costh) ** (2 / 3)) / (2 * np.pi)))
-        + 2 * np.abs(costh) ** (1 / 3) / Rlam23
-    )
-
-    Func2 = np.sqrt(2 * np.pi / 3) / Rlam * scs.erf(np.sqrt(3 * Rlam23 / 2)) - (
-        1 + 2 / Rlam23
-    ) * np.exp(-3 * Rlam23 / 2)
-
-
-    low_lim = np.abs(costh)  # Lower limit of integration |cosθ|
-    up_lim = np.full_like(
-        costh, 1 - upper_limit_delta
-    )  # Upper limit of integration 1 (avoid singularity at exactly 1)
-
-    # todo: hack to make sure integration limits are sane
-    low_lim[low_lim > up_lim] = up_lim[low_lim > up_lim] - upper_limit_delta
-
-    if pbar:
-        tqdm_bar = tqdm(desc="computing electron density", total=len(costh))
-    Func3_1 = np.empty_like(costh)
-    Func3_2 = np.empty_like(costh)
-    for ind in range(len(costh)):
-        Func3_1[ind] = do_int_1_quad(
-            low_lim[ind],
-            up_lim[ind],
-            Rlam23[ind],
-            costh[ind],
-            quad_abs_tol,
-        )
-        Func3_2[ind] = do_int_2_quad(
-            low_lim[ind],
-            up_lim[ind],
-            Rlam23[ind],
-            costh[ind],
-            sinth[ind],
-            quad_abs_tol,
-        )
-        if pbar:
-            tqdm_bar.update(1)
-    if pbar:
-        tqdm_bar.close()
-
-    t1 = np.abs(costh) * Func1
-    t2 = costh * Func2
-    t3 = np.abs(costh) * Func3_2 + Func3_1
-    t3[np.isnan(t3)] = 0
-
-    ne_morph = np.abs(t1 + t2 + t3)
-
-    return Xlam, Ylam, Rlam, ne_morph
-
-
 def plasma_distribution_morphology_grid(
-    x_grid,
-    y_grid,
-    quad_abs_tol=1e-7,
-    upper_limit_delta=1e-6,
-    threads=None,
-    pbar=True,
-):
+    x_grid: NDArray_N,
+    y_grid: NDArray_M,
+    quad_abs_tol: float = 1e-7,
+    upper_limit_delta: float = 0.0,
+    threads: int | None = None,
+    pbar: bool = True,
+) -> tuple[NDArray_MxN, NDArray_MxN, NDArray_MxN, NDArray_MxN]:
     """The plasma distribution morphology component of the Dimant and Oppenheim model, that is
     scaled by mean free path and independent of meteor parameters.
 
-    grid is in units of mean free path
+    Note
+    ----
+        Grid is in units of mean free path
+
+        The default includes the integrable endpoint at xi=1. A positive
+        upper_limit_delta truncates that endpoint for legacy calculations.
+        The density is undefined at the meteoroid center (R=0).
     """
-    # Generate density distribution
-    # Solve for a 2D plane
-    [Xlam, Ylam] = np.meshgrid(x_grid, y_grid)
+    Xlam, Ylam = np.meshgrid(x_grid, y_grid)
+    return _plasma_distribution_morphology(
+        Xlam, Ylam, quad_abs_tol, upper_limit_delta, threads, pbar
+    )
+
+
+def plasma_distribution_morphology_array(
+    r: ArrayLike,
+    theta: ArrayLike,
+    quad_abs_tol: float = 1e-7,
+    upper_limit_delta: float = 0.0,
+    threads: int | None = None,
+    pbar: bool = True,
+) -> tuple[NDArray, NDArray, NDArray, NDArray]:
+    """Evaluate morphology at paired polar coordinates, using NumPy broadcasting.
+
+    Parameters
+    ----------
+    r : array_like
+        Nonnegative radius R/lambda_T. The morphology is undefined at zero.
+    theta : array_like
+        Angle from the positive x axis, in radians. Must broadcast with ``r``.
+        For all radius-angle combinations use ``r[None, :]`` and ``theta[:, None]``.
+    quad_abs_tol, upper_limit_delta, threads, pbar
+        As in :func:`plasma_distribution_morphology_grid`.
+
+    Returns
+    -------
+    x, y, R, f : numpy.ndarray
+        Coordinates, radius, and morphology with the broadcast input shape.
+        Scalar inputs return zero-dimensional arrays. The normalized electron
+        density is ``f / R`` (ne/n_star), not ``f`` itself.
+    """
+    r, theta = np.broadcast_arrays(np.asarray(r, dtype=float), np.asarray(theta, dtype=float))
+    if np.any(~np.isfinite(r)) or np.any(r < 0):
+        raise ValueError("r must contain finite, nonnegative radii.")
+    if np.any(~np.isfinite(theta)):
+        raise ValueError("theta must contain finite angles in radians.")
+    return _plasma_distribution_morphology(
+        r * np.cos(theta), r * np.sin(theta), quad_abs_tol, upper_limit_delta, threads, pbar
+    )
+
+
+def solve_r(
+    theta: float,
+    target_density: float,
+    r_min: float = 0.001,
+    r_max: float = 10.0,
+    quad_abs_tol: float = 1e-7,
+    xtol: float = 1e-6,
+) -> tuple[float, float, float]:
+    """Find R/lambda_T for a normalized electron density ne/n_star at fixed theta.
+
+    ``theta`` is a finite scalar angle in radians. ``target_density`` must be
+    finite and positive. For a physical electron density, divide by n_star
+    before calling this function. This inverts ``f / R``, not the morphology ``f``.
+
+    The finite bounds must satisfy ``0 < r_min < r_max`` and bracket a root.
+    No automatic bracket expansion is performed. ``quad_abs_tol`` controls
+    morphology quadrature; ``xtol`` is the absolute radius tolerance of Brent's
+    method, not a density tolerance.
+
+    Returns ``(radius, density, residual)``, where residual is the evaluated
+    normalized density minus the target. Raises ValueError for invalid inputs
+    or an unbracketed root, and RuntimeError if the solver does not converge.
+    """
+    if not np.isfinite(theta):
+        raise ValueError("theta must be a finite scalar angle in radians.")
+    if not np.isfinite(target_density) or target_density <= 0:
+        raise ValueError("target_density must be finite and positive (ne/n_star).")
+
+    def objective(radius):
+        _, _, R, f = plasma_distribution_morphology_array(
+            radius, theta, quad_abs_tol=quad_abs_tol, pbar=False
+        )
+        residual = float(f / R) - target_density
+        if not np.isfinite(residual):
+            raise ValueError("The density is not finite within the supplied radius bracket.")
+        return residual
+
+    lower, upper = objective(r_min), objective(r_max)
+    if lower == 0:
+        radius = r_min
+    elif upper == 0:
+        radius = r_max
+    elif np.signbit(lower) == np.signbit(upper):
+        raise ValueError("Target density is not bracketed; adjust r_min and r_max.")
+    else:
+        radius = brentq(objective, r_min, r_max, xtol=xtol)
+
+    residual = objective(radius)
+    return float(radius), target_density + residual, residual
+
+
+def _plasma_distribution_morphology(Xlam, Ylam, quad_abs_tol, upper_limit_delta, threads, pbar):
+    """Shared Cartesian point evaluator for the grid and polar-array APIs."""
 
     Rlam = np.sqrt(Xlam**2 + Ylam**2)
-    Rlam[Rlam == 0] = np.nan
+    Rlam = np.where(Rlam == 0, np.nan, Rlam)
 
     costh = Xlam / Rlam
     sinth = Ylam / Rlam
@@ -440,9 +261,10 @@ def plasma_distribution_morphology_grid(
     Func1 = np.sqrt(2 * np.pi / 3) / Rlam * scs.erf(
         np.sqrt(3 / 2) * Rlam ** (1 / 3) * np.abs(costh) ** (1 / 3)
     ) - np.exp(-3 / 2 * Rlam23 * np.abs(costh) ** (2 / 3)) * (
-        (4 - np.pi)
-        * np.abs(costh)
-        / (2 * np.sqrt((1 + (4 - np.pi) ** 2 * Rlam23 * np.abs(costh) ** (2 / 3)) / (2 * np.pi)))
+        (4 - np.pi) * np.abs(costh)
+        # Dimant & Oppenheim (2017), Eq. 46: only the second term
+        # inside the square root is divided by 2*pi.
+        / (2 * np.sqrt(1 + (4 - np.pi) ** 2 * Rlam23 * np.abs(costh) ** (2 / 3) / (2 * np.pi)))
         + 2 * np.abs(costh) ** (1 / 3) / Rlam23
     )
 
@@ -456,12 +278,10 @@ def plasma_distribution_morphology_grid(
     sinth = sinth.reshape(new_shape)
     Rlam23 = Rlam23.reshape(new_shape)
     low_lim = np.abs(costh)  # Lower limit of integration |cosθ|
-    up_lim = np.full_like(
-        costh, 1 - upper_limit_delta
-    )  # Upper limit of integration 1 (avoid singularity at exactly 1)
-
-    # todo: hack to make sure integration limits are sane
-    low_lim[low_lim > up_lim] = up_lim[low_lim > up_lim] - upper_limit_delta
+    # Never move the lower bound below |cos(theta)|: that makes the
+    # integrands undefined near the symmetry axis. On the axis both
+    # integrals have zero width and vanish analytically.
+    up_lim = np.maximum(np.full_like(costh, 1 - upper_limit_delta), low_lim)
 
     # TODO: skip problematic points in the calc
     if threads is None:
@@ -517,7 +337,6 @@ def plasma_distribution_morphology_grid(
 
         for t in th:
             t.join()
-        print("\n" * threads)
         Func3_1 = np.ndarray(costh.shape, dtype=np.float64, buffer=f31.get_obj())
         Func3_2 = np.ndarray(costh.shape, dtype=np.float64, buffer=f32.get_obj())
     Func3_1 = Func3_1.reshape(orig_shape)
@@ -529,17 +348,12 @@ def plasma_distribution_morphology_grid(
     t1 = np.abs(costh) * Func1
     t2 = costh * Func2
     t3 = np.abs(costh) * Func3_2 + Func3_1
-    t3[np.isnan(t3)] = 0
+    t3 = np.where(np.isnan(t3), 0, t3)
 
     ne_morph = np.abs(t1 + t2 + t3)
 
-    # todo: this is to fix some numerical shenanigans, can probably be solved better
-    # zero_point = np.argmin(np.abs(y_grid))
-    # if y_grid[zero_point] < 1e-3:
-    #     ne_morph[zero_point, :] = (ne_morph[zero_point - 1, :] + ne_morph[zero_point + 1, :]) / 2
+    return np.asarray(Xlam), np.asarray(Ylam), np.asarray(Rlam), np.asarray(ne_morph)
 
-    return Xlam, Ylam, Rlam, ne_morph
-'''
 
 def plasma_distribution(
     total_atmospheric_number_density,
