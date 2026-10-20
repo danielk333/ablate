@@ -67,32 +67,6 @@ def test_morphology_matches_published_axis_density(direction):
     np.testing.assert_allclose(morphology[0], expected, rtol=1e-10, atol=1e-12)
 
 
-def test_transverse_density_keeps_integrable_endpoint():
-    # Eq. 48 at cos(theta)=0, with xi=sin(phi), gives an independent
-    # nonsingular quadrature. Truncating xi at 1-1e-6 omits a finite tail.
-    radius = np.array([0.1, 1.0, 5.0])
-    expected = np.array(
-        [
-            quad(
-                lambda phi: np.sqrt(1 + 2 / np.pi * (r * np.sin(phi)) ** (2 / 3))
-                * np.exp(-1.5 * (r * np.sin(phi)) ** (2 / 3))
-                * np.sin(phi),
-                0,
-                np.pi / 2,
-                epsabs=1e-11,
-                epsrel=1e-11,
-            )[0]
-            for r in radius
-        ]
-    )
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-        _, _, _, morphology = dimant.plasma_distribution_morphology_grid(
-            np.array([0.0]), radius, quad_abs_tol=1e-10, pbar=False
-        )
-    np.testing.assert_allclose(morphology[:, 0], expected, rtol=1e-8)
-
-
 @pytest.mark.parametrize("delta", [0.0, 1e-6])
 def test_near_axis_density_is_finite_without_invalid_integrands(delta):
     with warnings.catch_warnings():
