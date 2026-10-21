@@ -1,37 +1,44 @@
-#!/usr/bin/env python
-
 """msis00
 
 """
+from __future__ import annotations
+
+from importlib import import_module
+from types import ModuleType
+from typing import Any
+
+import numpy as np
 import scipy.constants
 import xarray as xr
+
+from ..types import ArrayLike
 from .atmosphere import Atmosphere
-from ..types import NDArray_N
 
-
+msise00: ModuleType | None
 try:
-    import msise00
+    msise00 = import_module("msise00")
 except ImportError:
     msise00 = None
 
 
 class AtmMSISE00(Atmosphere):
-    def __init__(self):
+
+    def __init__(self) -> None:
         super().__init__(
             supported_species=["He", "O", "N2", "O2", "Ar", "H", "N"],
         )
 
     def density(
         self,
-        time: NDArray_N,
-        lat: NDArray_N,
-        lon: NDArray_N,
-        alt: NDArray_N,
+        time: ArrayLike,
+        lat: ArrayLike,
+        lon: ArrayLike,
+        alt: ArrayLike,
         f107: float = 80.0,
         f107s: float = 80.0,
         Ap: float = 4.0,
         mass_densities: bool = False,
-        **kwargs
+        **kwargs: Any,
     ) -> xr.Dataset:
         """TODO: Write docstring
 
@@ -43,7 +50,7 @@ class AtmMSISE00(Atmosphere):
 
         result = msise00.run(
             time=time,
-            altkm=alt * 1e-3,
+            altkm=np.asarray(alt) * 1e-3,
             glat=lat,
             glon=lon,
             indices=dict(
@@ -51,7 +58,7 @@ class AtmMSISE00(Atmosphere):
                 f107s=f107s,
                 Ap=Ap,
             ),
-            **kwargs
+            **kwargs,
         )
         result["alt_km"] = result["alt_km"]*1e3
         result = result.rename({

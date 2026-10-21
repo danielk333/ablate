@@ -16,7 +16,6 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any
 
 import numpy as np
 from scipy.integrate import solve_ivp
@@ -33,6 +32,7 @@ from ..types import (
     NDArray_N,
     Options,
     Results,
+    Kwargs,
 )
 from .model import MeteorModel
 
@@ -46,11 +46,11 @@ class SMV_Options(Options):
     first_step: float | None = None  # [s]
     max_time: float = 100.0  # [s]
     method: str = "RK45"
-    method_kwargs: dict[str, Any] = field(default_factory=lambda: dict())
+    method_kwargs: Kwargs = field(default_factory=lambda: dict())
     atmosphere: Atmosphere = AtmPymsis()
-    atmosphere_kwargs: dict[str, Any] = field(default_factory=lambda: dict())
+    atmosphere_kwargs: Kwargs = field(default_factory=lambda: dict())
     start_altitude: float | None = 150e3  # [m]
-    material: Material = field(default_factory=lambda: material.get("cometary"))
+    material: Material = field(default_factory=lambda: material.get("cometary", as_dict=False))
 
 
 @dataclass
@@ -78,7 +78,8 @@ class SMV_Results(Results):
 
 
 class StulovMirskiiVislyi1995(MeteorModel[SMV_InitialState, SMV_Options, SMV_Results]):
-    def __init__(self, options: SMV_Options = SMV_Options()):
+
+    def __init__(self, options: SMV_Options = SMV_Options()) -> None:
         self.options = options
 
     def run(self, parameters: SMV_InitialState) -> SMV_Results:
@@ -108,12 +109,12 @@ class StulovMirskiiVislyi1995(MeteorModel[SMV_InitialState, SMV_Options, SMV_Res
             dtype=np.float64,
         )
 
-        def _low_mass(t: float, y: NDArray_N, *args: tuple[Any]) -> float:
+        def _low_mass(t: float, y: NDArray_N, *args: object) -> float:
             res = y[1] / self.options.minimum_mass - 1
             return res
 
-        _low_mass.terminal = True  # type: ignore
-        _low_mass.direction = -1  # type: ignore
+        _low_mass.terminal = True  # type: ignore[attr-defined]
+        _low_mass.direction = -1  # type: ignore[attr-defined]
 
         events = [_low_mass]
 
@@ -158,8 +159,8 @@ class StulovMirskiiVislyi1995(MeteorModel[SMV_InitialState, SMV_Options, SMV_Res
 
 
 def diff_eq_rhs(
-    t,
-    y,
+    t: float,
+    y: NDArray_N,
     epoch: np.datetime64,
     reference_ecef: NDArray_3,
     v_dir_ecef: NDArray_3,

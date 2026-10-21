@@ -1,7 +1,9 @@
 import numpy as np
 
+from ..types import NDArray, Numeric
 
-def luminosity_hill_2005(velocity, thermal_ablation):
+
+def luminosity_hill_2005(velocity: NDArray, thermal_ablation: Numeric) -> NDArray:
     """Luminosity during thermal ablation.
 
     Luminosity occurs in meteors as a result of decay of excited atomic (and

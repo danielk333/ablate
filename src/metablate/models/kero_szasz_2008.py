@@ -27,7 +27,6 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any
 
 import numpy as np
 from scipy.integrate import solve_ivp
@@ -39,12 +38,13 @@ from .. import material, physics
 from ..atmosphere import Atmosphere, AtmPymsis
 from ..types import (
     Material,
+    Numeric,
     NDArray_3,
     NDArray_3xN,
-    NDArray_M,
     NDArray_N,
     Options,
     Results,
+    Kwargs,
 )
 from .model import MeteorModel
 
@@ -59,13 +59,13 @@ class KeroSzaszOptions(Options):
     first_step: float | None = None  # [s]
     max_time: float = 100.0  # [s]
     method: str = "RK45"
-    method_kwargs: dict[str, Any] = field(default_factory=lambda: dict())
+    method_kwargs: Kwargs = field(default_factory=lambda: dict())
     sputtering: bool = False
     atmosphere: Atmosphere = AtmPymsis()
-    atmosphere_kwargs: dict[str, Any] = field(default_factory=lambda: dict())
+    atmosphere_kwargs: Kwargs = field(default_factory=lambda: dict())
     effective_atmospheric_temperature: float = 290  # [K]
     start_altitude: float | None = 150e3  # [m]
-    material: Material = field(default_factory=lambda: material.get("cometary"))
+    material: Material = field(default_factory=lambda: material.get("cometary", as_dict=False))
     shape_factor: float = 1.21  # [1]
     emissivity: float = 0.9  # [1]
 
@@ -94,7 +94,8 @@ class KeroSzaszResults(Results):
 
 
 class KeroSzasz2008(MeteorModel[KeroSzaszInitialState, KeroSzaszOptions, KeroSzaszResults]):
-    def __init__(self, options: KeroSzaszOptions = KeroSzaszOptions()):
+
+    def __init__(self, options: KeroSzaszOptions = KeroSzaszOptions()) -> None:
         self.options = options
 
     def run(self, parameters: KeroSzaszInitialState) -> KeroSzaszResults:
@@ -161,12 +162,12 @@ class KeroSzasz2008(MeteorModel[KeroSzaszInitialState, KeroSzaszOptions, KeroSza
             dtype=np.float64,
         )
 
-        def _low_mass(t: float, y: NDArray_N, *args: tuple[Any]) -> float:
+        def _low_mass(t: float, y: NDArray_N, *args: object) -> float:
             res = y[1] / self.options.minimum_mass - 1
             return res
 
-        _low_mass.terminal = True  # type: ignore
-        _low_mass.direction = -1  # type: ignore
+        _low_mass.terminal = True  # type: ignore[attr-defined]
+        _low_mass.direction = -1  # type: ignore[attr-defined]
 
         events = [_low_mass]
 
@@ -222,7 +223,7 @@ class KeroSzasz2008(MeteorModel[KeroSzaszInitialState, KeroSzaszOptions, KeroSza
             # )
         else:
             dmdt_s = 0.0
-        dmdt = dmdt_a + dmdt_s
+        dmdt = np.asarray(dmdt_a + dmdt_s)
 
         return KeroSzaszResults(
             runtime=time.perf_counter() - t0,
@@ -236,13 +237,14 @@ class KeroSzasz2008(MeteorModel[KeroSzaszInitialState, KeroSzaszOptions, KeroSza
             velocity_ecef=velocity_ecef,
         )
 
+
 # TODO: investigate using numba njit on this function
 # there might also be a faster way to call MSIS? like an initial cache and than using an interpolator
 def diff_eq_rhs(
     t: float,
-    y: NDArray_M,
-    drag_coefficient: float | None,
-    heat_transfer_coefficient: float | None,
+    y: NDArray_N,
+    drag_coefficient: Numeric | None,
+    heat_transfer_coefficient: Numeric | None,
     epoch: np.datetime64,
     reference_ecef: NDArray_3,
     v_dir_ecef: NDArray_3,

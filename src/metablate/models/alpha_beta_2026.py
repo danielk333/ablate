@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any
 
 import numpy as np
 import scipy.interpolate as sci
@@ -16,10 +15,15 @@ from scipy.integrate import solve_ivp
 from .. import physics
 from ..atmosphere import Atmosphere
 from ..types import (
+    Bounds,
+    Kwargs,
+    NDArray,
     NDArray_2xN,
     NDArray_N,
+    Numeric,
     Options,
     Results,
+    StateVector,
 )
 from .model import MeteorModel
 
@@ -34,9 +38,9 @@ class AlphaBetaOptions(Options):
     max_time: float = 100.0  # [s]
     target_normalized_velocity: float | None = None  # [1]
     method: str = "RK45"
-    method_kwargs: dict[str, Any] = field(default_factory=lambda: dict())
+    method_kwargs: Kwargs = field(default_factory=lambda: dict())
     atmosphere: Atmosphere | None = None
-    atmosphere_kwargs: dict[str, Any] = field(default_factory=lambda: dict())
+    atmosphere_kwargs: Kwargs = field(default_factory=lambda: dict())
     atmospheric_scale_height: float = 7610.0
 
 
@@ -62,24 +66,24 @@ class AlphaBetaResults(Results):
 
 
 def dmdt(
-    v: NDArray_N | float,
-    a: NDArray_N | float,
-    beta: NDArray_N | float,
-    mu: NDArray_N | float,
-) -> NDArray_N | float:
+    v: Numeric,
+    a: Numeric,
+    beta: Numeric,
+    mu: Numeric,
+) -> Numeric:
     return 2 * beta * v * a / (1 - mu) * np.exp(-beta * (1 - v**2) / (1 - mu))
 
 
 def diff_eq_rhs(
     t: float,
-    params: list[NDArray_N | float],
+    params: StateVector,
     alpha: float,
     beta: float,
     gamma: float,
     entry_velocity: float,
     atmospheric_scale_height: float,
 ) -> NDArray_N | NDArray_2xN:
-    s, v = params
+    _, v = params
     delta = scs.expi(beta) - scs.expi(beta * v**2)
     coef = entry_velocity / atmospheric_scale_height
     return np.array(
@@ -91,7 +95,8 @@ def diff_eq_rhs(
 
 
 class AlphaBeta2026(MeteorModel[AlphaBetaInitialState, AlphaBetaOptions, AlphaBetaResults]):
-    def __init__(self, options: AlphaBetaOptions = AlphaBetaOptions()):
+
+    def __init__(self, options: AlphaBetaOptions = AlphaBetaOptions()) -> None:
         self.options = options
         if options.atmosphere is not None:
             raise NotImplementedError(
@@ -133,12 +138,12 @@ class AlphaBeta2026(MeteorModel[AlphaBetaInitialState, AlphaBetaOptions, AlphaBe
         s0 = 0
         y0 = np.array([s0, v0_norm])
 
-        def _low_velocity(t: float, y: NDArray_N, *args: tuple[Any]) -> float:
+        def _low_velocity(t: float, y: NDArray_N, *args: object) -> float:
             res = y[1] / v_final_norm - 1
             return res
 
-        _low_velocity.terminal = True  # type: ignore
-        _low_velocity.direction = -1  # type: ignore
+        _low_velocity.terminal = True  # type: ignore[attr-defined]
+        _low_velocity.direction = -1  # type: ignore[attr-defined]
 
         events = [_low_velocity]
 
@@ -179,40 +184,46 @@ class AlphaBeta2026(MeteorModel[AlphaBetaInitialState, AlphaBetaOptions, AlphaBe
             t=ivp_result.t,
             distance=s_vals,
             velocity=v_norm * parameters.entry_velocity,
-            height=physics.alpha_beta.height_direct(
-                v_norm,
-                self.options.atmospheric_scale_height,
-                parameters.alpha,
-                parameters.beta,
+            height=np.asarray(
+                physics.alpha_beta.height_direct(
+                    v_norm,
+                    self.options.atmospheric_scale_height,
+                    parameters.alpha,
+                    parameters.beta,
+                )
             ),
-            relative_mass=physics.alpha_beta.norm_mass_direct(
-                v_norm,
-                parameters.beta,
-                parameters.shape_change_coefficient,
+            relative_mass=np.asarray(
+                physics.alpha_beta.norm_mass_direct(
+                    v_norm,
+                    parameters.beta,
+                    parameters.shape_change_coefficient,
+                )
             ),
-            massloss=dmdt(
-                v_norm,
-                diffs[1, :],
-                parameters.beta,
-                parameters.shape_change_coefficient,
+            massloss=np.asarray(
+                dmdt(
+                    v_norm,
+                    diffs[1, :],
+                    parameters.beta,
+                    parameters.shape_change_coefficient,
+                )
             ),
         )
 
 
 def logposterior_alpha_beta(
-    alpha,
-    beta,
-    heights,
-    heights_std,
-    velocities,
-    velocities_std,
-    t_eval,
-    initial_height,
-    entry_velocity,
-    entry_angle,
-    shape_change_coefficient,
-    model,
-):
+    alpha: float,
+    beta: float,
+    heights: NDArray_N,
+    heights_std: Numeric,
+    velocities: NDArray_N,
+    velocities_std: Numeric,
+    t_eval: NDArray_N,
+    initial_height: float,
+    entry_velocity: float,
+    entry_angle: float,
+    shape_change_coefficient: float,
+    model: AlphaBeta2026,
+) -> float:
     p = AlphaBetaInitialState(
         epoch=None,
         alpha=alpha,
@@ -243,19 +254,19 @@ def logposterior_alpha_beta(
 
 
 def solve_alpha_beta_posterior(
-    t,
-    heights,
-    heights_std,
-    velocities,
-    velocities_std,
-    entry_angle,
-    shape_change_coefficient,
-    entry_velocity=None,
-    options=None,
-    start=None,
-    bounds=((0.01, 1e8), (0.5e-1, 200.0), (0.0, None)),
-    minimize_kwargs={},
-):
+    t: NDArray_N,
+    heights: NDArray_N,
+    heights_std: Numeric,
+    velocities: NDArray_N,
+    velocities_std: Numeric,
+    entry_angle: float,
+    shape_change_coefficient: float,
+    entry_velocity: float | None = None,
+    options: AlphaBetaOptions | None = None,
+    start: NDArray | list[float | None] | None = None,
+    bounds: Bounds = ((0.01, 1e8), (0.5e-1, 200.0), (0.0, None)),
+    minimize_kwargs: Kwargs = {},
+) -> sco.OptimizeResult:
     """Solve for alpha and beta (and optionally velocity) using minimization of the posterior [^1].
 
     [^1]: Kastinen et al (2026) in preparation
@@ -272,10 +283,12 @@ def solve_alpha_beta_posterior(
     if start is None:
         start = [a0, b0, v0]
     else:
-        if start[1] is None:
-            start[1] = b0
+        beta_start = start[1]
+        if beta_start is None:
+            beta_start = b0
+            start[1] = beta_start
         if start[0] is None:
-            start[0] = np.exp(Yvalues[-1]) / (2.0 * start[1])
+            start[0] = np.exp(Yvalues[-1]) / (2.0 * beta_start)
         if start[2] is None:
             start[2] = v0
 
@@ -286,7 +299,7 @@ def solve_alpha_beta_posterior(
         start = start[:2]
         bounds = (bounds[0], bounds[1])
 
-        def wrap_func(x):
+        def wrap_func(x: NDArray_N) -> float:
             return -logposterior_alpha_beta(
                 x[0],
                 x[1],
@@ -301,9 +314,10 @@ def solve_alpha_beta_posterior(
                 shape_change_coefficient,
                 model,
             )
+
     else:
 
-        def wrap_func(x):
+        def wrap_func(x: NDArray_N) -> float:
             return -logposterior_alpha_beta(
                 x[0],
                 x[1],

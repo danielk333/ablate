@@ -5,20 +5,23 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any
 
 import numpy as np
-import scipy.interpolate as sci
 import scipy.optimize as sco
 from scipy import constants
 from scipy.integrate import solve_ivp
 
 from ..atmosphere import Atmosphere, AtmPymsis
 from ..types import (
+    Bounds,
+    Kwargs,
+    NDArray,
     NDArray_2xN,
     NDArray_N,
+    Numeric,
     Options,
     Results,
+    StateVector,
 )
 from .model import MeteorModel
 
@@ -30,25 +33,25 @@ EARTH_RADIUS = 6378136.3  # TODO: reference
 
 
 def ballistic_parameter_direct(
-    aerodynamic_cd,
-    initial_cross_section,
-    initial_mass,
+    aerodynamic_cd: float,
+    initial_cross_section: float,
+    initial_mass: float,
 ) -> float:
     return 0.5 * aerodynamic_cd * initial_cross_section / initial_mass
 
 
 def massloss_parameter_direct(
-    heat_exchange_coefficient,
-    enthalpy_of_massloss,
-    initial_cross_section,
-    initial_mass,
+    heat_exchange_coefficient: float,
+    enthalpy_of_massloss: float,
+    initial_cross_section: float,
+    initial_mass: float,
 ) -> float:
     return 0.5 * heat_exchange_coefficient * initial_cross_section / (enthalpy_of_massloss * initial_mass)
 
 
 def ballistic_parameter_to_area_to_mass(
-    ballistic_parameter,
-    aerodynamic_cd,
+    ballistic_parameter: float,
+    aerodynamic_cd: float,
 ) -> float:
     return 2 * ballistic_parameter / aerodynamic_cd
 
@@ -62,14 +65,14 @@ class SimpleAblationOptions(Options):
     max_time: float = 100.0  # [s]
     linear_trajectory: bool = False
     method: str = "RK45"
-    method_kwargs: dict[str, Any] = field(default_factory=lambda: dict())
+    method_kwargs: Kwargs = field(default_factory=lambda: dict())
     atmosphere: Atmosphere = AtmPymsis()
-    atmosphere_kwargs: dict[str, Any] = field(default_factory=lambda: dict())
+    atmosphere_kwargs: Kwargs = field(default_factory=lambda: dict())
 
 
 @dataclass
 class SimpleAblationInitialState:
-    epoch: np.datetime64 | None
+    epoch: np.datetime64
     initial_height: float  # m
     initial_velocity: float  # m/s
     entry_angle: float  # rad
@@ -93,7 +96,7 @@ class SimpleAblationResults(Results):
 
 def diff_eq_rhs(
     t: float,
-    params: list[NDArray_N | float],
+    params: StateVector,
     ballistic_parameter: float,
     massloss_parameter: float,
     shape_change_coefficient: float,
@@ -103,6 +106,7 @@ def diff_eq_rhs(
     initial_gamma: float,
     options: SimpleAblationOptions,
 ) -> NDArray_N | NDArray_2xN:
+    gamma: Numeric
     if options.linear_trajectory:
         _, h, v, m = params
         gamma = initial_gamma
@@ -152,7 +156,8 @@ def diff_eq_rhs(
 class SimpleAblation2026(
     MeteorModel[SimpleAblationInitialState, SimpleAblationOptions, SimpleAblationResults]
 ):
-    def __init__(self, options: SimpleAblationOptions = SimpleAblationOptions()):
+
+    def __init__(self, options: SimpleAblationOptions = SimpleAblationOptions()) -> None:
         self.options = options
 
     def run(self, parameters: SimpleAblationInitialState) -> SimpleAblationResults:
@@ -185,18 +190,18 @@ class SimpleAblation2026(
                 dtype=np.float64,
             )
 
-        def _low_mass(t: float, y: NDArray_N, *args: tuple[Any]) -> float:
+        def _low_mass(t: float, y: NDArray_N, *args: object) -> float:
             res = y[3] / self.options.minimum_relative_mass - 1
             return res
 
-        def _low_alt(t: float, y: NDArray_N, *args: tuple[Any]) -> float:
+        def _low_alt(t: float, y: NDArray_N, *args: object) -> float:
             res = y[1] / self.options.minimum_altitude - 1
             return res
 
-        _low_mass.terminal = True  # type: ignore
-        _low_mass.direction = -1  # type: ignore
-        _low_alt.terminal = True  # type: ignore
-        _low_alt.direction = -1  # type: ignore
+        _low_mass.terminal = True  # type: ignore[attr-defined]
+        _low_mass.direction = -1  # type: ignore[attr-defined]
+        _low_alt.terminal = True  # type: ignore[attr-defined]
+        _low_alt.direction = -1  # type: ignore[attr-defined]
 
         events = [_low_mass, _low_alt]
 
@@ -261,124 +266,36 @@ class SimpleAblation2026(
 
 
 def logposterior_alpha_beta(
-    alpha,
-    beta,
-    heights,
-    heights_std,
-    velocities,
-    velocities_std,
-    t_eval,
-    initial_height,
-    entry_velocity,
-    entry_angle,
-    shape_change_coefficient,
-    model,
-):
-    p = SimpleAblationInitialState(
-        epoch=None,
-        alpha=alpha,
-        beta=beta,
-        initial_height=initial_height,
-        entry_velocity=entry_velocity,
-        entry_angle=entry_angle,
-        shape_change_coefficient=shape_change_coefficient,
-    )
-    result = model.run(p)
-    model_h = sci.interp1d(result.t, result.height, kind="linear", fill_value=np.nan, bounds_error=False)
-    model_v = sci.interp1d(result.t, result.velocity, kind="linear", fill_value=np.nan, bounds_error=False)
-    resids_sq = np.nansum(((heights - model_h(t_eval)) / heights_std) ** 2)
-    resids_sq += np.nansum(((velocities - model_v(t_eval)) / velocities_std) ** 2)
-
-    # import matplotlib.pyplot as plt
-    # fig, axes = plt.subplots(3, 1)
-    # axes[0].plot(t_eval, model_h(t_eval))
-    # axes[0].plot(t_eval, heights)
-    # axes[1].plot(t_eval, model_v(t_eval))
-    # axes[1].plot(t_eval, velocities)
-    # axes[2].plot(t_eval, ((heights - model_h(t_eval)) / heights_std) ** 2)
-    # axes[2].plot(t_eval, ((velocities - model_v(t_eval)) / velocities_std) ** 2)
-    # fig.suptitle(f"{resids_sq}")
-    # plt.show()
-    #
-    return -0.5 * resids_sq
+    alpha: float,
+    beta: float,
+    heights: NDArray_N,
+    heights_std: Numeric,
+    velocities: NDArray_N,
+    velocities_std: Numeric,
+    t_eval: NDArray_N,
+    initial_height: float,
+    entry_velocity: float,
+    entry_angle: float,
+    shape_change_coefficient: float,
+    model: SimpleAblation2026,
+) -> float:
+    """Placeholder: alpha-beta parameters are not simple-ablation state fields."""
+    raise NotImplementedError("Simple-ablation posterior fitting is not implemented.")
 
 
 def solve_simple_posterior(
-    t,
-    heights,
-    heights_std,
-    velocities,
-    velocities_std,
-    entry_angle,
-    shape_change_coefficient,
-    entry_velocity=None,
-    options=None,
-    start=None,
-    bounds=((0.01, 1e8), (0.5e-1, 200.0), (0.0, None)),
-    minimize_kwargs={},
-):
-    """Solve for alpha and beta (and optionally velocity) using minimization of the posterior [^1].
-
-    [^1]: Kastinen et al (2026) in preparation
-    """
-    if options is None:
-        options = SimpleAblationOptions()
-    Yvalues = heights / options.atmospheric_scale_height
-
-    b0 = 1.0
-    a0 = np.exp(Yvalues[-1]) / (2.0 * b0)
-    if np.log(a0) > 8:
-        a0 /= 10
-    v0 = velocities[0]
-    if start is None:
-        start = [a0, b0, v0]
-    else:
-        if start[1] is None:
-            start[1] = b0
-        if start[0] is None:
-            start[0] = np.exp(Yvalues[-1]) / (2.0 * start[1])
-        if start[2] is None:
-            start[2] = v0
-
-    model = SimpleAblation2026(
-        options=options,
-    )
-    if entry_velocity is not None:
-        start = start[:2]
-        bounds = (bounds[0], bounds[1])
-
-        def wrap_func(x):
-            return -logposterior_alpha_beta(
-                x[0],
-                x[1],
-                heights,
-                heights_std,
-                velocities,
-                velocities_std,
-                t - t[0],
-                heights[0],
-                entry_velocity,
-                entry_angle,
-                shape_change_coefficient,
-                model,
-            )
-    else:
-
-        def wrap_func(x):
-            return -logposterior_alpha_beta(
-                x[0],
-                x[1],
-                heights,
-                heights_std,
-                velocities,
-                velocities_std,
-                t - t[0],
-                heights[0],
-                x[2],
-                entry_angle,
-                shape_change_coefficient,
-                model,
-            )
-
-    res = sco.minimize(wrap_func, start, bounds=bounds, **minimize_kwargs)
-    return res
+    t: NDArray_N,
+    heights: NDArray_N,
+    heights_std: Numeric,
+    velocities: NDArray_N,
+    velocities_std: Numeric,
+    entry_angle: float,
+    shape_change_coefficient: float,
+    entry_velocity: float | None = None,
+    options: SimpleAblationOptions | None = None,
+    start: NDArray | list[float | None] | None = None,
+    bounds: Bounds = ((0.01, 1e8), (0.5e-1, 200.0), (0.0, None)),
+    minimize_kwargs: Kwargs = {},
+) -> sco.OptimizeResult:
+    """Placeholder for posterior fitting with the simple-ablation model."""
+    raise NotImplementedError("Simple-ablation posterior fitting is not implemented.")

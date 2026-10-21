@@ -1,24 +1,36 @@
 from __future__ import annotations
 
 import warnings
+from typing import TYPE_CHECKING, Callable
 
 import numpy as np
 import scipy.interpolate as sci
 import scipy.optimize as sco
 import scipy.special as scs
 
-from ..types import NDArray
+from ..types import (
+    ArrayLike,
+    AtmosphereData,
+    Bounds,
+    Kwargs,
+    NDArray,
+    NDArray_N,
+    Numeric,
+)
+
+if TYPE_CHECKING:
+    from ..atmosphere import Atmosphere
 
 
 def alpha_direct(
-    aerodynamic_cd,
-    sea_level_rho,
-    atmospheric_scale_height,
-    initial_cross_section,
-    initial_mass,
-    radiant_local_elevation,
-    degrees=False,
-):
+    aerodynamic_cd: Numeric,
+    sea_level_rho: Numeric,
+    atmospheric_scale_height: Numeric,
+    initial_cross_section: Numeric,
+    initial_mass: Numeric,
+    radiant_local_elevation: Numeric,
+    degrees: bool = False,
+) -> Numeric:
     """Ballistic coefficient used to describe the analytic solutions to the
     ablation equations described in [^1].
 
@@ -63,12 +75,12 @@ def alpha_direct(
 
 
 def beta_direct(
-    shape_change_coefficient,
-    heat_exchange_coefficient,
-    initial_velocity,
-    aerodynamic_cd,
-    enthalpy_of_massloss,
-):
+    shape_change_coefficient: Numeric,
+    heat_exchange_coefficient: Numeric,
+    initial_velocity: Numeric,
+    aerodynamic_cd: Numeric,
+    enthalpy_of_massloss: Numeric,
+) -> Numeric:
     """Mass loss parameter used to describe the analytic solutions to the
     ablation equations described in [^1].
 
@@ -112,7 +124,9 @@ def beta_direct(
     )
 
 
-def ablation_coefficient(beta, shape_change_coefficient, initial_velocity):
+def ablation_coefficient(
+    beta: Numeric, shape_change_coefficient: Numeric, initial_velocity: Numeric
+) -> Numeric:
     """Ablation coefficient calculated from the parameters of the
     analytic solutions to the ablation equations described in [^1].
 
@@ -149,13 +163,13 @@ def ablation_coefficient(beta, shape_change_coefficient, initial_velocity):
 
 
 def area_to_mass_ratio(
-    alpha,
-    aerodynamic_cd,
-    sea_level_rho,
-    atmospheric_scale_height,
-    radiant_local_elevation,
-    degrees=False,
-):
+    alpha: Numeric,
+    aerodynamic_cd: Numeric,
+    sea_level_rho: Numeric,
+    atmospheric_scale_height: Numeric,
+    radiant_local_elevation: Numeric,
+    degrees: bool = False,
+) -> Numeric:
     """Area to mass ratio from alpha."""
     el = np.radians(radiant_local_elevation) if degrees else radiant_local_elevation
     sin_gamma = np.sin(el)
@@ -163,36 +177,38 @@ def area_to_mass_ratio(
 
 
 def alpha_from_ballistic_coefficient(
-    ballistic_coefficient,
-    sea_level_rho,
-    atmospheric_scale_height,
-    radiant_local_elevation,
-    degrees=False,
-):
+    ballistic_coefficient: Numeric,
+    sea_level_rho: Numeric,
+    atmospheric_scale_height: Numeric,
+    radiant_local_elevation: Numeric,
+    degrees: bool = False,
+) -> Numeric:
     el = np.radians(radiant_local_elevation) if degrees else radiant_local_elevation
     return sea_level_rho * atmospheric_scale_height / (2 * ballistic_coefficient * np.sin(el))
 
 
 def ballistic_coefficient_from_alpha(
-    alpha,
-    sea_level_rho,
-    atmospheric_scale_height,
-    radiant_local_elevation,
-    degrees=False,
-):
+    alpha: Numeric,
+    sea_level_rho: Numeric,
+    atmospheric_scale_height: Numeric,
+    radiant_local_elevation: Numeric,
+    degrees: bool = False,
+) -> Numeric:
     el = np.radians(radiant_local_elevation) if degrees else radiant_local_elevation
     return sea_level_rho * atmospheric_scale_height / (2 * alpha * np.sin(el))
 
 
-def mass_to_radius(mass, bulk_density):
+def mass_to_radius(mass: Numeric, bulk_density: Numeric) -> Numeric:
     return np.cbrt(mass / bulk_density * 3 / (4 * np.pi))
 
 
-def radius_to_mass(radius, bulk_density):
+def radius_to_mass(radius: Numeric, bulk_density: Numeric) -> Numeric:
     return 4 * bulk_density * np.pi * radius**3 / 3
 
 
-def shape_factor_direct(initial_cross_section, initial_mass, bulk_density):
+def shape_factor_direct(
+    initial_cross_section: Numeric, initial_mass: Numeric, bulk_density: Numeric
+) -> Numeric:
     """
     Shape factor $ A_e $ is defined as the ratio between the body cross-sectional
     area $ S_e $ and its volume $ W_e^{\\frac{2}{3}} $ to the 2/3'd power [^1]. To not
@@ -211,15 +227,15 @@ def shape_factor_direct(initial_cross_section, initial_mass, bulk_density):
 
 
 def initial_mass_direct(
-    alpha,
-    aerodynamic_cd,
-    sea_level_rho,
-    atmospheric_scale_height,
-    radiant_local_elevation,
-    bulk_density,
-    shape_factor,
-    degrees=False,
-):
+    alpha: Numeric,
+    aerodynamic_cd: Numeric,
+    sea_level_rho: Numeric,
+    atmospheric_scale_height: Numeric,
+    radiant_local_elevation: Numeric,
+    bulk_density: Numeric,
+    shape_factor: Numeric,
+    degrees: bool = False,
+) -> Numeric:
     """Directly compute initial mass from analytic solution coefficients"""
 
     el = np.radians(radiant_local_elevation) if degrees else radiant_local_elevation
@@ -234,14 +250,25 @@ def initial_mass_direct(
     ) ** 3
 
 
-def mass_direct(velocity, initial_mass, beta, shape_change_coefficient, initial_velocity=None):
+def mass_direct(
+    velocity: Numeric,
+    initial_mass: Numeric,
+    beta: Numeric,
+    shape_change_coefficient: Numeric,
+    initial_velocity: Numeric | None = None,
+) -> Numeric:
     """Shorthand for `norm_mass_direct` scaled to physical units"""
     return initial_mass * norm_mass_direct(
         velocity, beta, shape_change_coefficient, initial_velocity=initial_velocity
     )
 
 
-def norm_mass_direct(velocity, beta, shape_change_coefficient, initial_velocity=None):
+def norm_mass_direct(
+    velocity: Numeric,
+    beta: Numeric,
+    shape_change_coefficient: Numeric,
+    initial_velocity: Numeric | None = None,
+) -> Numeric:
     """The solution for mass from the analytic solutions of the ablation eqations [^1].
 
     $$
@@ -258,7 +285,13 @@ def norm_mass_direct(velocity, beta, shape_change_coefficient, initial_velocity=
     return np.exp(-beta / (1 - shape_change_coefficient) * (1 - v**2))
 
 
-def height_direct(velocity, atmospheric_scale_height, alpha, beta, initial_velocity=None):
+def height_direct(
+    velocity: Numeric,
+    atmospheric_scale_height: Numeric,
+    alpha: Numeric,
+    beta: Numeric,
+    initial_velocity: Numeric | None = None,
+) -> Numeric:
     """Shorthand for `norm_height_direct` scaled to physical units"""
     return atmospheric_scale_height * norm_height_direct(
         velocity, alpha, beta, initial_velocity=initial_velocity
@@ -266,13 +299,13 @@ def height_direct(velocity, atmospheric_scale_height, alpha, beta, initial_veloc
 
 
 def approx_norm_velocity(
-    height,
-    alpha,
-    beta,
-    atmospheric_scale_height=None,
-    start=1 - 1e-12,
-    root_find_kwargs={"tol": 1e-12, "maxiter": 200},
-):
+    height: Numeric,
+    alpha: float,
+    beta: float,
+    atmospheric_scale_height: Numeric | None = None,
+    start: float = 1 - 1e-12,
+    root_find_kwargs: Kwargs = {"tol": 1e-12, "maxiter": 200},
+) -> Numeric:
     """Approximate solution for velocity for large beta as a function of height from the analytic
     solutions of the ablation eqations.
     """
@@ -283,13 +316,13 @@ def approx_norm_velocity(
     if not isinstance(Yvalues, np.ndarray):
         Yvalues = np.array([Yvalues])
 
-    def func_exact(v, y):
+    def func_exact(v: Numeric, y: Numeric) -> Numeric:
         return np.log(alpha) + 0.83 * beta * (1 - v) - np.log(-np.log(v)) - y
 
-    def abs_func_exact(v, y):
+    def abs_func_exact(v: Numeric, y: Numeric) -> Numeric:
         return np.abs(np.log(alpha) + 0.83 * beta * (1 - v) - np.log(-np.log(v)) - y)
 
-    def dabs_func_exact(v, y):
+    def dabs_func_exact(v: Numeric, y: Numeric) -> Numeric:
         return (-0.83 * beta - 1 / (v * np.log(v))) * np.sign(func_exact(v, y))
 
     Vvalues = np.zeros_like(Yvalues)
@@ -310,7 +343,9 @@ def approx_norm_velocity(
     return Vvalues
 
 
-def approx_norm_height_direct(velocity, alpha, beta, initial_velocity=None):
+def approx_norm_height_direct(
+    velocity: Numeric, alpha: Numeric, beta: Numeric, initial_velocity: Numeric | None = None
+) -> Numeric:
     """Approximate solution for height for large beta as a function of velocity from the analytic
     solutions of the ablation eqations.
     """
@@ -320,7 +355,9 @@ def approx_norm_height_direct(velocity, alpha, beta, initial_velocity=None):
     return np.log(alpha) + 0.83 * beta * (1 - v) - np.log(-np.log(v))
 
 
-def norm_height_direct(velocity, alpha, beta, initial_velocity=None):
+def norm_height_direct(
+    velocity: Numeric, alpha: Numeric, beta: Numeric, initial_velocity: Numeric | None = None
+) -> Numeric:
     """The solution for height as a function of velocity from the analytic
     solutions of the ablation eqations.
     """
@@ -330,7 +367,13 @@ def norm_height_direct(velocity, alpha, beta, initial_velocity=None):
     return np.log(alpha) + beta - np.log((scs.expi(beta) - scs.expi(beta * v**2)) * 0.5)
 
 
-def velocity_direct(mass, beta, initial_velocity, shape_change_coefficient, initial_mass=None):
+def velocity_direct(
+    mass: Numeric,
+    beta: Numeric,
+    initial_velocity: Numeric,
+    shape_change_coefficient: Numeric,
+    initial_mass: Numeric | None = None,
+) -> Numeric:
     """Shorthand..."""
     return initial_velocity * norm_velocity_direct(
         mass, beta, shape_change_coefficient, initial_mass=initial_mass
@@ -338,11 +381,11 @@ def velocity_direct(mass, beta, initial_velocity, shape_change_coefficient, init
 
 
 def norm_velocity_direct(
-    mass: NDArray | float,
-    beta: float,
-    shape_change_coefficient: float,
-    initial_mass: float | None = None,
-) -> NDArray | float:
+    mass: Numeric,
+    beta: Numeric,
+    shape_change_coefficient: Numeric,
+    initial_mass: Numeric | None = None,
+) -> Numeric:
     """Inverse of `norm_mass_direct`"""
     m = mass if isinstance(mass, np.ndarray) else np.array([mass])
     if initial_mass is not None:
@@ -357,7 +400,13 @@ def norm_velocity_direct(
     return vel
 
 
-def velocity_estimate(height, initial_velocity, alpha, beta, atmospheric_scale_height=None):
+def velocity_estimate(
+    height: Numeric,
+    initial_velocity: Numeric,
+    alpha: float,
+    beta: float,
+    atmospheric_scale_height: Numeric | None = None,
+) -> Numeric:
     """Shorthand for `norm_velocity_estimate` scaled to physical units"""
     return initial_velocity * norm_velocity_estimate(
         height, alpha, beta, atmospheric_scale_height=atmospheric_scale_height
@@ -365,14 +414,14 @@ def velocity_estimate(height, initial_velocity, alpha, beta, atmospheric_scale_h
 
 
 def norm_velocity_estimate_brute(
-    height,
-    alpha,
-    beta,
-    atmospheric_scale_height=None,
-    resolution=1000,
-    edge_delta=1e-10,
-    sampling=None,
-):
+    height: Numeric,
+    alpha: Numeric,
+    beta: Numeric,
+    atmospheric_scale_height: Numeric | None = None,
+    resolution: int = 1000,
+    edge_delta: Numeric = 1e-10,
+    sampling: NDArray | None = None,
+) -> Numeric:
     """Brute force approach to estimating velocity as a function of height from the analytic
     solutions of the ablation equations.
     """
@@ -392,17 +441,17 @@ def norm_velocity_estimate_brute(
 
 
 def norm_velocity_estimate(
-    height,
-    alpha,
-    beta,
-    atmospheric_scale_height=None,
-    start=1 - 1e-12,
-    minimize_kwargs={
+    height: Numeric,
+    alpha: float,
+    beta: float,
+    atmospheric_scale_height: Numeric | None = None,
+    start: float = 1 - 1e-12,
+    minimize_kwargs: Kwargs = {
         "method": "Nelder-Mead",
         "bounds": [(0, 1)],
         "options": {"xatol": 1e-12, "fatol": 1e-12, "maxiter": 1000},
     },
-):
+) -> Numeric:
     """Root-solver estimation of velocity as a function of height from the analytic
     solutions of the ablation equations.
     """
@@ -413,7 +462,7 @@ def norm_velocity_estimate(
     if not isinstance(Yvalues, np.ndarray):
         Yvalues = np.array([Yvalues])
 
-    def func_exact(v, y):
+    def func_exact(v: Numeric, y: Numeric) -> Numeric:
         return np.abs(np.log(alpha) + beta - np.log((scs.expi(beta) - scs.expi(beta * v**2)) * 0.5) - y)
 
     # If beta is larger than 500, the expi estimation algorithms start having trouble
@@ -435,12 +484,12 @@ def norm_velocity_estimate(
 
 
 def final_mass_direct(
-    final_velocity,
-    initial_mass,
-    beta,
-    shape_change_coefficient,
-    initial_velocity=None,
-):
+    final_velocity: Numeric,
+    initial_mass: Numeric,
+    beta: Numeric,
+    shape_change_coefficient: Numeric,
+    initial_velocity: Numeric | None = None,
+) -> Numeric:
     """Final mass based on the analytic solutions in
     [`mass_direct`][`ablate.ablation.alpha_beta.mass_direct`].
     """
@@ -453,26 +502,29 @@ def final_mass_direct(
     )
 
 
-def density_to_height_exponential_atm(atm_total_mass_density, atmospheric_scale_height, sea_level_rho):
+def density_to_height_exponential_atm(
+    atm_total_mass_density: Numeric, atmospheric_scale_height: Numeric, sea_level_rho: Numeric
+) -> Numeric:
     """Calculate height at a given atmospheric mass density given an exponential atmosphere."""
     return -np.log(atm_total_mass_density / sea_level_rho) * atmospheric_scale_height
 
 
 def scale_hight_to_exponential_atm(
-    height,
-    atmosphere,
-    sea_level_rho,
-    atmospheric_scale_height,
-    density_args=(),
-    density_kwargs={},
-    lims=None,
-    root_find_kwargs={},
-):
+    height: Numeric,
+    atmosphere: Atmosphere,
+    sea_level_rho: Numeric,
+    atmospheric_scale_height: Numeric,
+    density_args: tuple[ArrayLike, ...] = (),
+    density_kwargs: Kwargs = {},
+    lims: tuple[float, float] | None = None,
+    root_find_kwargs: Kwargs = {},
+) -> Numeric:
     """Scale heights using an arbitrary but strictly decreeing atmospheric
     density model as a function of the original height, so that the new heights gives the
     same density using a simple exponential atmospheric density model.
     """
-    d = atmosphere.density(*density_args, alt=height, **density_kwargs)
+    density: Callable[..., AtmosphereData] = atmosphere.density
+    d = density(*density_args, alt=height, **density_kwargs)
     atm_dens = d["Total"].values.squeeze()
 
     scaled_height = density_to_height_exponential_atm(
@@ -484,15 +536,15 @@ def scale_hight_to_exponential_atm(
 
 
 def scale_hight_to_model_atm(
-    height,
-    atmosphere,
-    sea_level_rho,
-    density_args=(),
-    density_kwargs={},
-    atmospheric_scale_height=None,
-    lims=None,
-    root_find_kwargs={},
-):
+    height: NDArray_N,
+    atmosphere: Atmosphere,
+    sea_level_rho: Numeric,
+    density_args: tuple[ArrayLike, ...] = (),
+    density_kwargs: Kwargs = {},
+    atmospheric_scale_height: Numeric | None = None,
+    lims: tuple[float, float] | None = None,
+    root_find_kwargs: Kwargs = {},
+) -> NDArray_N:
     """Scale heights from an exponential model to an arbitrary but strictly decreeing atmospheric
     density model as a function of the new height, so that the new heights in the atmospheric
     model gives the same density as the simple exponential model.
@@ -501,11 +553,13 @@ def scale_hight_to_model_atm(
     if atmospheric_scale_height is not None:
         Yvalues = Yvalues / atmospheric_scale_height
 
-    def get_density(h):
-        d = atmosphere.density(*density_args, alt=h, **density_kwargs)
+    density: Callable[..., AtmosphereData] = atmosphere.density
+
+    def get_density(h: Numeric) -> Numeric:
+        d = density(*density_args, alt=h, **density_kwargs)
         return d["Total"].values.squeeze()
 
-    def func_exact(h, y):
+    def func_exact(h: Numeric, y: Numeric) -> Numeric:
         return sea_level_rho * np.exp(-y) - get_density(h)
 
     scaled_height = np.zeros_like(height)
@@ -517,12 +571,14 @@ def scale_hight_to_model_atm(
     return scaled_height
 
 
-def atmosphere_density(height, atmospheric_scale_height, sea_level_rho):
+def atmosphere_density(
+    height: Numeric, atmospheric_scale_height: Numeric, sea_level_rho: Numeric
+) -> Numeric:
     """The atmospheric density model used by alpha-beta"""
     return sea_level_rho * np.exp(-height / atmospheric_scale_height)
 
 
-def Q5(x, velocities, yvals, fill_value=10.0):
+def Q5(x: NDArray, velocities: NDArray, yvals: NDArray, fill_value: Numeric = 10.0) -> Numeric:
     if len(x.shape) == 1:
         x.shape = (x.size, 1)
     size = x.shape[1]
@@ -542,13 +598,13 @@ def Q5(x, velocities, yvals, fill_value=10.0):
 
 
 def solve_alpha_beta_velocity_versionQ5(
-    velocities,
-    heights,
-    atmospheric_scale_height=None,
-    start=None,
-    bounds=((1e-2, 1e6), (5e-1, 1e3), (0, None)),
-    minimize_kwargs={},
-):
+    velocities: NDArray_N,
+    heights: NDArray_N,
+    atmospheric_scale_height: Numeric | None = None,
+    start: NDArray | list[float | None] | None = None,
+    bounds: Bounds = ((1e-2, 1e6), (5e-1, 1e3), (0, None)),
+    minimize_kwargs: Kwargs = {},
+) -> NDArray:
     """Solve for alpha and beta using minimization of the least squares of the
     observables input into the preserved analytical relation [^1].
 
@@ -575,10 +631,12 @@ def solve_alpha_beta_velocity_versionQ5(
     if start is None:
         start = [a0, b0, v0]
     else:
-        if start[1] is None:
-            start[1] = b0
+        beta_start = start[1]
+        if beta_start is None:
+            beta_start = b0
+            start[1] = beta_start
         if start[0] is None:
-            start[0] = np.exp(Yvalues[-1]) / (2.0 * start[1])
+            start[0] = np.exp(Yvalues[-1]) / (2.0 * beta_start)
 
         if start[2] is None:
             start[2] = v0
@@ -591,7 +649,7 @@ def solve_alpha_beta_velocity_versionQ5(
     return out
 
 
-def Q4(x, vvals, yvals):
+def Q4(x: NDArray, vvals: NDArray, yvals: NDArray) -> Numeric:
     res = 0.0
     for i in range(len(vvals)):
         r0 = 2 * x[0, ...] * np.exp(-yvals[i])
@@ -601,14 +659,14 @@ def Q4(x, vvals, yvals):
 
 
 def solve_alpha_beta_versionQ4(
-    velocities,
-    heights,
-    initial_velocity=None,
-    atmospheric_scale_height=None,
-    start=None,
-    bounds=((1e-3, 1e4), (1.0, 1e3)),
-    minimize_kwargs={},
-):
+    velocities: NDArray_N,
+    heights: NDArray_N,
+    initial_velocity: Numeric | None = None,
+    atmospheric_scale_height: Numeric | None = None,
+    start: NDArray | list[float | None] | None = None,
+    bounds: Bounds = ((1e-3, 1e4), (1.0, 1e3)),
+    minimize_kwargs: Kwargs = {},
+) -> NDArray:
     """Solve for alpha and beta using minimization of the least squares of the
     observables input into the preserved analytical relation [^1].
 
@@ -635,16 +693,18 @@ def solve_alpha_beta_versionQ4(
     if start is None:
         start = [a0, b0]
     else:
-        if start[1] is None:
-            start[1] = b0
+        beta_start = start[1]
+        if beta_start is None:
+            beta_start = b0
+            start[1] = beta_start
         if start[0] is None:
-            start[0] = np.exp(Yvalues[-1]) / (2.0 * start[1])
+            start[0] = np.exp(Yvalues[-1]) / (2.0 * beta_start)
 
     res = sco.minimize(Q4, start, args=(Vvalues, Yvalues), bounds=bounds, **minimize_kwargs)
     return res.x
 
 
-def velocity_smoother_dfn(velocity, iters=2):
+def velocity_smoother_dfn(velocity: NDArray_N, iters: int = 2) -> NDArray_N:
     """Velocity smoother based on consistency of neighboring data points,
     adapted from [^1]. Removes the first and last point `iters` times.
 
@@ -656,7 +716,7 @@ def velocity_smoother_dfn(velocity, iters=2):
     return vel_smooth
 
 
-def velocity_smoother_mov_avg(velocity, window=7):
+def velocity_smoother_mov_avg(velocity: NDArray_N, window: int = 7) -> NDArray_N:
     movavg = np.cumsum(velocity)
     movavg[window:] = movavg[window:] - movavg[:-window]
     return movavg[(window - 1) :] / window

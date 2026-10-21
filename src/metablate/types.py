@@ -2,9 +2,13 @@
 This module contains convenient type information so that typing can be precise
 but not too verbose in the code itself.
 """
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import TypeVar
+from typing import Any, Sequence, TypeVar
+
 import numpy.typing as npt
+import xarray as xr
 
 NDArray = npt.NDArray
 "Any ndarray"
@@ -41,6 +45,24 @@ NDArray_MxM = npt.NDArray
 
 NDArray_MxN = npt.NDArray
 "(m,n) shaped ndarray"
+
+Numeric = float | NDArray
+"A real scalar or a NumPy array; operations follow NumPy broadcasting rules."
+
+ArrayLike = npt.ArrayLike
+"Input accepted by numpy.asarray, before conversion to an array."
+
+StateVector = NDArray | Sequence[Numeric]
+"An ODE state, or paired arrays of state components for vectorized evaluation."
+
+Kwargs = dict[str, Any]
+"Keyword arguments forwarded to a solver or atmospheric backend."
+
+Bounds = Sequence[tuple[float | None, float | None]]
+"Lower and upper optimizer bounds; None denotes an unbounded endpoint."
+
+AtmosphereData = xr.Dataset | dict[str, xr.Variable]
+"Atmospheric variables with or without dataset coordinates and metadata."
 
 P = TypeVar("P")
 R = TypeVar("R")

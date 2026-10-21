@@ -23,14 +23,13 @@ print(f'Thermal ablation {dmdt_th} kg/s')
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import numpy as np
 from numba import njit
 from scipy import constants
 from scipy.optimize import minimize_scalar
 
-from ..types import Material, NDArray
+from ..types import Kwargs, Material, NDArray, Numeric
 
 logger = logging.getLogger(__name__)
 
@@ -38,17 +37,17 @@ Kn_LIM = 5.0
 
 
 def temperature_rate_hill_et_al_2005(
-    mass: NDArray | float,
-    velocity: NDArray | float,
-    temperature: NDArray | float,
-    material_data: NDArray | float,
-    shape_factor: NDArray | float,
-    atm_total_mass_density: NDArray | float,
-    mass_loss_thermal_ablation: NDArray | float,
-    Lambda: NDArray | float,
+    mass: Numeric,
+    velocity: Numeric,
+    temperature: Numeric,
+    material_data: Material,
+    shape_factor: Numeric,
+    atm_total_mass_density: Numeric,
+    mass_loss_thermal_ablation: Numeric,
+    Lambda: Numeric,
     atm_temperature: float = 280.0,
     emissivity: float = 0.9,
-) -> NDArray | float:
+) -> Numeric:
     """Calculates the rate of change of temperature of the meteoroid.
     A homogeneous metoroid experiencing an isotropic heat flux is assumed as
     well as the meteoroid undergoing isothermal heating. (isothermal heating:
@@ -127,15 +126,15 @@ def temperature_rate_hill_et_al_2005(
 
 
 def heat_transfer_bronshten_1983(
-    mass: float,
-    velocity: float,
-    temperature: float,
+    mass: Numeric,
+    velocity: Numeric,
+    temperature: Numeric,
     material_data: Material,
-    atm_total_number_density: float,
-    mass_loss_thermal_ablation: float,
-    atm_mean_mass: float,
+    atm_total_number_density: Numeric,
+    mass_loss_thermal_ablation: Numeric,
+    atm_mean_mass: Numeric,
     res: int = 100,
-) -> float:
+) -> Numeric:
     """Calculates the heat transfer coefficient Lambda. Information taken from [^1] [^2] [^3] [^4] [^5].
 
     Changes pre-python port: See [matlab-version](https://gitlab.irf.se/kero/ablation_matlab)
@@ -278,9 +277,9 @@ def heat_transfer_bronshten_1983(
 
 
 def thermal_accommodation_bronshten_1983(
-    atm_mean_mass: NDArray | float,
-    met_mean_mass: NDArray | float,
-) -> NDArray | float:
+    atm_mean_mass: Numeric,
+    met_mean_mass: Numeric,
+) -> Numeric:
     """Calculate thermal accommodation coefficient [^1].
 
     [^1]: Bronshten p. 40 eq. 7.11
@@ -309,10 +308,10 @@ def thermal_accommodation_bronshten_1983(
 
 
 def nomalized_evaporated_velocity_bronshten_1983(
-    velocity: NDArray | float,
-    temperature: NDArray | float,
-    atm_mean_mass: NDArray | float,
-) -> NDArray | float:
+    velocity: Numeric,
+    temperature: Numeric,
+    atm_mean_mass: Numeric,
+) -> Numeric:
     """Calculate the nomalized reflected and evaporated velocity [^1].
 
     [^1]: Bronshten p. 69
@@ -351,8 +350,8 @@ def solve_temperature_from_thermal_ablation(
     mass: float,
     material_data: Material,
     shape_factor: float,
-    minimize_kwargs: dict[Any, Any] | None = None,
-) -> NDArray | float:
+    minimize_kwargs: Kwargs | None = None,
+) -> Numeric:
     """Calculates the temperature for meteoroids due to thermal ablation mass loss [^1].
 
     [^1]: Hill et al.: High geocentric velocity meteor ablation, A&A 444 p. 615-624 (2005)
@@ -368,11 +367,11 @@ def solve_temperature_from_thermal_ablation(
 
 
 def thermal_ablation_hill_et_al_2005(
-    mass: NDArray | float,
-    temperature: NDArray | float,
+    mass: Numeric,
+    temperature: Numeric,
     material_data: Material,
-    shape_factor: NDArray | float,
-) -> NDArray | float:
+    shape_factor: Numeric,
+) -> Numeric:
     """Calculates the mass loss for meteoroids due to thermal ablation [^1][^2].
 
     Changes pre-python port: See [matlab-version](https://gitlab.irf.se/kero/ablation_matlab)
@@ -431,14 +430,14 @@ def thermal_ablation_hill_et_al_2005(
 
 
 def drag_coefficient_bronshten_1983(
-    mass: float,
-    velocity: float,
-    temperature: float,
+    mass: Numeric,
+    velocity: Numeric,
+    temperature: Numeric,
     material_data: Material,
-    atm_total_number_density: float,
-    atm_mean_mass: float,
+    atm_total_number_density: Numeric,
+    atm_mean_mass: Numeric,
     res: int = 100,
-) -> float:
+) -> Numeric:
     """Calculates the drag coefficient Gamma[^1] [^2] [^3] [^4] [^5].
 
     Changes pre-python port: See [matlab-version](https://gitlab.irf.se/kero/ablation_matlab)
@@ -524,11 +523,11 @@ def drag_coefficient_bronshten_1983(
 
 
 def Knudsen_number_kero_szasz_2008(
-    met_mass: NDArray | float,
-    met_density: NDArray | float,
-    atm_total_number_density: NDArray | float,
+    met_mass: Numeric,
+    met_density: Numeric,
+    atm_total_number_density: Numeric,
     collisional_cross_section: float = np.pi * (3.62e-10) ** 2,
-) -> NDArray | float:
+) -> tuple[Numeric, Numeric]:
     """Calculate the Knudsen number and spherical body radius [^1][^2].
 
     [^1]: Campbell-Brown, M. D. & Koschny, D. (2004), *Model of the
@@ -572,9 +571,9 @@ def Knudsen_number_kero_szasz_2008(
 
 
 def ablated_thermal_speed_bronshten_1983(
-    meteoroid_surface_temperature: NDArray | float,
-    meteoroid_molecular_mass: NDArray | float,
-) -> NDArray | float:
+    meteoroid_surface_temperature: Numeric,
+    meteoroid_molecular_mass: Numeric,
+) -> Numeric:
     """Return the RMS speed of molecules evaporated from a meteoroid.
 
     The RMS thermal speed is `\\sqrt{3}` times the Maxwellian velocity
@@ -588,9 +587,9 @@ def ablated_thermal_speed_bronshten_1983(
 
 
 def ablated_thermal_speed_sugar_2018(
-    meteoroid_surface_temperature: NDArray | float,
-    meteoroid_molecular_mass: NDArray | float,
-) -> NDArray | float:
+    meteoroid_surface_temperature: Numeric,
+    meteoroid_molecular_mass: Numeric,
+) -> Numeric:
     """Return the Maxwellian velocity parameter of ablated neutral particles.
 
     This is `V_T = \\sqrt{k_B T/m}`, the scale parameter in the speed
@@ -610,7 +609,7 @@ def _trapezoid(y: NDArray, x: NDArray) -> float:
 
 
 @njit(cache=True)
-def _heat_reflection_integrals(u_s: float | NDArray, res: int) -> tuple[float, float]:
+def _heat_reflection_integrals(u_s: Numeric, res: int) -> tuple[float, float]:
     """Return Q0 and Q_prim for shielding by reflected molecules."""
     theta0 = np.linspace(0, np.pi / 2, res)  # [radians]
 
@@ -640,7 +639,7 @@ def _heat_reflection_integrals(u_s: float | NDArray, res: int) -> tuple[float, f
 
 
 @njit(cache=True)
-def _heat_evaporation_integrals(u_e: float | NDArray, res: int) -> tuple[float, float]:
+def _heat_evaporation_integrals(u_e: Numeric, res: int) -> tuple[float, float]:
     """Return Q_star_e and Q0_e for shielding by evaporated molecules."""
     theta0 = np.linspace(0, np.pi / 2, res)  # [radians]
 
@@ -657,7 +656,7 @@ def _heat_evaporation_integrals(u_e: float | NDArray, res: int) -> tuple[float, 
 
 
 @njit(cache=True)
-def _drag_reflection_integrals(u_s: float | NDArray, res: int) -> tuple[float, float]:
+def _drag_reflection_integrals(u_s: Numeric, res: int) -> tuple[float, float]:
     """Return P0 and P_prim for momentum shielding by reflected molecules."""
     theta0 = np.linspace(0, np.pi / 2, res)  # [radians]
 

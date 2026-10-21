@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 from scipy import constants
 
-from ..types import NDArray
+from ..types import NDArray, Numeric
 
 
 def ionization_probability_Jones_1997(
@@ -55,7 +55,7 @@ def ionization_probability_Jones_1997(
     """
 
 
-def plasma_frequency(electron_density: NDArray | float) -> NDArray | float:
+def plasma_frequency(electron_density: Numeric) -> Numeric:
     """Return electron plasma frequency in Hz [^1].
 
     [^1]: Sugar, G., et al. (2021), Simulation‐Derived Radar Cross Sections of a New Meteor Head Plasma Distribution Model
@@ -63,7 +63,7 @@ def plasma_frequency(electron_density: NDArray | float) -> NDArray | float:
     return np.sqrt(electron_density * constants.e**2 / (constants.epsilon_0 * constants.m_e)) / (2 * np.pi)
 
 
-def critical_plasma_density(critical_plasma_frequency: NDArray | float) -> NDArray | float:
+def critical_plasma_density(critical_plasma_frequency: Numeric) -> Numeric:
     """Return the density associated with an electron plasma frequency [^1].
 
     [^1]: Sugar, G., et al. (2021), Simulation‐Derived Radar Cross Sections of a New Meteor Head Plasma Distribution Model
@@ -74,11 +74,11 @@ def critical_plasma_density(critical_plasma_frequency: NDArray | float) -> NDArr
 
 
 def mean_free_path_dimant_oppenheim_2017(
-    ablated_thermal_speed: NDArray | float,
-    total_atmospheric_number_density: NDArray | float,
-    collisional_cross_section: NDArray | float,
-    meteoroid_velocity: NDArray | float,
-) -> NDArray | float:
+    ablated_thermal_speed: Numeric,
+    total_atmospheric_number_density: Numeric,
+    collisional_cross_section: Numeric,
+    meteoroid_velocity: Numeric,
+) -> Numeric:
     """Mean free path of an ablated neutral before collision with an atmospheric constituent,
     Equation 1 of [^1].
 
@@ -90,7 +90,7 @@ def mean_free_path_dimant_oppenheim_2017(
     )
 
 
-def collisional_cross_section_bronshten_1983(relative_velocity: NDArray | float) -> NDArray | float:
+def collisional_cross_section_bronshten_1983(relative_velocity: Numeric) -> Numeric:
     """Return the Bronshten collision cross-section fit [^1].
 
     [^1]: Sugar, G., Oppenheim, M. M., Dimant, Y. S. & Close, S. (2018),
@@ -100,7 +100,7 @@ def collisional_cross_section_bronshten_1983(relative_velocity: NDArray | float)
     return 5.61e-19 * vrel ** (-0.8)
 
 
-def ionization_probability_Na_vondrak_2008(relative_velocity: NDArray | float) -> NDArray | float:
+def ionization_probability_Na_vondrak_2008(relative_velocity: Numeric) -> Numeric:
     """Return the fitted Na collisional ionization probability [^1].
 
     [^1]: Vondrak, T., Plane, J. M. C., Broadley, S. & Janches, D. (2008), A chemical model of meteoric ablation

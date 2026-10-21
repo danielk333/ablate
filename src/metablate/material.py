@@ -10,16 +10,20 @@ liberated from the meteoroid by thermal ablation were released
 in complete molecular form.
 
 """
+from __future__ import annotations
 
-from dataclasses import asdict
 import logging
 from copy import copy
+from dataclasses import asdict
+from typing import Literal, overload
+
 from scipy import constants
+
 from .types import Material
 
 logger = logging.getLogger(__name__)
 
-MATERIALS = {}
+MATERIALS: dict[str, Material] = {}
 
 iron = Material(
     bulk_density=7800.0,
@@ -78,12 +82,24 @@ porous = Material(
 MATERIALS["porous"] = porous
 
 
-def available():
+def available() -> list[str]:
     """List currently available meteoroid materials."""
     return list(MATERIALS.keys())
 
 
-def get(material, as_dict=True):
+@overload
+def get(material: str, as_dict: Literal[True] = True) -> dict[str, float]: ...
+
+
+@overload
+def get(material: str, as_dict: Literal[False]) -> Material: ...
+
+
+@overload
+def get(material: str, as_dict: bool) -> Material | dict[str, float]: ...
+
+
+def get(material: str, as_dict: bool = True) -> Material | dict[str, float]:
     """Returns the physical parameters of the meteoroid based on its material.
 
     Parameters

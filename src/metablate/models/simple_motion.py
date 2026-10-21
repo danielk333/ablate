@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Any
 
 import numpy as np
 from scipy.integrate import solve_ivp
@@ -10,7 +9,7 @@ from spacecoords import frames
 from spacecoords.constants import WGS84
 
 from ..atmosphere import Atmosphere, AtmPymsis
-from ..types import NDArray_3, NDArray_3xN, NDArray_M, NDArray_N, Options, Results
+from ..types import NDArray_3, NDArray_3xN, NDArray_M, NDArray_N, Options, Results, Kwargs
 from .model import MeteorModel
 
 
@@ -35,13 +34,13 @@ class PosVelResults(Results):
 class BallisticOptions(Options):
     evaluation_times: NDArray_N
     atmosphere: Atmosphere = field(default_factory=AtmPymsis)
-    atmosphere_kwargs: dict[str, Any] = field(default_factory=dict)
+    atmosphere_kwargs: Kwargs = field(default_factory=dict)
     minimum_altitude: float = 0.0  # m above the WGS84 ellipsoid
     gravitational_parameter: float = WGS84.GM  # m^3 / s^2
     max_step_size: float = np.inf  # s
     first_step: float | None = None  # s
     method: str = "RK45"
-    method_kwargs: dict[str, Any] = field(default_factory=dict)
+    method_kwargs: Kwargs = field(default_factory=dict)
 
 
 @dataclass
@@ -182,7 +181,9 @@ class Ballistic(MeteorModel[BallisticInitialState, BallisticOptions, BallisticRe
     @staticmethod
     def _geodetic(position_ecef: NDArray_3) -> NDArray_3:
         return np.asarray(
-            frames.ecef_to_geodetic_wgs84(*position_ecef, degrees=True),
+            frames.ecef_to_geodetic_wgs84(
+                position_ecef[0], position_ecef[1], position_ecef[2], degrees=True
+            ),
             dtype=float,
         )
 

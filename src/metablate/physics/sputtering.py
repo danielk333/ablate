@@ -4,15 +4,19 @@
 
 import copy
 import logging
+from typing import cast
 
 import numpy as np
 from scipy import constants
 
+from ..types import AtmosphereData, Material, NDArray, Numeric
 
 logger = logging.getLogger(__name__)
 
 
-def sputtering_kero_szasz_2008(mass, velocity, material_data, density):
+def sputtering_kero_szasz_2008(
+    mass: Numeric, velocity: Numeric, material_data: Material, density: AtmosphereData
+) -> Numeric:
     """Calculates the meteoroid mass loss due to sputtering [^1][^2].
 
     All units need to be given in the cgs system to remain 
@@ -121,8 +125,9 @@ def sputtering_kero_szasz_2008(mass, velocity, material_data, density):
     _density = _density[use_species, ...]
 
     if shape is not None:
-        m = m[use_species, ...]
-        v = v[use_species, ...]
+        # Both values were expanded to arrays in the shape branch above.
+        m = cast(NDArray, m)[use_species, ...]
+        v = cast(NDArray, v)[use_species, ...]
 
     m2 = material_data.mean_atomic_mass
     u0 = material_data.surface_binding_energy

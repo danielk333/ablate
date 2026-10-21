@@ -6,7 +6,7 @@ from ..types import Op, P, R
 
 class MeteorModel(ABC, Generic[P, Op, R]):
 
-    def __init__(self, options: Op):
+    def __init__(self, options: Op) -> None:
         self.options = options
 
     @abstractmethod

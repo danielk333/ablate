@@ -1,19 +1,17 @@
 """
 # Meteoroid Ablation Models
 """
+from __future__ import annotations
 
 import logging
 import sys
 
-from . import physics
-from . import models
-from . import material
-from . import atmosphere
+from . import atmosphere, material, models, physics
 from .atmosphere import Atmosphere
 from .version import __version__
 
 
-def setup_logging(level=logging.INFO):
+def setup_logging(level: int | str = logging.INFO) -> logging.Logger:
     logger = logging.getLogger("metablate")
     logger.setLevel(level)
 

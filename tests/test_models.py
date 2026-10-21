@@ -22,6 +22,15 @@ class _ConstantAtmosphere:
         return {"Total": _Values(1.0e-7), "N2": _Values(1.0e18), "O2": _Values(2.5e17)}
 
 
+def test_ablation_options_default_to_material_objects():
+    from metablate.models.kero_szasz_2008 import KeroSzaszOptions
+    from metablate.models.stulov_mirskii_vislyi_1995 import SMV_Options
+    from metablate.types import Material
+
+    assert isinstance(KeroSzaszOptions().material, Material)
+    assert isinstance(SMV_Options().material, Material)
+
+
 def test_linear_constant_velocity_model_shapes_and_values():
     times = np.array([0.0, 1.0, 2.0])
     options = LinearConstantOptions(evaluation_times=times)

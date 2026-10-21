@@ -1,12 +1,15 @@
-from abc import abstractmethod
-from dataclasses import dataclass
-import logging
-from copy import copy
+from __future__ import annotations
 
-import scipy.constants as constants
+import logging
+from abc import abstractmethod
+from copy import copy
+from dataclasses import dataclass
+from typing import Any
+
 import numpy as np
-import xarray as xr
-from ..types import NDArray_N
+from scipy import constants
+
+from ..types import ArrayLike, AtmosphereData
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +62,8 @@ SPECIES = {
 
 # TODO: get a a hold of other atm models to figure out how to generalize interface better
 class Atmosphere:
-    def __init__(self, supported_species: list[Species] | list[str]):
+
+    def __init__(self, supported_species: list[Species] | list[str]) -> None:
         self.species = {}
         for s in supported_species:
             if isinstance(s, Species):
@@ -71,11 +75,6 @@ class Atmosphere:
 
     @abstractmethod
     def density(
-        self,
-        time: np.datetime64,
-        lat: NDArray_N,
-        lon: NDArray_N,
-        alt: NDArray_N,
-        **kwargs
-    ) -> xr.Dataset:
+        self, time: ArrayLike, lat: ArrayLike, lon: ArrayLike, alt: ArrayLike, **kwargs: Any
+    ) -> AtmosphereData:
         pass

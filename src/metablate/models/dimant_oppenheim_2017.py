@@ -2,16 +2,29 @@ from __future__ import annotations
 
 import ctypes
 import multiprocessing as mp
+from multiprocessing.sharedctypes import SynchronizedArray
 
 import numpy as np
 import scipy.integrate as sci
 import scipy.special as scs
 from tqdm import tqdm
 
-from ..types import NDArray_M, NDArray_MxN, NDArray_N
+from ..types import NDArray_M, NDArray_N, Numeric, NDArray, ArrayLike
 
 
-def _worker(inds, tind, Func3_1, Func3_2, low_lim, up_lim, Rlam23, costh, sinth, pbar, quad_abs_tol):
+def _worker(
+    inds: NDArray_N,
+    tind: int,
+    Func3_1: SynchronizedArray,
+    Func3_2: SynchronizedArray,
+    low_lim: NDArray_N,
+    up_lim: NDArray_N,
+    Rlam23: NDArray_N,
+    costh: NDArray_N,
+    sinth: NDArray_N,
+    pbar: bool,
+    quad_abs_tol: float,
+) -> None:
     if pbar:
         tqdm_bar = tqdm(
             desc=f"computing electron density process {tind}",
@@ -37,7 +50,7 @@ def _worker(inds, tind, Func3_1, Func3_2, low_lim, up_lim, Rlam23, costh, sinth,
         tqdm_bar.close()
 
 
-def _do_integral_1(ksi, rlam23, cth):
+def _do_integral_1(ksi: float, rlam23: float, cth: float) -> float:
     """First integral of equation 5 in Sugar 2018 "Formation of Plasma Around a Small Meteoroid:
     Simulation and Theory"
     """
@@ -48,7 +61,7 @@ def _do_integral_1(ksi, rlam23, cth):
     )
 
 
-def _do_integral_2(ksi, rlam23, cth, sth):
+def _do_integral_2(ksi: float, rlam23: float, cth: float, sth: float) -> float:
     """Second integral of equation 5 in Sugar 2018 "Formation of Plasma Around a Small Meteoroid:
     Simulation and Theory"
     """
@@ -59,7 +72,7 @@ def _do_integral_2(ksi, rlam23, cth, sth):
     )
 
 
-def do_int_1_quad(a, b, rlam23, cth, quad_abs_tol):
+def do_int_1_quad(a: float, b: float, rlam23: float, cth: float, quad_abs_tol: float) -> float:
     """Numerically evaluate integral 1 in `_do_integral_1`"""
     if not np.isfinite(a):
         return np.nan
@@ -76,7 +89,9 @@ def do_int_1_quad(a, b, rlam23, cth, quad_abs_tol):
     return int1[0]
 
 
-def do_int_2_quad(a, b, rlam23, cth, sth, quad_abs_tol):
+def do_int_2_quad(
+    a: float, b: float, rlam23: float, cth: float, sth: float, quad_abs_tol: float
+) -> float:
     """Numerically evaluate integral 2 in `_do_integral_2`"""
     if not np.isfinite(a):
         return np.nan
@@ -100,7 +115,7 @@ def plasma_distribution_morphology_grid(
     upper_limit_delta: float = 0.0,
     threads: int | None = None,
     pbar: bool = True,
-) -> tuple[NDArray_MxN, NDArray_MxN, NDArray_MxN, NDArray_MxN]:
+) -> tuple[NDArray, NDArray, NDArray, NDArray]:
     """The plasma distribution morphology component of the Dimant and Oppenheim model, that is
     scaled by mean free path and independent of meteor parameters.
 
@@ -122,13 +137,13 @@ def plasma_distribution_morphology_grid(
 
 
 def plasma_distribution_morphology_array(
-    r,
-    theta,
+    r: ArrayLike,
+    theta: ArrayLike,
     quad_abs_tol: float = 1e-7,
     upper_limit_delta: float = 0.0,
     threads: int | None = None,
     pbar: bool = True,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[NDArray, NDArray, NDArray, NDArray]:
     """Evaluate morphology at paired polar coordinates, using NumPy broadcasting.
 
     Parameters
@@ -161,7 +176,14 @@ def plasma_distribution_morphology_array(
     )
 
 
-def _plasma_distribution_morphology(Xlam, Ylam, quad_abs_tol, upper_limit_delta, threads, pbar):
+def _plasma_distribution_morphology(
+    Xlam: NDArray,
+    Ylam: NDArray,
+    quad_abs_tol: float,
+    upper_limit_delta: float,
+    threads: int | None,
+    pbar: bool,
+) -> tuple[NDArray, NDArray, NDArray, NDArray]:
     """Evaluate morphology at Cartesian points without constructing a grid."""
     Rlam = np.sqrt(Xlam**2 + Ylam**2)
     Rlam = np.where(Rlam == 0, np.nan, Rlam)
@@ -265,7 +287,6 @@ def _plasma_distribution_morphology(Xlam, Ylam, quad_abs_tol, upper_limit_delta,
     return np.asarray(Xlam), np.asarray(Ylam), np.asarray(Rlam), np.asarray(ne_morph)
 
 
-
 def solve_r(
     theta: float,
     target_density: float,
@@ -296,7 +317,7 @@ def solve_r(
     if not np.isfinite(target_density) or target_density <= 0:
         raise ValueError("target_density must be finite and positive (ne/n_star).")
 
-    def objective(radius):
+    def objective(radius: float) -> float:
         _, _, R, f = plasma_distribution_morphology_array(
             radius, theta, quad_abs_tol=quad_abs_tol, pbar=False
         )
@@ -319,20 +340,19 @@ def solve_r(
     return float(radius), target_density + residual, residual
 
 
-
 def plasma_distribution(
-    total_atmospheric_number_density,
-    meteoroid_velocity,
-    meteoroid_radius,
-    plasma_source_density,
-    collisional_cross_section,
-    ionization_probability,
-    base_plasma_distribution_function,
-    R_lambda,
-    ablated_thermal_speed=951,
-    atmospheric_species_mass=4.7e-26,
-    ablated_species_mass=3.8e-26,
-):
+    total_atmospheric_number_density: Numeric,
+    meteoroid_velocity: Numeric,
+    meteoroid_radius: Numeric,
+    plasma_source_density: Numeric,
+    collisional_cross_section: Numeric,
+    ionization_probability: Numeric,
+    base_plasma_distribution_function: Numeric,
+    R_lambda: Numeric,
+    ablated_thermal_speed: Numeric = 951,
+    atmospheric_species_mass: Numeric = 4.7e-26,
+    ablated_species_mass: Numeric = 3.8e-26,
+) -> Numeric:
     """Calculate meteor head plasma distribution using model from Dimant and
     Oppenheim 2017
 
@@ -340,6 +360,10 @@ def plasma_distribution(
     Code available at https://zenodo.org/records/4723667
     Paper available at https://doi.org/10.1029/2021JA029525
     Ported to Python by Daniel Kastinen 2025
+
+    Note
+    ----
+        There was a bug in line 79 in ``YD_to_q.m`` that is fixed in this implementation
     """
 
     # mean free path
