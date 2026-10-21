@@ -19,13 +19,11 @@ comp = {
     "O": 1.0,
 }
 beta, _ = plasma.ionization_probability_Jones_1997(velocity, comp)
-beta_comet, total_comet = plasma.ionization_probability_Jones_1997(
-    velocity, mat.atomic_composition
-)
+beta_comet, total_comet = plasma.ionization_probability_Jones_1997(velocity, mat.atomic_composition)
 beta_comet_multi, total_comet_multi = plasma.multi_collision_ionization_probability_Jones_1997(
-        velocity,
-        mat.atomic_composition,
-    )
+    velocity,
+    mat.atomic_composition,
+)
 
 fig, ax = plt.subplots(figsize=(8, 6))
 for index, key in enumerate(comp):
