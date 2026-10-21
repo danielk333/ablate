@@ -6,7 +6,8 @@ Estimate ionization probability
 import matplotlib.pyplot as plt
 import numpy as np
 
-from metablate import material, physics
+from metablate import material
+import metablate.physics.plasma_production as plasma
 
 velocity = np.linspace(10e3, 70e3, 100)
 mat = material.get("cometary", as_dict=False)
@@ -17,8 +18,14 @@ comp = {
     "Mg": 1.0,
     "O": 1.0,
 }
-beta = physics.plasma_production.ionization_probability_Jones_1997(velocity, comp)
-beta_comet = physics.plasma_production.ionization_probability_Jones_1997(velocity, mat.atomic_composition)
+beta, _ = plasma.ionization_probability_Jones_1997(velocity, comp)
+beta_comet, total_comet = plasma.ionization_probability_Jones_1997(
+    velocity, mat.atomic_composition
+)
+beta_comet_multi, total_comet_multi = plasma.multi_collision_ionization_probability_Jones_1997(
+        velocity,
+        mat.atomic_composition,
+    )
 
 fig, ax = plt.subplots(figsize=(8, 6))
 for index, key in enumerate(comp):
@@ -47,32 +54,61 @@ ax.set(
 )
 ax.legend()
 
-fig, ax = plt.subplots(figsize=(8, 6))
+fig, axes = plt.subplots(1, 2, figsize=(8, 6), sharex=True, sharey=True)
 for index, key in enumerate(mat.atomic_composition):
-    (line,) = ax.semilogy(velocity * 1e-3, beta_comet[index, :], label=key, ls="--")
+    (line1,) = axes[0].loglog(
+        velocity * 1e-3,
+        beta_comet[index, :],
+        label=key,
+        ls="--",
+    )
+    (line2,) = axes[1].loglog(
+        velocity * 1e-3,
+        beta_comet_multi[index, :],
+        label=key,
+        ls="--",
+        c=line1.get_color(),
+    )
 
     loc = 40 + 4 * index  # random formula for where to place the arrow
-    sgny = -1 if index >= 2 else 1
+    sgny = -1 if key != "Fe" else 1
     sgnx = -1 if index == 2 else 1
-    ax.annotate(
-        line.get_label(),
+    axes[0].annotate(
+        line1.get_label(),
         xy=(velocity[loc] * 1e-3, beta_comet[index, loc]),
         xytext=(sgnx * 15, sgny * 30),
         textcoords="offset points",
-        color=line.get_color(),
+        color=line1.get_color(),
         va="center",
         arrowprops={
             "arrowstyle": "->",
-            "color": line.get_color(),
+            "color": line1.get_color(),
         },
     )
-ax.plot(velocity * 1e-3, np.sum(beta_comet, axis=0), label="Total cometary composition")
-ax.set(
+    axes[1].annotate(
+        line2.get_label(),
+        xy=(velocity[loc] * 1e-3, beta_comet_multi[index, loc]),
+        xytext=(sgnx * 15, sgny * 30),
+        textcoords="offset points",
+        color=line2.get_color(),
+        va="center",
+        arrowprops={
+            "arrowstyle": "->",
+            "color": line2.get_color(),
+        },
+    )
+axes[0].loglog(velocity * 1e-3, total_comet, label="Total cometary composition")
+axes[1].loglog(velocity * 1e-3, total_comet_multi, label="Total cometary composition")
+axes[0].set(
     ylabel="Ionization probability",
     xlabel="Velocity [km/s]",
-    title="Jones 1997 Figure 3 reproduction",
+    title="Jones 1997 (beta_0)",
     ylim=(1e-4, None),
     xlim=(10, 70),
+)
+axes[1].set(
+    xlabel="Velocity [km/s]",
+    title="Jones 1997 Figure 3 (beta)",
 )
 ax.legend()
 

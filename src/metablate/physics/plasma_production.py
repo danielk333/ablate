@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import numpy as np
 from scipy import constants
+from scipy.integrate import solve_ivp
 from scipy.optimize import brentq
 
-from ..types import ArrayLike, Material, Composition, NDArray, NDArray_MxN, NDArray_N, Numeric
+from ..types import ArrayLike, Composition, Material, NDArray, NDArray_MxN, NDArray_N, Numeric
 from .alpha_beta import mass_to_radius
 from .thermal_ablation import ablated_thermal_speed_sugar_2018, thermal_ablation_hill_et_al_2005
 
@@ -98,59 +99,132 @@ def source_from_massloss(
     return temperature, thermal_speed, density
 
 
-# Jones (1997), Table 1: (threshold velocity [km/s], coefficient c).
+# Element: (threshold [km/s], coefficient c, atom/N2 mass ratio)
 _JONES_1997_PARAMETERS = {
-    "O": (16.7, 4.66e-6),
-    "Fe": (9.4, 34.5e-6),
-    "Mg": (11.1, 9.29e-6),
-    "Si": (11.0, 18.5e-6),
-    "Cu": (9.1, 15.3e-6),
+    "O": (16.7, 4.66e-6, 0.57),
+    "Fe": (9.4, 34.5e-6, 2.0),
+    "Mg": (11.1, 9.29e-6, 0.86),
+    "Si": (11.0, 18.5e-6, 1.0),
+    "Cu": (9.1, 15.3e-6, 2.25),
 }
 
 
-def ionization_probability_Jones_1997(
+def multi_collision_ionization_probability_Jones_1997(
     velocity: NDArray_N,
     composition: Composition,
-) -> NDArray_MxN:
-    """Return first-collision ionization probability beta_0 from Eq. 33 of [^1].
-
-    The result has the same shape (a zero-dimensional array for scalar input) as the number of
-    elements ``M`` and the number of velocities ``N``.
-    Average the elemental probabilities using ``material_data.atomic_composition``,
-    whose relative abundances are by atom number, not mass.
-    Supported elements are O, Fe, Mg, Si and Cu; abundances need not sum to one.
-
-    This is the probability at the first collision, not the total ionization
-    coefficient including subsequent collisions, secondary ionization or
-    recombination. The tabulated fits describe collisions with air.
+    rtol: float = 1e-10,
+) -> tuple[NDArray_MxN, NDArray_N]:
+    """Return total ionization probability beta from Eq. 25 of [^1].
 
     [^1]: William Jones; Theoretical and observational determinations
         of the ionization coefficient of meteors; MNRAS 288, 995-1003 (1997),
         Table 1 and Eq. 33. https://doi.org/10.1093/mnras/288.4.995
     """
-    speed = np.asarray(velocity, dtype=float) * 1e-3
+    speed = velocity * 1e-3
     if np.any(~np.isfinite(speed)) or np.any(speed < 0):
         raise ValueError("Velocity must be finite and nonnegative [m/s].")
 
     if not composition:
         raise ValueError("Material must specify a nonempty atomic_composition.")
+
     abundances = np.asarray(list(composition.values()), dtype=float)
     total = abundances.sum()
     if np.any(~np.isfinite(abundances)) or np.any(abundances < 0) or not np.isfinite(total) or total <= 0:
         raise ValueError("Atomic abundances must be finite, nonnegative and have a positive total.")
 
     probability = np.zeros((abundances.size, speed.size), dtype=np.float64)
-    for index, (element, fraction) in enumerate(zip(composition, abundances / total)):
+
+    def first_collision(v: Numeric, v0: float, c: float) -> Numeric:
+        ratio = c * np.maximum(v - v0, 0.0) ** 2 * v**0.8
+        return ratio / (1.0 + ratio)
+
+    # H(v) = integral from threshold to v of beta(u) * u du.
+    def derivative(v: float, integral: NDArray, factor: float, v0: float, c: float) -> list[float]:
+        beta0 = first_collision(v, v0, c)
+        return [v * beta0 + (1.0 - beta0) * factor / v * integral[0]]
+
+    for index, element in enumerate(composition):
         if element not in _JONES_1997_PARAMETERS:
             raise ValueError(
                 f"No Jones (1997) ionization parameters for {element!r}; "
                 f"supported elements: {', '.join(_JONES_1997_PARAMETERS)}."
             )
-        threshold, coefficient = _JONES_1997_PARAMETERS[element]
+        threshold, coefficient, mass_ratio = _JONES_1997_PARAMETERS[element]
+
+        active = speed > threshold
+        if not np.any(active):
+            continue
+
+        # NOTE: There seems to be something strange with eq 25 of Jones paper
+        # in eq 24 the factor is (1+mu)^2/(2*v^2*mu) but in 25 its (1+m)^2/(2*v^2*mu)
+        # maybe the u was forgotten in typesetting????
+        factor = (1.0 + mass_ratio) ** 2 / (2.0 * mass_ratio)
+
+        solution = solve_ivp(
+            derivative,
+            (threshold, float(speed.max())),
+            [0.0],
+            args=(factor, threshold, coefficient),
+            rtol=rtol,
+            atol=rtol * 1e-3,
+            dense_output=True,
+        )
+        if not solution.success:
+            raise RuntimeError(solution.message)
+
+        v = speed[active]
+        beta0 = first_collision(v, threshold, coefficient)
+        probability[index, active] = beta0 + (1.0 - beta0) * factor / v**2 * solution.sol(v)[0]
+
+    total = np.sum(probability * abundances[:, None] / total, axis=0)
+    return probability, total
+
+
+def ionization_probability_Jones_1997(
+    velocity: NDArray_N,
+    composition: Composition,
+) -> tuple[NDArray_MxN, NDArray_N]:
+    """Return first-collision ionization probability beta_0 from Eq. 33 of [^1].
+
+    The result has the same shape (a zero-dimensional array for scalar input) as the number of
+    elements ``M`` and the number of velocities ``N`` for the probabilities and also returns the
+    total.
+
+    Average the elemental probabilities using ``atomic_composition``,
+    whose relative abundances are by atom number, not mass.
+    Supported elements are O, Fe, Mg, Si and Cu; abundances need not sum to one.
+
+    [^1]: William Jones; Theoretical and observational determinations
+        of the ionization coefficient of meteors; MNRAS 288, 995-1003 (1997),
+        Table 1 and Eq. 33. https://doi.org/10.1093/mnras/288.4.995
+    """
+    speed = velocity * 1e-3
+    if np.any(~np.isfinite(speed)) or np.any(speed < 0):
+        raise ValueError("Velocity must be finite and nonnegative [m/s].")
+
+    if not composition:
+        raise ValueError("Material must specify a nonempty atomic_composition.")
+
+    abundances = np.asarray(list(composition.values()), dtype=float)
+    total = abundances.sum()
+    if np.any(~np.isfinite(abundances)) or np.any(abundances < 0) or not np.isfinite(total) or total <= 0:
+        raise ValueError("Atomic abundances must be finite, nonnegative and have a positive total.")
+
+    probability = np.zeros((abundances.size, speed.size), dtype=np.float64)
+    for index, element in enumerate(composition):
+        if element not in _JONES_1997_PARAMETERS:
+            raise ValueError(
+                f"No Jones (1997) ionization parameters for {element!r}; "
+                f"supported elements: {', '.join(_JONES_1997_PARAMETERS)}."
+            )
+        threshold, coefficient, _ = _JONES_1997_PARAMETERS[element]
+
         # Clamp before squaring so sub-threshold atoms cannot ionize.
         ratio = coefficient * np.maximum(speed - threshold, 0.0) ** 2 * speed**0.8
-        probability[index, :] = fraction * ratio / (1.0 + ratio)
-    return probability
+        probability[index, :] = ratio / (1.0 + ratio)
+
+    total = np.sum(probability * abundances[:, None] / total, axis=0)
+    return probability, total
 
 
 def plasma_frequency(electron_density: Numeric) -> Numeric:
