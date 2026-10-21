@@ -9,7 +9,7 @@ import scipy.integrate as sci
 import scipy.special as scs
 from tqdm import tqdm
 
-from ..types import NDArray_M, NDArray_N, Numeric, NDArray, ArrayLike
+from ..types import ArrayLike, NDArray, NDArray_M, NDArray_N, Numeric
 
 
 def _worker(
@@ -41,10 +41,10 @@ def _worker(
         if pbar:
             tqdm_bar.update(1)
     with Func3_1.get_lock():
-        shared_f31 = np.ndarray(costh.shape, dtype=np.float64, buffer=Func3_1.get_obj())
+        shared_f31 = np.ctypeslib.as_array(Func3_1.get_obj()).reshape(costh.shape)
         shared_f31[inds] = f31
     with Func3_2.get_lock():
-        shared_f32 = np.ndarray(costh.shape, dtype=np.float64, buffer=Func3_2.get_obj())
+        shared_f32 = np.ctypeslib.as_array(Func3_2.get_obj()).reshape(costh.shape)
         shared_f32[inds] = f32
     if pbar:
         tqdm_bar.close()
@@ -266,8 +266,8 @@ def _plasma_distribution_morphology(
 
         for t in th:
             t.join()
-        Func3_1 = np.ndarray(costh.shape, dtype=np.float64, buffer=f31.get_obj())
-        Func3_2 = np.ndarray(costh.shape, dtype=np.float64, buffer=f32.get_obj())
+        Func3_1 = np.ctypeslib.as_array(f31.get_obj()).reshape(costh.shape)
+        Func3_2 = np.ctypeslib.as_array(f32.get_obj()).reshape(costh.shape)
     Func3_1 = Func3_1.reshape(orig_shape)
     Func3_2 = Func3_2.reshape(orig_shape)
 
