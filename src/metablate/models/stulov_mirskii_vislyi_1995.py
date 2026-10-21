@@ -47,7 +47,7 @@ class SMV_Options(Options):
     max_time: float = 100.0  # [s]
     method: str = "RK45"
     method_kwargs: Kwargs = field(default_factory=dict)
-    atmosphere: Atmosphere field(default_factory=AtmPymsis)
+    atmosphere: Atmosphere = field(default_factory=AtmPymsis)
     atmosphere_kwargs: Kwargs = field(default_factory=dict)
     start_altitude: float | None = 150e3  # [m]
     material: Material = field(default_factory=lambda: material.get("cometary", as_dict=False))

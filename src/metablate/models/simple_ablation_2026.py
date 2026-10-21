@@ -78,6 +78,8 @@ class SimpleAblationInitialState:
     entry_angle: float  # rad
     ballistic_parameter: float
     massloss_parameter: float
+    # thermal_lag_ratio: float
+    # TODO: i think i should split these up into 4 different models
     shape_change_coefficient: float
     latitude: float
     longitude: float

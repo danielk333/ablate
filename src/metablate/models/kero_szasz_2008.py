@@ -61,7 +61,7 @@ class KeroSzaszOptions(Options):
     method: str = "RK45"
     method_kwargs: Kwargs = field(default_factory=dict)
     sputtering: bool = False
-    atmosphere: Atmosphere field(default_factory=AtmPymsis)
+    atmosphere: Atmosphere = field(default_factory=AtmPymsis)
     atmosphere_kwargs: Kwargs = field(default_factory=dict)
     effective_atmospheric_temperature: float = 290  # [K]
     start_altitude: float | None = 150e3  # [m]
