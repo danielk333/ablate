@@ -110,7 +110,7 @@ _JONES_1997_PARAMETERS = {
 
 
 def multi_collision_ionization_probability_Jones_1997(
-    velocity: NDArray_N,
+    velocity: Numeric,
     composition: Composition,
     rtol: float = 1e-10,
 ) -> tuple[NDArray_MxN, NDArray_N]:
@@ -120,7 +120,7 @@ def multi_collision_ionization_probability_Jones_1997(
         of the ionization coefficient of meteors; MNRAS 288, 995-1003 (1997),
         Table 1 and Eq. 33. https://doi.org/10.1093/mnras/288.4.995
     """
-    speed = velocity * 1e-3
+    speed = np.asarray(velocity, dtype=np.float64) * 1e-3
     if np.any(~np.isfinite(speed)) or np.any(speed < 0):
         raise ValueError("Velocity must be finite and nonnegative [m/s].")
 
@@ -181,7 +181,7 @@ def multi_collision_ionization_probability_Jones_1997(
 
 
 def ionization_probability_Jones_1997(
-    velocity: NDArray_N,
+    velocity: Numeric,
     composition: Composition,
 ) -> tuple[NDArray_MxN, NDArray_N]:
     """Return first-collision ionization probability beta_0 from Eq. 33 of [^1].
@@ -198,7 +198,7 @@ def ionization_probability_Jones_1997(
         of the ionization coefficient of meteors; MNRAS 288, 995-1003 (1997),
         Table 1 and Eq. 33. https://doi.org/10.1093/mnras/288.4.995
     """
-    speed = velocity * 1e-3
+    speed = np.asarray(velocity, dtype=np.float64) * 1e-3
     if np.any(~np.isfinite(speed)) or np.any(speed < 0):
         raise ValueError("Velocity must be finite and nonnegative [m/s].")
 
