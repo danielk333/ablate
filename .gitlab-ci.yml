@@ -44,7 +44,7 @@ mypy:
   extends: .devsetup
   script:
     - pip install .[tests]
-    - mypy src/spacecoords --follow-untyped-imports --disallow-untyped-defs --warn-unused-ignores
+    - mypy src/metablate --follow-untyped-imports --disallow-untyped-defs --warn-unused-ignores
   rules:
     - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"
     - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "develop"

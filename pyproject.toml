@@ -45,6 +45,7 @@ where = ["src"]
 [project.optional-dependencies]
 develop = [
     "pytest",
+    "mypy",
     "flake8",
     "wheel",
     "build",
@@ -65,7 +66,7 @@ develop = [
     "mkdocs-literate-nav",
     "mkdocs-section-index",
 ]
-tests = ["pytest", "pytest-cov"]
+tests = ["pytest", "pytest-cov", "mypy"]
 visualization = ["pyvista"]
 
 

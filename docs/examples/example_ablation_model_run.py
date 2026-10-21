@@ -29,9 +29,14 @@ model = ks.KeroSzasz2008(
         material=mat.cometary,
         sputtering=False,
         minimum_mass=1e-11,
-        max_step_size=1e-3,
+        max_step_size=1e-2,
+        method_kwargs={
+            "rtol": 1e-6,
+            # velocity [m/s], mass [kg], distance [m], temperature [K]
+            "atol": np.array([1e-6, 1e-19, 1e-6, 1e-6]),
+        },
         start_altitude=150e3,
-        atmosphere_kwargs=dict(as_dataset=False),
+        atmosphere_kwargs={"as_dataset": False},
     ),
 )
 
