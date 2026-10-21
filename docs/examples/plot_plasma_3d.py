@@ -129,9 +129,9 @@ def calculate_plasma_distribution(scale=0.05, cache_path=None):
 
 def revolve_density(x, radial_axis, density):
     """Revolve an x-r electron-density field about x onto a uniform x-y-z grid."""
-    x = np.asarray(x, dtype=float)
-    radial_axis = np.asarray(radial_axis, dtype=float)
-    density = np.asarray(density, dtype=float)
+    x = np.asarray(x, dtype=np.float64)
+    radial_axis = np.asarray(radial_axis, dtype=np.float64)
+    density = np.asarray(density, dtype=np.float64)
     if density.shape != (radial_axis.size, x.size):
         raise ValueError("density must have shape (len(radial_axis), len(x))")
     if x.size < 2 or radial_axis.size < 3:

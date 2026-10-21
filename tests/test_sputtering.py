@@ -6,7 +6,7 @@ from metablate.physics.sputtering import sputtering_kero_szasz_2008
 
 class _Values:
     def __init__(self, value):
-        self.values = np.asarray(value, dtype=float)
+        self.values = np.asarray(value, dtype=np.float64)
 
 
 class _Density(dict):

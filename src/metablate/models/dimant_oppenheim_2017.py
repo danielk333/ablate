@@ -89,9 +89,7 @@ def do_int_1_quad(a: float, b: float, rlam23: float, cth: float, quad_abs_tol: f
     return int1[0]
 
 
-def do_int_2_quad(
-    a: float, b: float, rlam23: float, cth: float, sth: float, quad_abs_tol: float
-) -> float:
+def do_int_2_quad(a: float, b: float, rlam23: float, cth: float, sth: float, quad_abs_tol: float) -> float:
     """Numerically evaluate integral 2 in `_do_integral_2`"""
     if not np.isfinite(a):
         return np.nan
@@ -128,9 +126,7 @@ def plasma_distribution_morphology_grid(
         The density is undefined at the meteoroid center (R=0).
     """
     Xlam, Ylam = np.meshgrid(x_grid, y_grid)
-    result = _plasma_distribution_morphology(
-        Xlam, Ylam, quad_abs_tol, upper_limit_delta, threads, pbar
-    )
+    result = _plasma_distribution_morphology(Xlam, Ylam, quad_abs_tol, upper_limit_delta, threads, pbar)
     if threads is not None:
         print("\n" * threads)
     return result
@@ -163,7 +159,10 @@ def plasma_distribution_morphology_array(
         Scalar inputs return zero-dimensional arrays. The normalized electron
         density is ``f / R`` (ne/n_star), not ``f`` itself.
     """
-    r, theta = np.broadcast_arrays(np.asarray(r, dtype=float), np.asarray(theta, dtype=float))
+    r, theta = np.broadcast_arrays(
+        np.asarray(r, dtype=np.float64),
+        np.asarray(theta, dtype=np.float64),
+    )
     if np.any(~np.isfinite(r)) or np.any(r < 0):
         raise ValueError("r must contain finite, nonnegative radii.")
     if np.any(~np.isfinite(theta)):
@@ -171,9 +170,7 @@ def plasma_distribution_morphology_array(
     Xlam = r * np.cos(theta)
     Ylam = r * np.sin(theta)
 
-    return _plasma_distribution_morphology(
-        Xlam, Ylam, quad_abs_tol, upper_limit_delta, threads, pbar
-    )
+    return _plasma_distribution_morphology(Xlam, Ylam, quad_abs_tol, upper_limit_delta, threads, pbar)
 
 
 def _plasma_distribution_morphology(

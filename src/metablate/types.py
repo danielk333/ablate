@@ -52,6 +52,12 @@ Numeric = float | NDArray
 ArrayLike = npt.ArrayLike
 "Input accepted by numpy.asarray, before conversion to an array."
 
+Composition = dict[str, float]
+"Relative abundances by atom number, keyed by chemical element symbol."
+
+MaterialDict = dict[str, float | Composition | None]
+"Material properties returned by material.get(as_dict=True)."
+
 StateVector = NDArray | Sequence[Numeric]
 "An ODE state, or paired arrays of state components for vectorized evaluation."
 
@@ -90,3 +96,4 @@ class Material:
     penetration_correction_parameter_K: float  # [1]
     clausius_clapeyron_coeff_A: float  # [K]
     clausius_clapeyron_coeff_B: float  # [K]
+    atomic_composition: Composition | None = None

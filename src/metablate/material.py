@@ -13,17 +13,23 @@ in complete molecular form.
 from __future__ import annotations
 
 import logging
-from copy import copy
+from copy import deepcopy
 from dataclasses import asdict
 from typing import Literal, overload
 
 from scipy import constants
 
-from .types import Material
+from .types import Material, MaterialDict
 
 logger = logging.getLogger(__name__)
 
 MATERIALS: dict[str, Material] = {}
+
+# Jones (1997), Table 1: abundances by atom number. As in the original
+# ionization model
+# TODO: this should probably not be used as default for all materials, but i dont know what to put
+# as default for now
+_JONES_COMPOSITION = {"O": 0.617, "Fe": 0.059, "Mg": 0.082, "Si": 0.242}
 
 iron = Material(
     bulk_density=7800.0,
@@ -36,6 +42,7 @@ iron = Material(
     penetration_correction_parameter_K=0.35,
     clausius_clapeyron_coeff_A=10.6,
     clausius_clapeyron_coeff_B=16120.0,
+    atomic_composition={"Fe": 1.0},
 )
 MATERIALS["iron"] = iron
 
@@ -50,6 +57,7 @@ asteroidal = Material(
     penetration_correction_parameter_K=0.1,
     clausius_clapeyron_coeff_A=10.6,
     clausius_clapeyron_coeff_B=13500.0,
+    atomic_composition=_JONES_COMPOSITION.copy(),
 )
 MATERIALS["asteroidal"] = asteroidal
 
@@ -64,6 +72,7 @@ cometary = Material(
     penetration_correction_parameter_K=0.65,
     clausius_clapeyron_coeff_A=10.6,
     clausius_clapeyron_coeff_B=13500.0,
+    atomic_composition=_JONES_COMPOSITION.copy(),
 )
 MATERIALS["cometary"] = cometary
 
@@ -78,6 +87,7 @@ porous = Material(
     penetration_correction_parameter_K=0.65,
     clausius_clapeyron_coeff_A=10.6,
     clausius_clapeyron_coeff_B=13500.0,
+    atomic_composition=_JONES_COMPOSITION.copy(),
 )
 MATERIALS["porous"] = porous
 
@@ -88,7 +98,7 @@ def available() -> list[str]:
 
 
 @overload
-def get(material: str, as_dict: Literal[True] = True) -> dict[str, float]: ...
+def get(material: str, as_dict: Literal[True] = True) -> MaterialDict: ...
 
 
 @overload
@@ -96,10 +106,10 @@ def get(material: str, as_dict: Literal[False]) -> Material: ...
 
 
 @overload
-def get(material: str, as_dict: bool) -> Material | dict[str, float]: ...
+def get(material: str, as_dict: bool) -> Material | MaterialDict: ...
 
 
-def get(material: str, as_dict: bool = True) -> Material | dict[str, float]:
+def get(material: str, as_dict: bool = True) -> Material | MaterialDict:
     """Returns the physical parameters of the meteoroid based on its material.
 
     Parameters
@@ -112,7 +122,7 @@ def get(material: str, as_dict: bool = True) -> Material | dict[str, float]:
     Returns
     -------
     Material or dict
-        Dictionary of all available material parameters (float or None)
+        Material properties, including the optional atomic composition.
     """
 
     _material = material.lower().strip()
@@ -123,4 +133,4 @@ def get(material: str, as_dict: bool = True) -> Material | dict[str, float]:
     if as_dict:
         return asdict(MATERIALS[_material])
     else:
-        return copy(MATERIALS[_material])
+        return deepcopy(MATERIALS[_material])

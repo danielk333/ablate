@@ -12,7 +12,7 @@ from metablate.models.simple_motion import (
 
 class _Values:
     def __init__(self, value):
-        self.values = np.asarray(value, dtype=float)
+        self.values = np.asarray(value, dtype=np.float64)
 
 
 class _ConstantAtmosphere:

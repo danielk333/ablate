@@ -4,7 +4,7 @@ import numpy as np
 from scipy import constants
 from scipy.optimize import brentq
 
-from ..types import ArrayLike, Material, NDArray, Numeric
+from ..types import ArrayLike, Material, Composition, NDArray, NDArray_MxN, NDArray_N, Numeric
 from .alpha_beta import mass_to_radius
 from .thermal_ablation import ablated_thermal_speed_sugar_2018, thermal_ablation_hill_et_al_2005
 
@@ -98,53 +98,59 @@ def source_from_massloss(
     return temperature, thermal_speed, density
 
 
+# Jones (1997), Table 1: (threshold velocity [km/s], coefficient c).
+_JONES_1997_PARAMETERS = {
+    "O": (16.7, 4.66e-6),
+    "Fe": (9.4, 34.5e-6),
+    "Mg": (11.1, 9.29e-6),
+    "Si": (11.0, 18.5e-6),
+    "Cu": (9.1, 15.3e-6),
+}
+
+
 def ionization_probability_Jones_1997(
-    velocity: float,
-    meteoroid_bulk_density: float,
-) -> NDArray:
-    """Calculate ionization probability according to [^1].
+    velocity: NDArray_N,
+    composition: Composition,
+) -> NDArray_MxN:
+    """Return first-collision ionization probability beta_0 from Eq. 33 of [^1].
+
+    The result has the same shape (a zero-dimensional array for scalar input) as the number of
+    elements ``M`` and the number of velocities ``N``.
+    Average the elemental probabilities using ``material_data.atomic_composition``,
+    whose relative abundances are by atom number, not mass.
+    Supported elements are O, Fe, Mg, Si and Cu; abundances need not sum to one.
+
+    This is the probability at the first collision, not the total ionization
+    coefficient including subsequent collisions, secondary ionization or
+    recombination. The tabulated fits describe collisions with air.
 
     [^1]: William Jones; Theoretical and observational determinations
-    of the ionization coefficient of meteors; MNRAS 288, p. 995-1003 (1997)
+        of the ionization coefficient of meteors; MNRAS 288, 995-1003 (1997),
+        Table 1 and Eq. 33. https://doi.org/10.1093/mnras/288.4.995
+    """
+    speed = np.asarray(velocity, dtype=float) * 1e-3
+    if np.any(~np.isfinite(speed)) or np.any(speed < 0):
+        raise ValueError("Velocity must be finite and nonnegative [m/s].")
 
-    """
-    raise NotImplementedError()
-    # v_km = v / 1000.0
-    """
-    # Table 1 from Jones:
-    # %   : procentage composition by weight
-    # p   : proportion by atom number
-    # v0  : minimum velocity at which ionization can take place 
-    # (below this velocity, the ionization energy is greater than 
-    # the total energy of the colliding atoms in the centre-of-mass frame)
-    # c   : empirically derived coeff
-    # mu  : ratio of atom mass to a nitrogen molecule
-    #                 % p v0 c mu element
-    ion_param       = [
-        [45, 0.617, 16.7, 4.66E-6, 0.57],  # O
-        [15, 0.059, 9.4, 34.5E-6, 2.0],  # Fe
-        [9, 0.082, 11.1, 9.29E-6, 0.86],  # Mg
-        [31, 0.242, 11.0, 18.5E-6, 1.0],  # Si
-    ]
-             
-    # beta0 = c .* (v - v0).^2 .* v.^0.8 ./ (1 + c .* (v - v0).^2 .* v.^0.8); primary ionization probability, eq. 33 in Jones
-    # v is needed in km/s!
+    if not composition:
+        raise ValueError("Material must specify a nonempty atomic_composition.")
+    abundances = np.asarray(list(composition.values()), dtype=float)
+    total = abundances.sum()
+    if np.any(~np.isfinite(abundances)) or np.any(abundances < 0) or not np.isfinite(total) or total <= 0:
+        raise ValueError("Atomic abundances must be finite, nonnegative and have a positive total.")
 
-    if rho_m == 7800:
-        # Then we calculate the ionization probability for pure Fe
-        beta0 = ion_param(2,4) .* (v_km - ion_param(2,3)).^2 .* v_km.^0.8 ./ (1 + ion_param(2,4) .* (v_km - ion_param(2,3)).^2 .* v_km.^0.8);
-        beta0(find(v_km<ion_param(2,3))) = 0;
-    else
-        # Otherwise we use Jones' cometary composition (for porous, cometary as well as asteroidal densities)
-        # It is faster not to use repmat.m but to generate the necessary matrices with more simple tools!
-        c               = [ion_param(1,4)*ones(length(v),1) ion_param(2,4)*ones(length(v),1) ion_param(3,4)*ones(length(v),1) ion_param(4,4)*ones(length(v),1)];
-        v0              = [ion_param(1,3)*ones(length(v),1) ion_param(2,3)*ones(length(v),1) ion_param(3,3)*ones(length(v),1) ion_param(4,3)*ones(length(v),1)];
-        p               = [ion_param(1,2)*ones(length(v),1) ion_param(2,2)*ones(length(v),1) ion_param(3,2)*ones(length(v),1) ion_param(4,2)*ones(length(v),1)];
-        v_km            = [v_km v_km v_km v_km]; 
-        beta0_1         = c .* (v_km - v0).^2 .* v_km.^0.8 ./ (1 + c .* (v_km - v0).^2 .* v_km.^0.8);
-        beta0_1(find(v_km<v0)) = 0;
-        beta0           = sum(beta0_1 .* p , 2);
-    """
+    probability = np.zeros((abundances.size, speed.size), dtype=np.float64)
+    for index, (element, fraction) in enumerate(zip(composition, abundances / total)):
+        if element not in _JONES_1997_PARAMETERS:
+            raise ValueError(
+                f"No Jones (1997) ionization parameters for {element!r}; "
+                f"supported elements: {', '.join(_JONES_1997_PARAMETERS)}."
+            )
+        threshold, coefficient = _JONES_1997_PARAMETERS[element]
+        # Clamp before squaring so sub-threshold atoms cannot ionize.
+        ratio = coefficient * np.maximum(speed - threshold, 0.0) ** 2 * speed**0.8
+        probability[index, :] = fraction * ratio / (1.0 + ratio)
+    return probability
 
 
 def plasma_frequency(electron_density: Numeric) -> Numeric:

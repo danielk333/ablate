@@ -109,7 +109,7 @@ class Ballistic(MeteorModel[BallisticInitialState, BallisticOptions, BallisticRe
 
     def run(self, parameters: BallisticInitialState) -> BallisticResults:
         t0 = time.perf_counter()
-        times = np.asarray(self.options.evaluation_times, dtype=float)
+        times = np.asarray(self.options.evaluation_times, dtype=np.float64)
         position0 = parameters.position_ecef
         velocity0 = parameters.velocity_ecef
         self._validate_inputs(times, position0, velocity0, parameters.ballistic_coefficient)
@@ -127,7 +127,7 @@ class Ballistic(MeteorModel[BallisticInitialState, BallisticOptions, BallisticRe
             speed = np.linalg.norm(velocity)
             lat, lon, altitude = self._geodetic(position)
             atmosphere = self.options.atmosphere.density(
-                time=parameters.epoch + np.timedelta64(int(round(t * 1e6)), "us"),
+                time=parameters.epoch + np.timedelta64(round(t * 1e6), "us"),
                 lat=lat,
                 lon=lon,
                 alt=altitude,
@@ -184,7 +184,7 @@ class Ballistic(MeteorModel[BallisticInitialState, BallisticOptions, BallisticRe
             frames.ecef_to_geodetic_wgs84(
                 position_ecef[0], position_ecef[1], position_ecef[2], degrees=True
             ),
-            dtype=float,
+            dtype=np.float64,
         )
 
     @staticmethod
