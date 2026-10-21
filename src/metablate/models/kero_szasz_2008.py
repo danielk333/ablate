@@ -59,10 +59,10 @@ class KeroSzaszOptions(Options):
     first_step: float | None = None  # [s]
     max_time: float = 100.0  # [s]
     method: str = "RK45"
-    method_kwargs: Kwargs = field(default_factory=lambda: dict())
+    method_kwargs: Kwargs = field(default_factory=dict)
     sputtering: bool = False
-    atmosphere: Atmosphere = AtmPymsis()
-    atmosphere_kwargs: Kwargs = field(default_factory=lambda: dict())
+    atmosphere: Atmosphere field(default_factory=AtmPymsis)
+    atmosphere_kwargs: Kwargs = field(default_factory=dict)
     effective_atmospheric_temperature: float = 290  # [K]
     start_altitude: float | None = 150e3  # [m]
     material: Material = field(default_factory=lambda: material.get("cometary", as_dict=False))

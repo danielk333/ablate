@@ -38,9 +38,9 @@ class AlphaBetaOptions(Options):
     max_time: float = 100.0  # [s]
     target_normalized_velocity: float | None = None  # [1]
     method: str = "RK45"
-    method_kwargs: Kwargs = field(default_factory=lambda: dict())
+    method_kwargs: Kwargs = field(default_factory=dict)
     atmosphere: Atmosphere | None = None
-    atmosphere_kwargs: Kwargs = field(default_factory=lambda: dict())
+    atmosphere_kwargs: Kwargs = field(default_factory=dict)
     atmospheric_scale_height: float = 7610.0
 
 

@@ -65,9 +65,9 @@ class SimpleAblationOptions(Options):
     max_time: float = 100.0  # [s]
     linear_trajectory: bool = False
     method: str = "RK45"
-    method_kwargs: Kwargs = field(default_factory=lambda: dict())
-    atmosphere: Atmosphere = AtmPymsis()
-    atmosphere_kwargs: Kwargs = field(default_factory=lambda: dict())
+    method_kwargs: Kwargs = field(default_factory=dict)
+    atmosphere: Atmosphere = field(default_factory=AtmPymsis)
+    atmosphere_kwargs: Kwargs = field(default_factory=dict)
 
 
 @dataclass
