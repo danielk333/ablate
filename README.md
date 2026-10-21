@@ -6,6 +6,10 @@
     pip install ablate
 ```
 
+The Bronshten heat-transfer and drag integrals use Numba on the CPU. The first
+call compiles the numerical kernels; compiled code is cached for subsequent runs.
+For debugging, set `NUMBA_DISABLE_JIT=1` to execute the same formulas in Python.
+
 ## Minimal micrometeoroid ablation model example
 
 The example below runs the built-in `AtmPymsis` atmosphere with the

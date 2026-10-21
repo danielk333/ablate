@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "metablate"
-version = "0.2.0"
+version = "0.3.0"
 description = "A collection of meteor ablation models"
 readme = {file = "README.md", content-type = "text/markdown"}
 authors = [
@@ -28,6 +28,7 @@ dependencies = [
     "tqdm",
     "scipy",
     "numpy>2",
+    "numba>=0.60",
     "matplotlib",
     "pymsis",
     "xarray",

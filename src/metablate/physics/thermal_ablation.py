@@ -26,8 +26,8 @@ import logging
 from typing import Any
 
 import numpy as np
+from numba import njit
 from scipy import constants
-from scipy.integrate import trapezoid
 from scipy.optimize import minimize_scalar
 
 from ..types import Material, NDArray
@@ -183,9 +183,6 @@ def heat_transfer_bronshten_1983(
     met_mean_mass = material_data.mean_atomic_mass
     met_density = material_data.bulk_density
 
-    # angle between the normal to the surface and the molecular flow, theta0 is a row vector
-    theta0 = np.linspace(0, np.pi / 2, num=res, dtype=np.float64)  # [radians]
-
     a_e = thermal_accommodation_bronshten_1983(atm_mean_mass, met_mean_mass)
     u_s = nomalized_evaporated_velocity_bronshten_1983(velocity, temperature, atm_mean_mass)
     Kn_inf, L = Knudsen_number_kero_szasz_2008(mass, met_density, atm_total_number_density)
@@ -198,27 +195,7 @@ def heat_transfer_bronshten_1983(
     # Shielding effects of a meteoroid surface due to reflected molecules:
     epsilon_q = 1.6  # [dimensionless]
 
-    _G = np.sin(theta0) * np.cos(theta0) * (1 - u_s**2)
-
-    _Gp = (
-        np.sin(theta0)
-        * 4
-        / np.sqrt(2 * np.pi)
-        * np.sqrt(1 - 2 * u_s * np.cos(theta0) + u_s**2)
-        * np.cos(theta0)
-    )
-    _Gp *= np.cos(theta0) * (1 - u_s**2) / 2 - (
-        1.0 / 48.0 * (1 + np.cos(theta0)) ** 3 * (3 - np.cos(theta0))
-        - u_s
-        / 48.0
-        * (1 + np.cos(theta0)) ** 2
-        * (8 - 7 * np.cos(theta0) + 2 * np.cos(theta0) ** 2 - np.cos(theta0) ** 3)
-    )
-
-    Q0 = trapezoid(theta0, _G)
-
-    # integrating q_prim over theta0 from 0 - pi/2; Bronshten p. 69, eq. 10.10 and Bronshten I eq. 11
-    Q_prim = trapezoid(theta0, _Gp)
+    Q0, Q_prim = _heat_reflection_integrals(u_s, res)
 
     # the energy flux shielding coeff, Bronshten p. 71, same as a_Lambda but with
     # the integrated vectors; Bronshten p. 69 eq. 10.8
@@ -266,14 +243,7 @@ def heat_transfer_bronshten_1983(
     # nomalized velocity of evaporated molecules, compare to u_s
     u_e = v_s_e / velocity  # [dimensionless]
 
-    _H = np.sin(theta0) * 1.0 / 48.0 * (1 + np.cos(theta0)) ** 3 * (3 - np.cos(theta0)) - u_e / 48.0 * (
-        1 + np.cos(theta0)
-    ) ** 2 * (8 - 7 * np.cos(theta0) + 2 * np.cos(theta0) ** 2 - np.cos(theta0) ** 3)
-
-    # same as Q_star but for evaporated molecules, i.e. using u_e instead of u_s
-    Q_star_e = trapezoid(theta0, _H)
-    # same as Q0 but for evaporated molecues, i.e. using u_e instead of u_s
-    Q0_e = trapezoid(theta0, np.sin(theta0) * np.cos(theta0) * (1 - u_e**2))
+    Q_star_e, Q0_e = _heat_evaporation_integrals(u_e, res)
 
     # determines how many of the reflected molecules that are thrown back, Bronshten I. eq. 17
     zeta = 1 - 2 * Q_star_e / Q0_e
@@ -514,9 +484,6 @@ def drag_coefficient_bronshten_1983(
     met_mean_mass = material_data.mean_atomic_mass
     met_density = material_data.bulk_density
 
-    # angle between the normal to the surface and the molecular flow, theta0 is a row vector
-    theta0 = np.linspace(0, np.pi / 2, num=res, dtype=np.float64)  # [radians]
-
     # parameter... Bronshten p. 69 eq. 10.7
     h_star = atm_mean_mass * velocity**2 / (2.0 * kB * temperature)  # [dimensionless]
 
@@ -527,26 +494,7 @@ def drag_coefficient_bronshten_1983(
     # ####### Gamma ##########
     epsilon_p = 0.86  # [dimensionless] Bronshten p. 69 eq. 10.7 and p. 71
 
-    # integrating p0, Bronshten p. 71
-    _F = np.sin(theta0) * np.cos(theta0) * (1.0 - u_s)
-
-    _Fp = (
-        np.sin(theta0)
-        * 4
-        / np.sqrt(2 * np.pi)
-        * np.sqrt(1 - 2 * u_s * np.cos(theta0) + u_s**2)
-        * np.cos(theta0)
-    )
-    _Fp *= (
-        np.cos(theta0) * (1 - u_s) / 2
-        - 1.0 / 24.0 * (1 + np.cos(theta0)) ** 3
-        + u_s / 24.0 * (1 + np.cos(theta0)) ** 2 * (4 - 2 * np.cos(theta0) + np.cos(theta0) ** 2)
-    )
-
-    P0 = trapezoid(theta0, _F)
-
-    # integrating p_prim over theta0 from 0 - pi/2, Bronshten p. 71
-    P_prim = trapezoid(theta0, _Fp)
+    P0, P_prim = _drag_reflection_integrals(u_s, res)
 
     # the momentum flux shielding coeff, Bronshten p. 71 same as a_Gamma but with the integrated vectors
     if isinstance(Kn_inf, np.ndarray):
@@ -653,3 +601,85 @@ def ablated_thermal_speed_sugar_2018(
         Formation of Plasma Around a Small Meteoroid: Simulation and Theory
     """
     return np.sqrt(constants.R * meteoroid_surface_temperature / (meteoroid_molecular_mass * constants.N_A))
+
+
+@njit(cache=True)
+def _trapezoid(y: NDArray, x: NDArray) -> float:
+    """Numba-compatible one-dimensional trapezoid; same argument order as SciPy."""
+    return np.sum((x[1:] - x[:-1]) * (y[1:] + y[:-1]) / 2.0)
+
+
+@njit(cache=True)
+def _heat_reflection_integrals(u_s: float | NDArray, res: int) -> tuple[float, float]:
+    """Return Q0 and Q_prim for shielding by reflected molecules."""
+    theta0 = np.linspace(0, np.pi / 2, res)  # [radians]
+
+    _G = np.sin(theta0) * np.cos(theta0) * (1 - u_s**2)
+
+    _Gp = (
+        np.sin(theta0)
+        * 4
+        / np.sqrt(2 * np.pi)
+        * np.sqrt(1 - 2 * u_s * np.cos(theta0) + u_s**2)
+        * np.cos(theta0)
+    )
+    _Gp *= np.cos(theta0) * (1 - u_s**2) / 2 - (
+        1.0 / 48.0 * (1 + np.cos(theta0)) ** 3 * (3 - np.cos(theta0))
+        - u_s
+        / 48.0
+        * (1 + np.cos(theta0)) ** 2
+        * (8 - 7 * np.cos(theta0) + 2 * np.cos(theta0) ** 2 - np.cos(theta0) ** 3)
+    )
+
+    Q0 = _trapezoid(theta0, _G)
+
+    # integrating q_prim over theta0 from 0 - pi/2; Bronshten p. 69, eq. 10.10 and Bronshten I eq. 11
+    Q_prim = _trapezoid(theta0, _Gp)
+
+    return Q0, Q_prim
+
+
+@njit(cache=True)
+def _heat_evaporation_integrals(u_e: float | NDArray, res: int) -> tuple[float, float]:
+    """Return Q_star_e and Q0_e for shielding by evaporated molecules."""
+    theta0 = np.linspace(0, np.pi / 2, res)  # [radians]
+
+    _H = np.sin(theta0) * 1.0 / 48.0 * (1 + np.cos(theta0)) ** 3 * (3 - np.cos(theta0)) - u_e / 48.0 * (
+        1 + np.cos(theta0)
+    ) ** 2 * (8 - 7 * np.cos(theta0) + 2 * np.cos(theta0) ** 2 - np.cos(theta0) ** 3)
+
+    # same as Q_star but for evaporated molecules, i.e. using u_e instead of u_s
+    Q_star_e = _trapezoid(theta0, _H)
+    # same as Q0 but for evaporated molecues, i.e. using u_e instead of u_s
+    Q0_e = _trapezoid(theta0, np.sin(theta0) * np.cos(theta0) * (1 - u_e**2))
+
+    return Q_star_e, Q0_e
+
+
+@njit(cache=True)
+def _drag_reflection_integrals(u_s: float | NDArray, res: int) -> tuple[float, float]:
+    """Return P0 and P_prim for momentum shielding by reflected molecules."""
+    theta0 = np.linspace(0, np.pi / 2, res)  # [radians]
+
+    # integrating p0, Bronshten p. 71
+    _F = np.sin(theta0) * np.cos(theta0) * (1.0 - u_s)
+
+    _Fp = (
+        np.sin(theta0)
+        * 4
+        / np.sqrt(2 * np.pi)
+        * np.sqrt(1 - 2 * u_s * np.cos(theta0) + u_s**2)
+        * np.cos(theta0)
+    )
+    _Fp *= (
+        np.cos(theta0) * (1 - u_s) / 2
+        - 1.0 / 24.0 * (1 + np.cos(theta0)) ** 3
+        + u_s / 24.0 * (1 + np.cos(theta0)) ** 2 * (4 - 2 * np.cos(theta0) + np.cos(theta0) ** 2)
+    )
+
+    P0 = _trapezoid(theta0, _F)
+
+    # integrating p_prim over theta0 from 0 - pi/2, Bronshten p. 71
+    P_prim = _trapezoid(theta0, _Fp)
+
+    return P0, P_prim
