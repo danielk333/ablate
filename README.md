@@ -1,85 +1,92 @@
 # Meteoroid Ablation Models
 
+`metablate` provides meteoroid ablation and atmospheric-entry models, MSIS
+atmospheres, material presets, and plasma-density calculations.
+
 ## Install
 
-```bash
-    pip install ablate
-```
-
-The Bronshten heat-transfer and drag integrals use Numba on the CPU. The first
-call compiles the numerical kernels; compiled code is cached for subsequent runs.
-For debugging, set `NUMBA_DISABLE_JIT=1` to execute the same formulas in Python.
-
-## Minimal micrometeoroid ablation model example
-
-The example below runs the built-in `AtmPymsis` atmosphere with the
-`KeroSzasz2008` ablation model and recreates a compact sweep over entry
-elevation angle and velocity.
-
-![Kero-Szasz ablation sweep](docs/assets/kero_figure1_example.png)
+Install the latest published release:
 
 ```bash
-python docs/examples/ablation_sweep.py --output docs/assets/kero_figure1_example.png
+pip install metablate
 ```
 
-The example setup is:
+The bleeding-edge version is available with:
+
+```bash
+pip install git+https://github.com/danielk333/ablate.git
+```
+
+or trough cloning this repo.
+
+## Minimal ablation example
+
+Run the Kero–Szasz (2008) model with a cometary meteoroid and the default
+`AtmPymsis` atmosphere:
 
 ```python
 import numpy as np
-import metablate.models.kero_szasz_2008 as ks
 from spacecoords import frames
 
-lat = 67.0
-lon = 20.0
-alt = 100e3
-reference_pos_ecef = frames.geodetic_wgs84_to_ecef(lat, lon, alt, degrees=True)
-velocity_dir_ecef = frames.azel_to_ecef(lat, lon, az=10, el=-45, degrees=True)
+import metablate.material as mat
+import metablate.models.kero_szasz_2008 as ks
+
+lat, lon = 67.0, 20.0
+position = frames.geodetic_wgs84_to_ecef(lat, lon, 100e3, degrees=True)
+direction = frames.azel_to_ecef(lat, lon, az=10, el=-45, degrees=True)
 
 model = ks.KeroSzasz2008(
     options=ks.KeroSzaszOptions(
         material=mat.cometary,
+        atmosphere_kwargs=dict(as_dataset=False),
     ),
 )
-
 result = model.run(
     parameters=ks.KeroSzaszInitialState(
         epoch=np.datetime64("2018-06-28T12:45:33"),
-        position_ecef=reference_pos_ecef,
-        velocity_ecef=velocity_dir_ecef * 60e3,
+        position_ecef=position,
+        velocity_ecef=direction * 60e3,
         mass=1e-6,
     ),
 )
+print(f"Runtime: {result.runtime:.3f} s")
 ```
 
-### matplotlib backends
+Positions and velocities use ECEF coordinates in metres and metres per second;
+mass is in kilograms. Results include time, mass, velocity, temperature and position.
 
-on arch to get matplotlib to work
+## Atmospheres and computation
 
-`pip install Qt5Agg`
+`AtmPymsis` uses `pymsis`, with MSIS 2.1 by default. Historical solar and geomagnetic
+indices are downloaded and cached when not supplied. Setting `as_dataset=False`
+in `atmosphere_kwargs` avoids constructing an xarray dataset at each solver step.
 
-and add a `~/.config/matplotlib/matplotlibrc` with `backend:qt5agg`.
+`AtmMSISE00` is optional and requires the separate `msise00` package and a Fortran
+compiler; see its [installation instructions](https://github.com/space-physics/msise00#install).
 
-see `https://matplotlib.org/stable/tutorials/introductory/usage.html#backends`
+Some functions use Numba to speed up subsequent calls. The first call
+compiles the kernels, which are cached for subsequent runs. Set `NUMBA_DISABLE_JIT=1`
+to run the same formulas in Python for debugging.
 
-### msise00 atmospheric model
+## Examples
 
-make sure cmake is installed! `sudo pacman -S cmake` and also gfortran `sudo pacman -S gcc gcc-fortran` and the basic libs `sudo pacman -S base-devel`
-
-if compilation fails use the enviormennt variables, for bash `export FC="/usr/bin/gfortran"` in fish `set -x FC "/usr/bin/gfortran"`. If cmake still tries to use gcc for compilation, make sure to remove the build folder under `my_env/lib/pythonX.X/site-packages/msise00/build` so that no cached files override the enviornment variables.
-
+See [docs/examples](docs/examples) for e.g. ablation, fireball, alpha–beta and plasma examples.
+For example, after a repository checkout, generate an ablation sweep with:
 
 ```bash
-    mkdir /my/env/msise00_source
-    cd /my/env/msise00_source
-    git clone https://github.com/scivision/msise00
-    cd msise00
-    pip install -e .
-    python -c "import msise00; msise00.base.build()"
+python docs/examples/ablation_sweep.py --output ablation_sweep.png
 ```
 
-or
+Which produces this plot:
+
+![Kero-Szasz ablation sweep](docs/assets/kero_figure1_example.png)
+
+## Development
+
+From a repository checkout:
 
 ```bash
-pip install git+git://github.com/space-physics/msise00.git@main
-python -c "import msise00; msise00.base.build()"
+pip install -e .[tests]
+# or pip install -e .[develop] for all dev packages
+pytest
 ```
