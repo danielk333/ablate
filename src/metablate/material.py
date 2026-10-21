@@ -27,9 +27,7 @@ MATERIALS: dict[str, Material] = {}
 
 # Jones (1997), Table 1: abundances by atom number. As in the original
 # ionization model
-# TODO: this should probably not be used as default for all materials, but i dont know what to put
-# as default for now
-_JONES_COMPOSITION = {"O": 0.617, "Fe": 0.059, "Mg": 0.082, "Si": 0.242}
+JONES_COMPOSITION = {"O": 0.617, "Fe": 0.059, "Mg": 0.082, "Si": 0.242}
 
 iron = Material(
     bulk_density=7800.0,
@@ -57,7 +55,7 @@ asteroidal = Material(
     penetration_correction_parameter_K=0.1,
     clausius_clapeyron_coeff_A=10.6,
     clausius_clapeyron_coeff_B=13500.0,
-    atomic_composition=_JONES_COMPOSITION.copy(),
+    atomic_composition={}, # TODO: what should this be?
 )
 MATERIALS["asteroidal"] = asteroidal
 
@@ -72,7 +70,7 @@ cometary = Material(
     penetration_correction_parameter_K=0.65,
     clausius_clapeyron_coeff_A=10.6,
     clausius_clapeyron_coeff_B=13500.0,
-    atomic_composition=_JONES_COMPOSITION.copy(),
+    atomic_composition=JONES_COMPOSITION.copy(),
 )
 MATERIALS["cometary"] = cometary
 
@@ -87,7 +85,7 @@ porous = Material(
     penetration_correction_parameter_K=0.65,
     clausius_clapeyron_coeff_A=10.6,
     clausius_clapeyron_coeff_B=13500.0,
-    atomic_composition=_JONES_COMPOSITION.copy(),
+    atomic_composition=JONES_COMPOSITION.copy(),
 )
 MATERIALS["porous"] = porous
 

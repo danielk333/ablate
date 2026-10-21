@@ -9,7 +9,7 @@ import numpy as np
 from metablate import material, physics
 
 velocity = np.linspace(10e3, 70e3, 100)
-mat = material.get("asteroidal", as_dict=False)
+mat = material.get("cometary", as_dict=False)
 comp = {
     "Fe": 1.0,
     "Si": 1.0,
@@ -39,10 +39,38 @@ for index, key in enumerate(comp):
             "color": line.get_color(),
         },
     )
+ax.set(
+    ylabel="Ionization probability",
+    xlabel="Velocity [km/s]",
+    ylim=(1e-4, None),
+    xlim=(10, 70),
+)
+ax.legend()
+
+fig, ax = plt.subplots(figsize=(8, 6))
+for index, key in enumerate(mat.atomic_composition):
+    (line,) = ax.semilogy(velocity * 1e-3, beta_comet[index, :], label=key, ls="--")
+
+    loc = 40 + 4 * index  # random formula for where to place the arrow
+    sgny = -1 if index >= 2 else 1
+    sgnx = -1 if index == 2 else 1
+    ax.annotate(
+        line.get_label(),
+        xy=(velocity[loc] * 1e-3, beta_comet[index, loc]),
+        xytext=(sgnx * 15, sgny * 30),
+        textcoords="offset points",
+        color=line.get_color(),
+        va="center",
+        arrowprops={
+            "arrowstyle": "->",
+            "color": line.get_color(),
+        },
+    )
 ax.plot(velocity * 1e-3, np.sum(beta_comet, axis=0), label="Total cometary composition")
 ax.set(
     ylabel="Ionization probability",
     xlabel="Velocity [km/s]",
+    title="Jones 1997 Figure 3 reproduction",
     ylim=(1e-4, None),
     xlim=(10, 70),
 )
