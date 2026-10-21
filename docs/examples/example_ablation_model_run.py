@@ -31,6 +31,7 @@ model = ks.KeroSzasz2008(
         minimum_mass=1e-11,
         max_step_size=1e-3,
         start_altitude=150e3,
+        atmosphere_kwargs=dict(as_dataset=False),
     ),
 )
 

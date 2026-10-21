@@ -44,12 +44,15 @@ class AtmPymsis(Atmosphere):
         aps: npt.ArrayLike | None = None,
         mass_densities: bool = False,
         version: Union[float, str] = 2.1,
+        as_dataset: bool = True,
         **kwargs
-    ) -> xr.Dataset:
-        """TODO: Write docstring
+    ) -> xr.Dataset | dict[str, xr.Variable]:
+        """Return species number densities [m^-3], or mass densities [kg/m^3].
 
-        returns density in [m^-3]
-
+        Set ``as_dataset=False`` in an ablation model's ``atmosphere_kwargs``
+        to skip dataset and coordinate construction at each solver step.
+        The returned variables still support ``.values``; total mass density
+        and temperature retain their units of kg/m^3 and K, respectively.
         """
         if msis is None:
             raise ImportError("pymsis is not installed")
@@ -77,34 +80,38 @@ class AtmPymsis(Atmosphere):
         if len(result.shape) == 2:
             result = result.reshape(result.shape[0], 1, 1, 1, result.shape[1])
 
-        result = xr.Dataset(
-            {
-                "Total": (["time", "lon", "lat", "alt"], result[:, :, :, :, 0]),
-                "N2": (["time", "lon", "lat", "alt"], result[:, :, :, :, 1]),
-                "O2": (["time", "lon", "lat", "alt"], result[:, :, :, :, 2]),
-                "O": (["time", "lon", "lat", "alt"], result[:, :, :, :, 3]),
-                "He": (["time", "lon", "lat", "alt"], result[:, :, :, :, 4]),
-                "H": (["time", "lon", "lat", "alt"], result[:, :, :, :, 5]),
-                "Ar": (["time", "lon", "lat", "alt"], result[:, :, :, :, 6]),
-                "N": (["time", "lon", "lat", "alt"], result[:, :, :, :, 7]),
-                "AnomalousO": (["time", "lon", "lat", "alt"], result[:, :, :, :, 8]),
-                "NO": (["time", "lon", "lat", "alt"], result[:, :, :, :, 9]),
-                "Temperature": (["time", "lon", "lat", "alt"], result[:, :, :, :, 10]),
-            },
-            coords={
-                "time": time,
-                "lon": lon,
-                "lat": lat,
-                "alt": alt,
-            },
-            attrs=dict(
-                f107 = f107,
-                f107s = f107s,
-                aps = aps,
-                mass_densities = mass_densities,
-                version = version,
+        variables = {
+            "Total": (["time", "lon", "lat", "alt"], result[:, :, :, :, 0]),
+            "N2": (["time", "lon", "lat", "alt"], result[:, :, :, :, 1]),
+            "O2": (["time", "lon", "lat", "alt"], result[:, :, :, :, 2]),
+            "O": (["time", "lon", "lat", "alt"], result[:, :, :, :, 3]),
+            "He": (["time", "lon", "lat", "alt"], result[:, :, :, :, 4]),
+            "H": (["time", "lon", "lat", "alt"], result[:, :, :, :, 5]),
+            "Ar": (["time", "lon", "lat", "alt"], result[:, :, :, :, 6]),
+            "N": (["time", "lon", "lat", "alt"], result[:, :, :, :, 7]),
+            "AnomalousO": (["time", "lon", "lat", "alt"], result[:, :, :, :, 8]),
+            "NO": (["time", "lon", "lat", "alt"], result[:, :, :, :, 9]),
+            "Temperature": (["time", "lon", "lat", "alt"], result[:, :, :, :, 10]),
+        }
+        if as_dataset:
+            result = xr.Dataset(
+                variables,
+                coords={
+                    "time": time,
+                    "lon": lon,
+                    "lat": lat,
+                    "alt": alt,
+                },
+                attrs=dict(
+                    f107=f107,
+                    f107s=f107s,
+                    aps=aps,
+                    mass_densities=mass_densities,
+                    version=version,
+                ),
             )
-        )
+        else:
+            result = {key: xr.Variable(*value) for key, value in variables.items()}
 
         if mass_densities:
             for symbol, s in self.species.items():

@@ -36,3 +36,37 @@ def test_atm_msise00_initializes_when_dependency_is_installed():
 
     assert set(model.species) == {"He", "O", "N2", "O2", "Ar", "H", "N"}
     assert model.mean_mass > 0
+
+
+@pytest.mark.parametrize("version", [0, 2.0, 2.1])
+@pytest.mark.parametrize("mass_densities", [False, True])
+@pytest.mark.parametrize("alt", [100e3, np.array([80e3, 100e3, 150e3])])
+def test_atm_pymsis_variables_match_dataset(version, mass_densities, alt):
+    xr = pytest.importorskip("xarray")
+    pytest.importorskip("pymsis")
+
+    from metablate.atmosphere import AtmPymsis
+
+    model = AtmPymsis()
+    kwargs = dict(
+        time=np.datetime64("2020-03-20T00:00:00"),
+        lat=67.89,
+        lon=21.10,
+        alt=alt,
+        f107=70.0,
+        f107s=70.0,
+        aps=[[4, 4, 4, 4, 4, 4, 4]],
+        version=version,
+        mass_densities=mass_densities,
+        geomagnetic_activity=-1,
+    )
+    expected = model.density(**kwargs)
+    actual = model.density(**kwargs, as_dataset=False)
+
+    assert isinstance(expected, xr.Dataset)
+    assert isinstance(actual, dict)
+    assert actual.keys() == expected.data_vars.keys()
+    for key, value in actual.items():
+        assert isinstance(value, xr.Variable)
+        assert value.dims == expected[key].dims
+        np.testing.assert_array_equal(value.values, expected[key].values)
