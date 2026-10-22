@@ -10,7 +10,6 @@ import scipy.special as scs
 
 from ..types import (
     ArrayLike,
-    AtmosphereData,
     Bounds,
     Kwargs,
     NDArray,
@@ -528,9 +527,9 @@ def scale_hight_to_exponential_atm(
     if root_find_kwargs is None:
         root_find_kwargs = {}
 
-    density: Callable[..., AtmosphereData] = atmosphere.density
+    density: Callable[..., NDArray] = atmosphere.total_density
     d = density(*density_args, alt=height, **density_kwargs)
-    atm_dens = d["Total"].values.squeeze()
+    atm_dens = d.squeeze()
 
     scaled_height = density_to_height_exponential_atm(
         atm_dens,
@@ -563,11 +562,11 @@ def scale_hight_to_model_atm(
     if atmospheric_scale_height is not None:
         Yvalues = Yvalues / atmospheric_scale_height
 
-    density: Callable[..., AtmosphereData] = atmosphere.density
+    density: Callable[..., NDArray] = atmosphere.total_density
 
     def get_density(h: Numeric) -> Numeric:
         d = density(*density_args, alt=h, **density_kwargs)
-        return d["Total"].values.squeeze()
+        return d.squeeze()
 
     def func_exact(h: Numeric, y: Numeric) -> Numeric:
         return sea_level_rho * np.exp(-y) - get_density(h)

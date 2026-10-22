@@ -126,15 +126,14 @@ class Ballistic(MeteorModel[BallisticInitialState, BallisticOptions, BallisticRe
             radius = np.linalg.norm(position)
             speed = np.linalg.norm(velocity)
             lat, lon, altitude = self._geodetic(position)
-            atmosphere = self.options.atmosphere.density(
+            atmosphere = self.options.atmosphere.total_density(
                 time=parameters.epoch + np.timedelta64(round(t * 1e6), "us"),
                 lat=lat,
                 lon=lon,
                 alt=altitude,
-                mass_densities=False,
                 **self.options.atmosphere_kwargs,
             )
-            density = float(np.asarray(atmosphere["Total"].values).squeeze())
+            density = float(atmosphere.squeeze())
             if not np.isfinite(density) or density < 0.0:
                 raise ValueError("atmospheric mass density must be finite and nonnegative")
 

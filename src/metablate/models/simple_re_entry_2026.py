@@ -81,7 +81,7 @@ def diff_eq_rhs(
     initial_gamma: float,
     options: SimpleReEntryOptions,
 ) -> NDArray_N | NDArray_2xN:
-    return None
+    raise NotImplementedError()
 
 # TODO: should try to do this in innertial frame some time, to include velocity of Atmosphere
 # relative to gravitational trajecotry - needed for space debris for example

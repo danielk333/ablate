@@ -18,8 +18,17 @@ class _Values:
 class _ConstantAtmosphere:
     mean_mass = 28.0 * constants.u
 
+    def __init__(self):
+        self.full_calls = 0
+        self.total_calls = 0
+
     def density(self, **kwargs):
+        self.full_calls += 1
         return {"Total": _Values(1.0e-7), "N2": _Values(1.0e18), "O2": _Values(2.5e17)}
+
+    def total_density(self, **kwargs):
+        self.total_calls += 1
+        return np.asarray(1.0e-7)
 
 
 def test_ablation_options_default_to_material_objects():
@@ -41,7 +50,9 @@ def test_linear_constant_velocity_model_shapes_and_values():
 
     np.testing.assert_allclose(result.position[:, 0], initial[:3])
     np.testing.assert_allclose(result.position[:, -1], initial[:3] + 2.0 * initial[3:6])
-    np.testing.assert_allclose(result.velocity, np.repeat(initial[3:6], len(times)).reshape(3, len(times)))
+    np.testing.assert_allclose(
+        result.velocity, np.repeat(initial[3:6], len(times)).reshape(3, len(times))
+    )
 
 
 def test_linear_constant_acceleration_model_values():
@@ -57,7 +68,8 @@ def test_linear_constant_acceleration_model_values():
 
 
 @pytest.mark.slow
-def test_kero_szasz_short_deterministic_run_with_fixed_coefficients():
+@pytest.mark.parametrize("sputtering", [False, True])
+def test_kero_szasz_short_deterministic_run_with_fixed_coefficients(sputtering):
     pytest.importorskip("spacecoords")
 
     from spacecoords import frames
@@ -74,7 +86,7 @@ def test_kero_szasz_short_deterministic_run_with_fixed_coefficients():
         max_time=0.02,
         max_step_size=0.01,
         start_altitude=150.0e3,
-        sputtering=False,
+        sputtering=sputtering,
         material=material.get("cometary", as_dict=False),
     )
     state = KeroSzaszInitialState(
@@ -97,3 +109,5 @@ def test_kero_szasz_short_deterministic_run_with_fixed_coefficients():
     assert np.all(np.isfinite(result.temperature))
     assert result.position_ecef.shape == (3, result.t.size)
     assert result.velocity_ecef.shape == (3, result.t.size)
+    assert (options.atmosphere.full_calls > 0) == sputtering
+    assert (options.atmosphere.total_calls > 0) == (not sputtering)

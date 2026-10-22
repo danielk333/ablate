@@ -76,7 +76,7 @@ class SimpleAblationOptions(Options):
     method: str = "RK45"
     method_kwargs: Kwargs = field(default_factory=dict)
     atmosphere: Atmosphere = field(default_factory=AtmPymsis)
-    atmosphere_kwargs: Kwargs = field(default_factory=lambda: {"as_dataset": False})
+    atmosphere_kwargs: Kwargs = field(default_factory=dict)
 
 
 @dataclass
@@ -136,16 +136,14 @@ def diff_eq_rhs_simple_linear(
     grav = constants.G * WGS84_M_EARTH / (EARTH_RADIUS + h) ** 2
 
     # TODO: hack for now - should propagate the trajectory across earth
-    atm = options.atmosphere.density(
+    rho_tot = options.atmosphere.total_density(
         time=epoch + np.timedelta64(int(t * 1e6), "us"),
         lat=lat,
         lon=lon,
         alt=h,
-        mass_densities=False,
         **options.atmosphere_kwargs,
-    )
+    ).squeeze()
     m = max(m, options.minimum_relative_mass)
-    rho_tot = atm["Total"].values.squeeze()
     ret = np.array(
         [
             v,
@@ -173,16 +171,14 @@ def diff_eq_rhs_simple(
     grav = constants.G * WGS84_M_EARTH / (EARTH_RADIUS + h) ** 2
 
     # TODO: hack for now - should propagate the trajectory across earth
-    atm = options.atmosphere.density(
+    rho_tot = options.atmosphere.total_density(
         time=epoch + np.timedelta64(int(t * 1e6), "us"),
         lat=lat,
         lon=lon,
         alt=h,
-        mass_densities=False,
         **options.atmosphere_kwargs,
-    )
+    ).squeeze()
     m = max(m, options.minimum_relative_mass)
-    rho_tot = atm["Total"].values.squeeze()
     ret = np.array(
         [
             v,
@@ -212,16 +208,14 @@ def diff_eq_rhs_relaxed(
     grav = constants.G * WGS84_M_EARTH / (EARTH_RADIUS + h) ** 2
 
     # TODO: hack for now - should propagate the trajectory across earth
-    atm = options.atmosphere.density(
+    rho_tot = options.atmosphere.total_density(
         time=epoch + np.timedelta64(int(t * 1e6), "us"),
         lat=lat,
         lon=lon,
         alt=h,
-        mass_densities=False,
         **options.atmosphere_kwargs,
-    )
+    ).squeeze()
     m = max(m, options.minimum_relative_mass)
-    rho_tot = atm["Total"].values.squeeze()
     s_m1 = m ** (shape_change_coefficient - 1)
     ret = np.array(
         [
@@ -253,16 +247,14 @@ def diff_eq_rhs_relaxed_linear(
     grav = constants.G * WGS84_M_EARTH / (EARTH_RADIUS + h) ** 2
 
     # TODO: hack for now - should propagate the trajectory across earth
-    atm = options.atmosphere.density(
+    rho_tot = options.atmosphere.total_density(
         time=epoch + np.timedelta64(int(t * 1e6), "us"),
         lat=lat,
         lon=lon,
         alt=h,
-        mass_densities=False,
         **options.atmosphere_kwargs,
-    )
+    ).squeeze()
     m = max(m, options.minimum_relative_mass)
-    rho_tot = atm["Total"].values.squeeze()
     s_m1 = m ** (shape_change_coefficient - 1)
     s_m0 = m**shape_change_coefficient
     ret = np.array(
@@ -381,7 +373,7 @@ class TR_SimpleAblation2026(
             options = SimpleAblationOptions()
         self.options = options
 
-    def run(self, parameters: SimpleAblationInitialState) -> SimpleAblationResults:
+    def run(self, parameters: TR_SimpleAblationInitialState) -> SimpleAblationResults:
         """Ablation model"""
         t0 = time.perf_counter()
         if parameters.shape_change_coefficient < 0 or parameters.shape_change_coefficient > 2 / 3:

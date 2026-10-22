@@ -267,19 +267,16 @@ def diff_eq_rhs(
     lat, lon, alt = frames.ecef_to_geodetic_wgs84(point_ecef[0], point_ecef[1], point_ecef[2], degrees=True)
     r = np.linalg.norm(point_ecef)
 
-    atm = options.atmosphere.density(
-        time=epoch + np.timedelta64(int(t * 1e6), "us"),
-        lat=lat,
-        lon=lon,
-        alt=alt,
-        mass_densities=False,
-        **options.atmosphere_kwargs,
-    )
-
-    rho_tot = atm["Total"].values.squeeze()
-    N_rho_tot = rho_tot / options.atmosphere.mean_mass
-
     if options.sputtering:
+        atm = options.atmosphere.density(
+            time=epoch + np.timedelta64(int(t * 1e6), "us"),
+            lat=lat,
+            lon=lon,
+            alt=alt,
+            mass_densities=False,
+            **options.atmosphere_kwargs,
+        )
+        rho_tot = atm["Total"].values.squeeze()
         dmdt_s = physics.sputtering.sputtering_kero_szasz_2008(
             mass=mass,
             velocity=vel,
@@ -287,7 +284,15 @@ def diff_eq_rhs(
             density=atm,
         )
     else:
+        rho_tot = options.atmosphere.total_density(
+            time=epoch + np.timedelta64(int(t * 1e6), "us"),
+            lat=lat,
+            lon=lon,
+            alt=alt,
+            **options.atmosphere_kwargs,
+        ).squeeze()
         dmdt_s = 0.0
+    N_rho_tot = rho_tot / options.atmosphere.mean_mass
 
     dmdt_a = physics.thermal_ablation.thermal_ablation_hill_et_al_2005(
         mass=mass,

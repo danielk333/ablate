@@ -192,16 +192,13 @@ def diff_eq_rhs(
     lat, lon, alt = frames.ecef_to_geodetic_wgs84(point_ecef[0], point_ecef[1], point_ecef[2], degrees=True)
     r = np.linalg.norm(point_ecef)
 
-    atm = options.atmosphere.density(
+    rho_atm = options.atmosphere.total_density(
         time=epoch + np.timedelta64(int(t * 1e6), "us"),
         lat=lat,
         lon=lon,
         alt=alt,
-        mass_densities=False,
         **options.atmosphere_kwargs,
-    )
-
-    rho_atm = atm["Total"].values.squeeze()
+    ).squeeze()
 
     if mass_norm > 0:
         area = initial_cross_sectional_area * (mass_norm**shape_change_coefficient)

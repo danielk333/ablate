@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 from scipy import constants
 
-from ..types import ArrayLike, AtmosphereData
+from ..types import ArrayLike, AtmosphereData, NDArray
 
 logger = logging.getLogger(__name__)
 
@@ -78,3 +78,16 @@ class Atmosphere:
         self, time: ArrayLike, lat: ArrayLike, lon: ArrayLike, alt: ArrayLike, **kwargs: Any
     ) -> AtmosphereData:
         pass
+
+    def total_density(
+        self, time: ArrayLike, lat: ArrayLike, lon: ArrayLike, alt: ArrayLike, **kwargs: Any
+    ) -> NDArray:
+        """Return total mass density [kg/m^3] as an array, without species data.
+
+        The array has the same shape as ``density(...)["Total"].values``.
+        Subclasses can override this fallback to avoid building labeled data.
+        """
+        kwargs.pop("as_dataset", None)
+        return np.asarray(
+            self.density(time=time, lat=lat, lon=lon, alt=alt, **kwargs)["Total"].values
+        )

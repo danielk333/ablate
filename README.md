@@ -57,9 +57,13 @@ mass is in kilograms. Results include time, mass, velocity, temperature and posi
 
 ## Atmospheres and computation
 
-`AtmPymsis` uses `pymsis`, with MSIS 2.1 by default. Historical solar and geomagnetic
-indices are downloaded and cached when not supplied. Setting `as_dataset=False`
-in `atmosphere_kwargs` avoids constructing an xarray dataset at each solver step.
+`AtmPymsis` calls the Fortran extensions supplied by `pymsis`, with MSIS 2.1 by
+default. ODE models use `atmosphere.total_density(...)`, which returns a NumPy
+array of total mass density in kg/m^3. `density(...)` also provides species data
+and temperature; e.g. sputtering calculation uses this full output.
+Historical solar and geomagnetic indices are downloaded when needed and cached
+within their three-hour interval. Custom atmospheres can override `total_density`
+for speed; its default implementation extracts `"Total"` from `density`.
 
 `AtmMSISE00` is optional and requires the separate `msise00` package and a Fortran
 compiler; see its [installation instructions](https://github.com/space-physics/msise00#install).
