@@ -62,7 +62,7 @@ class KeroSzaszOptions(Options):
     method_kwargs: Kwargs = field(default_factory=dict)
     sputtering: bool = False
     atmosphere: Atmosphere = field(default_factory=AtmPymsis)
-    atmosphere_kwargs: Kwargs = field(default_factory=dict)
+    atmosphere_kwargs: Kwargs = field(default_factory=lambda: {"as_dataset": False})
     effective_atmospheric_temperature: float = 290  # [K]
     start_altitude: float | None = 150e3  # [m]
     material: Material = field(default_factory=lambda: material.get("cometary", as_dict=False))
