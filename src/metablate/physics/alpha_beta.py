@@ -515,14 +515,19 @@ def scale_hight_to_exponential_atm(
     sea_level_rho: Numeric,
     atmospheric_scale_height: Numeric,
     density_args: tuple[ArrayLike, ...] = (),
-    density_kwargs: Kwargs = {},
+    density_kwargs: Kwargs | None = None,
     lims: tuple[float, float] | None = None,
-    root_find_kwargs: Kwargs = {},
+    root_find_kwargs: Kwargs | None = None,
 ) -> Numeric:
     """Scale heights using an arbitrary but strictly decreeing atmospheric
     density model as a function of the original height, so that the new heights gives the
     same density using a simple exponential atmospheric density model.
     """
+    if density_kwargs is None:
+        density_kwargs = {}
+    if root_find_kwargs is None:
+        root_find_kwargs = {}
+
     density: Callable[..., AtmosphereData] = atmosphere.density
     d = density(*density_args, alt=height, **density_kwargs)
     atm_dens = d["Total"].values.squeeze()
@@ -540,15 +545,20 @@ def scale_hight_to_model_atm(
     atmosphere: Atmosphere,
     sea_level_rho: Numeric,
     density_args: tuple[ArrayLike, ...] = (),
-    density_kwargs: Kwargs = {},
+    density_kwargs: Kwargs | None = None,
     atmospheric_scale_height: Numeric | None = None,
     lims: tuple[float, float] | None = None,
-    root_find_kwargs: Kwargs = {},
+    root_find_kwargs: Kwargs | None = None,
 ) -> NDArray_N:
     """Scale heights from an exponential model to an arbitrary but strictly decreeing atmospheric
     density model as a function of the new height, so that the new heights in the atmospheric
     model gives the same density as the simple exponential model.
     """
+    if density_kwargs is None:
+        density_kwargs = {}
+    if root_find_kwargs is None:
+        root_find_kwargs = {}
+
     Yvalues = height
     if atmospheric_scale_height is not None:
         Yvalues = Yvalues / atmospheric_scale_height
@@ -571,9 +581,7 @@ def scale_hight_to_model_atm(
     return scaled_height
 
 
-def atmosphere_density(
-    height: Numeric, atmospheric_scale_height: Numeric, sea_level_rho: Numeric
-) -> Numeric:
+def atmosphere_density(height: Numeric, atmospheric_scale_height: Numeric, sea_level_rho: Numeric) -> Numeric:
     """The atmospheric density model used by alpha-beta"""
     return sea_level_rho * np.exp(-height / atmospheric_scale_height)
 
@@ -620,7 +628,7 @@ def solve_alpha_beta_velocity_versionQ5(
 
     b0 = 1.0
     a0 = np.exp(Yvalues[-1]) / (2.0 * b0)
-    if np.log(a0) > 8: 
+    if np.log(a0) > 8:
         # If initial estimate is that ln(a)>8, its probably not a fireball
         # but a smaller meteoroid and we need to start on the correct side of the
         # a-hump of Q5
@@ -685,7 +693,7 @@ def solve_alpha_beta_versionQ4(
     # TODO: automatic better initial guess for beta
     b0 = 1.0
     a0 = np.exp(Yvalues[-1]) / (2.0 * b0)
-    if np.log(a0) > 8: 
+    if np.log(a0) > 8:
         # If initial estimate is that ln(a)>8, its probably not a fireball
         # but a smaller meteoroid and we need to start on the correct side of the
         # a-hump of Q4

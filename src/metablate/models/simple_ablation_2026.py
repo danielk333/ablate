@@ -297,7 +297,9 @@ def solve_simple_posterior(
     options: SimpleAblationOptions | None = None,
     start: NDArray | list[float | None] | None = None,
     bounds: Bounds = ((0.01, 1e8), (0.5e-1, 200.0), (0.0, None)),
-    minimize_kwargs: Kwargs = {},
+    minimize_kwargs: Kwargs | None = None,
 ) -> sco.OptimizeResult:
     """Placeholder for posterior fitting with the simple-ablation model."""
+    if minimize_kwargs is None:
+        minimize_kwargs = {}
     raise NotImplementedError("Simple-ablation posterior fitting is not implemented.")

@@ -265,12 +265,14 @@ def solve_alpha_beta_posterior(
     options: AlphaBetaOptions | None = None,
     start: NDArray | list[float | None] | None = None,
     bounds: Bounds = ((0.01, 1e8), (0.5e-1, 200.0), (0.0, None)),
-    minimize_kwargs: Kwargs = {},
+    minimize_kwargs: Kwargs | None = None,
 ) -> sco.OptimizeResult:
     """Solve for alpha and beta (and optionally velocity) using minimization of the posterior [^1].
 
     [^1]: Kastinen et al (2026) in preparation
     """
+    if minimize_kwargs is None:
+        minimize_kwargs = {}
     if options is None:
         options = AlphaBetaOptions()
     Yvalues = heights / options.atmospheric_scale_height

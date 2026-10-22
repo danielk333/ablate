@@ -99,10 +99,13 @@ def fit_velocity(
     start: NDArray | tuple[float, ...] | None = None,
     weights: NDArray_N | None = None,
     degrees: bool = False,
-    minimize_kwargs: Kwargs = {},
+    minimize_kwargs: Kwargs | None = None,
 ) -> NDArray_N:
+    if minimize_kwargs is None:
+        minimize_kwargs = {}
     if weights is None:
         weights = np.ones_like(velocities)
+
     x0: tuple[float, ...]
     _obj_func: Callable[..., float]
     fit_args: tuple[object, ...] = (
