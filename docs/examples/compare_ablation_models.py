@@ -141,6 +141,42 @@ simple_result = simple_model.run(
     ),
 )
 
+tr_simple_model = sa.TR_SimpleAblation2026(
+    options=sa.SimpleAblationOptions(
+        minimum_relative_mass=minimum_relative_mass,
+        minimum_altitude=50e3,
+        max_step_size=1e-2,
+        max_time=8.0,
+    ),
+)
+tr_simple_result = tr_simple_model.run(
+    parameters=sa.TR_SimpleAblationInitialState(
+        epoch=epoch,
+        initial_height=initial_altitude,
+        initial_velocity=initial_velocity,
+        entry_angle=entry_angle,
+        ballistic_parameter=sa.ballistic_parameter_direct(
+            aerodynamic_cd,
+            initial_cross_section,
+            initial_mass,
+        ),
+        massloss_parameter=sa.massloss_parameter_direct(
+            heat_exchange_coefficient,
+            material.latent_heat_of_fusion_vapourization,
+            initial_cross_section,
+            initial_mass,
+        ),
+        shape_change_coefficient=shape_change_coefficient,
+        thermal_lag_ratio=sa.thermal_lag_ratio_direct(
+            ablation_temperature=1800,
+            initial_temperature=250,
+            latent_heat_of_vapourization=material.latent_heat_of_fusion_vapourization,
+            specific_heat=material.specific_heat,
+        ),
+        latitude=latitude,
+        longitude=longitude,
+    ),
+)
 alpha = alpha_beta.alpha_direct(
     aerodynamic_cd,
     sea_level_density,
@@ -198,6 +234,13 @@ results = {
         "relative_mass": simple_result.relative_mass,
         "relative_massloss": -simple_result.relative_massloss,
     },
+    "TR_SimpleAblation 2026": {
+        "time": tr_simple_result.t,
+        "height": tr_simple_result.height,
+        "velocity": tr_simple_result.velocity,
+        "relative_mass": tr_simple_result.relative_mass,
+        "relative_massloss": -tr_simple_result.relative_massloss,
+    },
 }
 
 print(f"Material bulk density: {material.bulk_density:g} kg/m^3")
@@ -236,5 +279,54 @@ axes[1, 2].set_ylabel("Altitude [km]")
 axes[1, 2].set_xlabel("Relative massloss")
 
 fig.suptitle("Ablation models with common material and entry inputs")
+
+
+base_label = "KeroSzasz 2008"
+base_m = results[base_label]
+base_t = np.asarray(base_m["time"])
+
+fig, axes = plt.subplots(2, 2, figsize=(12, 9), layout="tight")
+
+keys = ["relative_mass", "velocity", "height", "relative_massloss"]
+
+for label, result in results.items():
+    if label == base_label:
+        continue
+
+    t_all = result["time"]
+    mask = (t_all >= base_t.min()) & (t_all <= base_t.max())
+    t = t_all[mask]
+
+    if len(t) == 0:
+        continue
+
+    baseline = {
+        key: np.interp(t, base_t, base_m[key])
+        for key in keys
+    }
+
+    dm = result["relative_mass"][mask] - baseline["relative_mass"]
+    dv = (result["velocity"][mask] - baseline["velocity"]) * 1e-3
+    dh = (result["height"][mask] - baseline["height"]) * 1e-3
+    ddm = result["relative_massloss"][mask] - baseline["relative_massloss"]
+
+    axes[0, 0].plot(t, dm, label=label)
+    axes[0, 1].plot(t, dv, label=label)
+    axes[1, 0].plot(t, dh, label=label)
+    axes[1, 1].plot(t, ddm, label=label)
+
+
+axes[0, 0].set(xlabel="Time [s]", ylabel="Δ Relative mass")
+axes[0, 1].set(xlabel="Time [s]", ylabel="Δ Velocity [km/s]")
+axes[1, 0].set(xlabel="Time [s]", ylabel="Δ Altitude [km]")
+axes[1, 1].set(xlabel="Time [s]", ylabel="Δ relative massloss")
+
+for ax in axes.flat:
+    ax.axhline(0, color="black", linestyle="--", linewidth=0.8, alpha=0.5)
+    ax.grid(alpha=0.3)
+
+axes[0, 0].legend()
+
+fig.suptitle(f"Ablation model deviations from {base_label}")
 
 plt.show()

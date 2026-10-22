@@ -37,14 +37,14 @@ from spacecoords.constants import WGS84
 from .. import material, physics
 from ..atmosphere import Atmosphere, AtmPymsis
 from ..types import (
+    Kwargs,
     Material,
-    Numeric,
     NDArray_3,
     NDArray_3xN,
     NDArray_N,
+    Numeric,
     Options,
     Results,
-    Kwargs,
 )
 from .model import MeteorModel
 
@@ -95,7 +95,9 @@ class KeroSzaszResults(Results):
 
 class KeroSzasz2008(MeteorModel[KeroSzaszInitialState, KeroSzaszOptions, KeroSzaszResults]):
 
-    def __init__(self, options: KeroSzaszOptions = KeroSzaszOptions()) -> None:
+    def __init__(self, options: KeroSzaszOptions | None = None) -> None:
+        if options is None:
+            options = KeroSzaszOptions()
         self.options = options
 
     def run(self, parameters: KeroSzaszInitialState) -> KeroSzaszResults:
@@ -238,8 +240,6 @@ class KeroSzasz2008(MeteorModel[KeroSzaszInitialState, KeroSzaszOptions, KeroSza
         )
 
 
-# TODO: investigate using numba njit on this function
-# there might also be a faster way to call MSIS? like an initial cache and than using an interpolator
 def diff_eq_rhs(
     t: float,
     y: NDArray_N,
